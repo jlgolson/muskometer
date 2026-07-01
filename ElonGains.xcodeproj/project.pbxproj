@@ -1,0 +1,521 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000001 /* ElonGainsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* ElonGainsApp.swift */; };
+		A10000000000000000000010 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* AppDelegate.swift */; };
+		A10000000000000000000002 /* StockQuote.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* StockQuote.swift */; };
+		A10000000000000000000003 /* PortfolioHolding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* PortfolioHolding.swift */; };
+		A10000000000000000000004 /* GainsSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* GainsSnapshot.swift */; };
+		A10000000000000000000005 /* StockPriceServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* StockPriceServiceProtocol.swift */; };
+		A10000000000000000000006 /* YahooFinanceStockPriceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* YahooFinanceStockPriceService.swift */; };
+		A10000000000000000000007 /* MarketHoursService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* MarketHoursService.swift */; };
+		A10000000000000000000008 /* GainsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* GainsViewModel.swift */; };
+		A10000000000000000000009 /* PopoverContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* PopoverContentView.swift */; };
+		A1000000000000000000000A /* StockRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* StockRowView.swift */; };
+		A1000000000000000000000B /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* SettingsView.swift */; };
+		A1000000000000000000000C /* MenuBarLabelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000C /* MenuBarLabelView.swift */; };
+		A1000000000000000000000D /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* CurrencyFormatter.swift */; };
+		A1000000000000000000000E /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* AppSettings.swift */; };
+		A1000000000000000000000F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* Assets.xcassets */; };
+		A10000000000000000000011 /* ElonGainsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ElonGainsTests.swift */; };
+		A10000000000000000000012 /* MenuBarDisplayMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* MenuBarDisplayMode.swift */; };
+		A10000000000000000000013 /* HoldingsSyncServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* HoldingsSyncServiceProtocol.swift */; };
+		A10000000000000000000014 /* SECHoldingsSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* SECHoldingsSyncService.swift */; };
+		A10000000000000000000015 /* GainSummaryFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* GainSummaryFormatter.swift */; };
+		A10000000000000000000016 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* LaunchAtLoginManager.swift */; };
+		A1000000000000000000001C /* AppURLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001C /* AppURLs.swift */; };
+		A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* Form4OwnershipParser.swift */; };
+		A10000000000000000000018 /* String+Truncation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001A /* String+Truncation.swift */; };
+		A10000000000000000000019 /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001B /* AppNotifications.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000000000000000000001 /* ElonGainsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElonGainsApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000012 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A20000000000000000000002 /* StockQuote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockQuote.swift; sourceTree = "<group>"; };
+		A20000000000000000000003 /* PortfolioHolding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioHolding.swift; sourceTree = "<group>"; };
+		A20000000000000000000004 /* GainsSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainsSnapshot.swift; sourceTree = "<group>"; };
+		A20000000000000000000005 /* StockPriceServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockPriceServiceProtocol.swift; sourceTree = "<group>"; };
+		A20000000000000000000006 /* YahooFinanceStockPriceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YahooFinanceStockPriceService.swift; sourceTree = "<group>"; };
+		A20000000000000000000007 /* MarketHoursService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketHoursService.swift; sourceTree = "<group>"; };
+		A20000000000000000000008 /* GainsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainsViewModel.swift; sourceTree = "<group>"; };
+		A20000000000000000000009 /* PopoverContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverContentView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000A /* StockRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockRowView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* MenuBarLabelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarLabelView.swift; sourceTree = "<group>"; };
+		A2000000000000000000000D /* CurrencyFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyFormatter.swift; sourceTree = "<group>"; };
+		A2000000000000000000000E /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
+		A2000000000000000000000F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A20000000000000000000010 /* ElonGains.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ElonGains.entitlements; sourceTree = "<group>"; };
+		A20000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A30000000000000000000001 /* Muskometer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Muskometer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000013 /* ElonGainsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElonGainsTests.swift; sourceTree = "<group>"; };
+		A30000000000000000000002 /* ElonGainsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ElonGainsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000014 /* MenuBarDisplayMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayMode.swift; sourceTree = "<group>"; };
+		A20000000000000000000015 /* HoldingsSyncServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldingsSyncServiceProtocol.swift; sourceTree = "<group>"; };
+		A20000000000000000000016 /* SECHoldingsSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SECHoldingsSyncService.swift; sourceTree = "<group>"; };
+		A20000000000000000000017 /* GainSummaryFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSummaryFormatter.swift; sourceTree = "<group>"; };
+		A20000000000000000000018 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
+		A2000000000000000000001C /* AppURLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppURLs.swift; sourceTree = "<group>"; };
+		A20000000000000000000019 /* Form4OwnershipParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Form4OwnershipParser.swift; sourceTree = "<group>"; };
+		A2000000000000000000001A /* String+Truncation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Truncation.swift"; sourceTree = "<group>"; };
+		A2000000000000000000001B /* AppNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A40000000000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A40000000000000000000002 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		AB0000000000000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A70000000000000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A60000000000000000000001;
+			remoteInfo = ElonGains;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		AB0000000000000000000002 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A60000000000000000000001 /* ElonGains */;
+			targetProxy = AB0000000000000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXGroup section */
+		A50000000000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A50000000000000000000002 /* ElonGains */,
+				A5000000000000000000000B /* ElonGainsTests */,
+				A50000000000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A50000000000000000000002 /* ElonGains */ = {
+			isa = PBXGroup;
+			children = (
+				A50000000000000000000004 /* App */,
+				A50000000000000000000005 /* Models */,
+				A50000000000000000000006 /* Services */,
+				A50000000000000000000007 /* ViewModels */,
+				A50000000000000000000008 /* Views */,
+				A50000000000000000000009 /* Utilities */,
+				A5000000000000000000000A /* Resources */,
+				A2000000000000000000000F /* Assets.xcassets */,
+				A20000000000000000000010 /* ElonGains.entitlements */,
+			);
+			path = ElonGains;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000001 /* Elon Gains.app */,
+				A30000000000000000000002 /* ElonGainsTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000B /* ElonGainsTests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000013 /* ElonGainsTests.swift */,
+			);
+			path = ElonGainsTests;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000004 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* ElonGainsApp.swift */,
+				A20000000000000000000012 /* AppDelegate.swift */,
+				A2000000000000000000001B /* AppNotifications.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000002 /* StockQuote.swift */,
+				A20000000000000000000003 /* PortfolioHolding.swift */,
+				A20000000000000000000004 /* GainsSnapshot.swift */,
+				A20000000000000000000014 /* MenuBarDisplayMode.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000006 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000005 /* StockPriceServiceProtocol.swift */,
+				A20000000000000000000006 /* YahooFinanceStockPriceService.swift */,
+				A20000000000000000000007 /* MarketHoursService.swift */,
+				A20000000000000000000015 /* HoldingsSyncServiceProtocol.swift */,
+				A20000000000000000000016 /* SECHoldingsSyncService.swift */,
+				A20000000000000000000019 /* Form4OwnershipParser.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000007 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000008 /* GainsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000008 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000009 /* PopoverContentView.swift */,
+				A2000000000000000000000A /* StockRowView.swift */,
+				A2000000000000000000000B /* SettingsView.swift */,
+				A2000000000000000000000C /* MenuBarLabelView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A50000000000000000000009 /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A2000000000000000000000D /* CurrencyFormatter.swift */,
+				A2000000000000000000000E /* AppSettings.swift */,
+				A20000000000000000000017 /* GainSummaryFormatter.swift */,
+				A20000000000000000000018 /* LaunchAtLoginManager.swift */,
+				A2000000000000000000001C /* AppURLs.swift */,
+				A2000000000000000000001A /* String+Truncation.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		A5000000000000000000000A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000011 /* Info.plist */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A60000000000000000000001 /* ElonGains */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80000000000000000000003 /* Build configuration list for PBXNativeTarget "ElonGains" */;
+			buildPhases = (
+				A60000000000000000000002 /* Sources */,
+				A40000000000000000000001 /* Frameworks */,
+				A60000000000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ElonGains;
+			productName = ElonGains;
+			productReference = A30000000000000000000001 /* Muskometer.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A60000000000000000000004 /* ElonGainsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A80000000000000000000004 /* Build configuration list for PBXNativeTarget "ElonGainsTests" */;
+			buildPhases = (
+				A60000000000000000000005 /* Sources */,
+				A40000000000000000000002 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AB0000000000000000000002 /* PBXTargetDependency */,
+			);
+			name = ElonGainsTests;
+			productName = ElonGainsTests;
+			productReference = A30000000000000000000002 /* ElonGainsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A70000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A60000000000000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					A60000000000000000000004 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = A60000000000000000000001;
+					};
+				};
+			};
+			buildConfigurationList = A80000000000000000000001 /* Build configuration list for PBXProject "ElonGains" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A50000000000000000000001;
+			productRefGroup = A50000000000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A60000000000000000000001 /* ElonGains */,
+				A60000000000000000000004 /* ElonGainsTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A60000000000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000000000000000000000F /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A60000000000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000001 /* ElonGainsApp.swift in Sources */,
+				A10000000000000000000010 /* AppDelegate.swift in Sources */,
+				A10000000000000000000002 /* StockQuote.swift in Sources */,
+				A10000000000000000000003 /* PortfolioHolding.swift in Sources */,
+				A10000000000000000000004 /* GainsSnapshot.swift in Sources */,
+				A10000000000000000000005 /* StockPriceServiceProtocol.swift in Sources */,
+				A10000000000000000000006 /* YahooFinanceStockPriceService.swift in Sources */,
+				A10000000000000000000007 /* MarketHoursService.swift in Sources */,
+				A10000000000000000000008 /* GainsViewModel.swift in Sources */,
+				A10000000000000000000009 /* PopoverContentView.swift in Sources */,
+				A1000000000000000000000A /* StockRowView.swift in Sources */,
+				A1000000000000000000000B /* SettingsView.swift in Sources */,
+				A1000000000000000000000C /* MenuBarLabelView.swift in Sources */,
+				A1000000000000000000000D /* CurrencyFormatter.swift in Sources */,
+				A1000000000000000000000E /* AppSettings.swift in Sources */,
+				A10000000000000000000012 /* MenuBarDisplayMode.swift in Sources */,
+				A10000000000000000000013 /* HoldingsSyncServiceProtocol.swift in Sources */,
+				A10000000000000000000014 /* SECHoldingsSyncService.swift in Sources */,
+				A10000000000000000000015 /* GainSummaryFormatter.swift in Sources */,
+				A10000000000000000000016 /* LaunchAtLoginManager.swift in Sources */,
+				A1000000000000000000001C /* AppURLs.swift in Sources */,
+				A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */,
+				A10000000000000000000018 /* String+Truncation.swift in Sources */,
+				A10000000000000000000019 /* AppNotifications.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A60000000000000000000005 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000011 /* ElonGainsTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A90000000000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A90000000000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A90000000000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ElonGains/ElonGains.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ElonGains/Resources/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 muskometer.org";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
+				PRODUCT_MODULE_NAME = Elon_Gains;
+				PRODUCT_NAME = Muskometer;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A90000000000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = ElonGains/ElonGains.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ElonGains/Resources/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 muskometer.org";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.elongains.menubar;
+				PRODUCT_NAME = "Elon Gains";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A90000000000000000000005 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Muskometer.app/Contents/MacOS/Muskometer";
+			};
+			name = Debug;
+		};
+		A90000000000000000000006 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Muskometer.app/Contents/MacOS/Muskometer";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A80000000000000000000001 /* Build configuration list for PBXProject "ElonGains" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000000000000000000001 /* Debug */,
+				A90000000000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A80000000000000000000003 /* Build configuration list for PBXNativeTarget "ElonGains" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000000000000000000003 /* Debug */,
+				A90000000000000000000004 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A80000000000000000000004 /* Build configuration list for PBXNativeTarget "ElonGainsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000000000000000000005 /* Debug */,
+				A90000000000000000000006 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A70000000000000000000001 /* Project object */;
+}

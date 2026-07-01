@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Muskometer — What's Elon up to today?</title>
+  <meta name="description" content="A tiny macOS menu bar app that tracks Elon Musk's daily paper gains on TSLA and SpaceX. Not financial advice — just absurd numbers for fun.">
+  <meta property="og:title" content="Muskometer">
+  <meta property="og:description" content="What's Elon up to today? Live paper gains in your menu bar.">
+  <meta property="og:url" content="https://muskometer.org">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <div class="badge">macOS menu bar · open source</div>
+      <h1>Muskometer</h1>
+      <p class="tagline">What's Elon up to today?</p>
+      <p class="lede">Live <strong>paper gains</strong> on TSLA &amp; SpaceX — right in your menu bar. Green days, red days, billion-dollar swings. Entertainment only.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="https://github.com/jlgolson/muskometer" rel="noopener">View on GitHub</a>
+        <span class="btn ghost">Clone &amp; build in Xcode</span>
+      </div>
+    </header>
+
+    <section class="preview">
+      <div class="menubar-mock">
+        <span class="menubar-icon" aria-hidden="true">📈</span>
+        <span class="menubar-gain positive">+$46.6B</span>
+      </div>
+      <div class="card">
+        <h2>Combined today</h2>
+        <p class="gain positive">+$46.6B</p>
+        <p class="percent positive">+1.23%</p>
+        <p class="status closed">Based on prior close · Opens Wed 9:30 AM ET</p>
+      </div>
+    </section>
+
+    <section class="features">
+      <article>
+        <h3>Menu bar first</h3>
+        <p>Glance at the number dozens of times a day. No Dock icon, no clutter — just the reading.</p>
+      </article>
+      <article>
+        <h3>TSLA + SPCX</h3>
+        <p>Tesla shares and SpaceX proxy exposure, with SEC-synced holdings and live Yahoo Finance quotes.</p>
+      </article>
+      <article>
+        <h3>Paper, not payday</h3>
+        <p>Share count × (price − prior close). Illustrative gains for fun — not financial advice.</p>
+      </article>
+    </section>
+
+    <footer>
+      <p><strong>Disclaimer:</strong> SPCX is a proxy ticker, not SpaceX stock. Muskometer is a fan project — not affiliated with Tesla, SpaceX, or Elon Musk.</p>
+      <p>© 2026 <a href="https://muskometer.org">muskometer.org</a> · <a href="https://github.com/jlgolson/muskometer">GitHub</a></p>
+    </footer>
+  </main>
+</body>
+</html>

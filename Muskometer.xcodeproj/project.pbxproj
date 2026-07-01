@@ -38,6 +38,7 @@
 		A10000000000000000000020 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* AppVersion.swift */; };
 		A10000000000000000000021 /* SettingsContentHeightKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* SettingsContentHeightKey.swift */; };
 		A10000000000000000000022 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* AboutView.swift */; };
+		A10000000000000000000023 /* TrackedPersonProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* TrackedPersonProfile.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -76,6 +77,7 @@
 		A20000000000000000000020 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* SettingsContentHeightKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsContentHeightKey.swift; sourceTree = "<group>"; };
 		A20000000000000000000022 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		A20000000000000000000023 /* TrackedPersonProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedPersonProfile.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,6 +175,7 @@
 				A20000000000000000000003 /* PortfolioHolding.swift */,
 				A20000000000000000000004 /* GainsSnapshot.swift */,
 				A20000000000000000000014 /* MenuBarDisplayMode.swift */,
+				A20000000000000000000023 /* TrackedPersonProfile.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -355,6 +358,7 @@
 				A10000000000000000000020 /* AppVersion.swift in Sources */,
 				A10000000000000000000021 /* SettingsContentHeightKey.swift in Sources */,
 				A10000000000000000000022 /* AboutView.swift in Sources */,
+				A10000000000000000000023 /* TrackedPersonProfile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -422,7 +426,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -450,7 +454,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -475,7 +479,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
@@ -493,7 +497,7 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;

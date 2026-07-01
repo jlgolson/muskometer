@@ -2,6 +2,7 @@ import SwiftUI
 
 struct StockRowView: View {
     let holding: HoldingGain
+    var possessiveName = "Elon's"
     var animateValues = false
 
     var body: some View {
@@ -30,7 +31,7 @@ struct StockRowView: View {
                 }
             }
 
-            metricRow(label: "Elon's Stake", value: CurrencyFormatter.formatMarketValue(holding.marketValue))
+            metricRow(label: "\(possessiveName) Stake", value: CurrencyFormatter.formatMarketValue(holding.marketValue))
 
             HStack {
                 Text(GainSummaryFormatter.todaysGainLossLabel(for: holding.paperGain))

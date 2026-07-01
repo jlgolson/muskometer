@@ -4,24 +4,24 @@ import Foundation
 struct Form4OwnershipParser {
     let data: Data
 
-    func parse() -> (tslaShares: Int64?, spcxShares: Int64?) {
+    func parse() -> [String: Int64] {
         guard let xml = String(data: data, encoding: .utf8) else {
-            return (nil, nil)
+            return [:]
         }
 
         guard let symbol = extractIssuerTradingSymbol(from: xml)?.uppercased() else {
-            return (nil, nil)
+            return [:]
         }
 
         switch symbol {
-        case "TSLA":
-            guard let shares = extractTSLAOwnershipShares(from: xml) else { return (nil, nil) }
-            return (shares, nil)
+        case "TSLA", "META":
+            guard let shares = extractDirectBeneficialOwnershipShares(from: xml) else { return [:] }
+            return [symbol: shares]
         case "SPCX":
-            guard let shares = SPCXOwnershipCalculator.totalPublicShares(from: xml) else { return (nil, nil) }
-            return (nil, shares)
+            guard let shares = SPCXOwnershipCalculator.totalPublicShares(from: xml) else { return [:] }
+            return ["SPCX": shares]
         default:
-            return (nil, nil)
+            return [:]
         }
     }
 
@@ -32,7 +32,7 @@ struct Form4OwnershipParser {
         return extractTag("issuerTradingSymbol", from: xml)
     }
 
-    private func extractTSLAOwnershipShares(from xml: String) -> Int64? {
+    private func extractDirectBeneficialOwnershipShares(from xml: String) -> Int64? {
         guard let tableContent = extractBlock(named: "nonDerivativeTable", from: xml) else {
             return nil
         }

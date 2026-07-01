@@ -54,7 +54,7 @@ struct PopoverContentView: View {
             Text("Muskometer")
                 .font(.system(.title3, design: .rounded, weight: .bold))
 
-            Text("What's Elon up to today?")
+            Text(viewModel.settings.selectedProfile.tagline)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -108,7 +108,11 @@ struct PopoverContentView: View {
             combinedCard(snapshot)
 
             ForEach(snapshot.holdings) { holding in
-                StockRowView(holding: holding, animateValues: true)
+                StockRowView(
+                    holding: holding,
+                    possessiveName: viewModel.settings.selectedProfile.possessiveName,
+                    animateValues: true
+                )
             }
 
             if let error = viewModel.errorMessage {
@@ -121,7 +125,7 @@ struct PopoverContentView: View {
 
     private func ownershipCard(_ snapshot: GainsSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Elon's Ownership")
+            Text("\(viewModel.settings.selectedProfile.possessiveName) Ownership")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

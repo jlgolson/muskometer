@@ -9,10 +9,8 @@ struct SettingsView: View {
     private let embeddedInPopover: Bool
 
     @State private var refreshInterval: Double
-    @State private var tslaSharesText: String
-    @State private var spcxSharesText: String
-    @State private var tslaSharesError: String?
-    @State private var spcxSharesError: String?
+    @State private var shareTexts: [String: String] = [:]
+    @State private var shareErrors: [String: String] = [:]
 
     init(settings: AppSettings, viewModel: GainsViewModel? = nil, onDone: (() -> Void)? = nil) {
         self.settings = settings
@@ -20,8 +18,6 @@ struct SettingsView: View {
         self.onDone = onDone
         self.embeddedInPopover = onDone != nil
         _refreshInterval = State(initialValue: settings.refreshIntervalSeconds)
-        _tslaSharesText = State(initialValue: String(settings.tslaShareCount))
-        _spcxSharesText = State(initialValue: String(settings.spcxShareCount))
     }
 
     var body: some View {
@@ -147,7 +143,7 @@ struct SettingsView: View {
 
             Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
 
-            Text("Choose gains, percent change, split view, or total worth across TSLA and SPCX. Hide the trend icon for text only.")
+            Text("Choose gains, percent change, split view, or total worth across tracked holdings. Hide the trend icon for text only.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -185,6 +181,23 @@ struct SettingsView: View {
             Text("Share counts (SEC)")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
+
+            Picker("Person", selection: $settings.selectedPersonID) {
+                ForEach(TrackedPersonProfile.registry) { profile in
+                    Text(profile.displayName).tag(profile.id)
+                }
+            }
+            .pickerStyle(.menu)
+            .onChange(of: settings.selectedPersonID) { _, _ in
+                syncTextFieldsFromSettings()
+                shareErrors = [:]
+                if let viewModel {
+                    Task {
+                        await viewModel.syncHoldingsIfNeeded()
+                        await viewModel.refresh(force: true)
+                    }
+                }
+            }
 
             if let lastSync = settings.lastHoldingsSyncDate {
                 Text("Last SEC sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
@@ -227,31 +240,19 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("TSLA shares (override)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                TextField("TSLA", text: $tslaSharesText)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { applyShareCounts() }
-                if let tslaSharesError {
-                    Text(tslaSharesError)
+            ForEach(settings.selectedProfile.holdingSpecs) { spec in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(spec.symbol) shares (override)")
                         .font(.caption)
-                        .foregroundStyle(.red)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("SPCX shares (override)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                TextField("SPCX", text: $spcxSharesText)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { applyShareCounts() }
-                if let spcxSharesError {
-                    Text(spcxSharesError)
-                        .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.secondary)
+                    TextField(spec.symbol, text: shareTextBinding(for: spec.symbol))
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit { applyShareCounts() }
+                    if let error = shareErrors[spec.symbol] {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 }
             }
         }
@@ -264,8 +265,7 @@ struct SettingsView: View {
             settings.resetToDefaults()
             refreshInterval = settings.refreshIntervalSeconds
             syncTextFieldsFromSettings()
-            tslaSharesError = nil
-            spcxSharesError = nil
+            shareErrors = [:]
 
             if let viewModel {
                 Task { await viewModel.refresh(force: true) }
@@ -279,9 +279,19 @@ struct SettingsView: View {
             .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
     }
 
+    private func shareTextBinding(for symbol: String) -> Binding<String> {
+        Binding(
+            get: { shareTexts[symbol] ?? String(settings.shareCount(for: symbol)) },
+            set: { shareTexts[symbol] = $0 }
+        )
+    }
+
     private func syncTextFieldsFromSettings() {
-        tslaSharesText = String(settings.tslaShareCount)
-        spcxSharesText = String(settings.spcxShareCount)
+        var texts: [String: String] = [:]
+        for spec in settings.selectedProfile.holdingSpecs {
+            texts[spec.symbol] = String(settings.shareCount(for: spec.symbol))
+        }
+        shareTexts = texts
     }
 
     private func finish() {
@@ -294,33 +304,27 @@ struct SettingsView: View {
     }
 
     private func applyShareCounts() {
-        let cleanedTSLA = tslaSharesText.replacingOccurrences(of: ",", with: "")
-        let cleanedSPCX = spcxSharesText.replacingOccurrences(of: ",", with: "")
         var countsChanged = false
+        var errors: [String: String] = [:]
 
-        if let tsla = Int64(cleanedTSLA), tsla > 0 {
-            if settings.tslaShareCount != tsla {
-                countsChanged = true
+        for spec in settings.selectedProfile.holdingSpecs {
+            let symbol = spec.symbol
+            let rawText = shareTexts[symbol] ?? String(settings.shareCount(for: symbol))
+            let cleaned = rawText.replacingOccurrences(of: ",", with: "")
+
+            if let count = Int64(cleaned), count > 0 {
+                if settings.shareCount(for: symbol) != count {
+                    countsChanged = true
+                }
+                settings.setShareCount(count, for: symbol)
+                shareTexts[symbol] = String(count)
+            } else if !cleaned.isEmpty {
+                errors[symbol] = "Enter a positive whole number."
+                shareTexts[symbol] = String(settings.shareCount(for: symbol))
             }
-            settings.tslaShareCount = tsla
-            tslaSharesText = String(tsla)
-            tslaSharesError = nil
-        } else if !cleanedTSLA.isEmpty {
-            tslaSharesError = "Enter a positive whole number."
-            tslaSharesText = String(settings.tslaShareCount)
         }
 
-        if let spcx = Int64(cleanedSPCX), spcx > 0 {
-            if settings.spcxShareCount != spcx {
-                countsChanged = true
-            }
-            settings.spcxShareCount = spcx
-            spcxSharesText = String(spcx)
-            spcxSharesError = nil
-        } else if !cleanedSPCX.isEmpty {
-            spcxSharesError = "Enter a positive whole number."
-            spcxSharesText = String(settings.spcxShareCount)
-        }
+        shareErrors = errors
 
         if countsChanged, let viewModel {
             Task { await viewModel.refresh(force: true) }

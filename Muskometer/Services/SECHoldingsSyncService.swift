@@ -1,21 +1,22 @@
 import Foundation
 
-/// Fetches Elon Musk's reported TSLA / SPCX share counts from recent SEC Form 4 filings.
+/// Fetches reported share counts from recent SEC Form 4 filings for a tracked person profile.
 /// SEC requires a descriptive User-Agent: https://www.sec.gov/os/accessing-edgar-data
 final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Sendable {
+    private let profile: TrackedPersonProfile
+    private let expectedSymbols: Set<String>
     private let session: URLSession
-    private let muskCIKPadded = "0001494730"
-    private let muskCIKNumeric = "1494730"
     private let userAgent = "Muskometer/0.1.0 (info@muskometer.org; https://muskometer.org)"
 
-    init(session: URLSession = .shared) {
+    init(profile: TrackedPersonProfile = .musk, session: URLSession = .shared) {
+        self.profile = profile
+        self.expectedSymbols = profile.expectedSymbols
         self.session = session
     }
 
     func syncHoldings() async throws -> HoldingsSyncResult {
         let accessions = try await fetchRecentForm4Accessions(limit: 25)
-        var tslaShares: Int64?
-        var spcxShares: Int64?
+        var sharesBySymbol: [String: Int64] = [:]
 
         for (index, accession) in accessions.enumerated() {
             if index > 0 {
@@ -28,33 +29,31 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
 
             let parsed = try await parseForm4(xmlURL: xmlURL)
 
-            if parsed.tslaShares != nil, tslaShares == nil {
-                tslaShares = parsed.tslaShares
-            }
-            if parsed.spcxShares != nil, spcxShares == nil {
-                spcxShares = parsed.spcxShares
+            for (symbol, shares) in parsed where expectedSymbols.contains(symbol) {
+                if sharesBySymbol[symbol] == nil {
+                    sharesBySymbol[symbol] = shares
+                }
             }
 
-            if tslaShares != nil, spcxShares != nil {
+            if expectedSymbols.isSubset(of: Set(sharesBySymbol.keys)) {
                 break
             }
         }
 
         return HoldingsSyncResult(
-            tslaShares: tslaShares,
-            spcxShares: spcxShares,
+            sharesBySymbol: sharesBySymbol,
             syncedAt: .now,
-            sourceDescription: "SEC EDGAR Form 4 (CIK \(muskCIKPadded))"
+            sourceDescription: "SEC EDGAR Form 4 (CIK \(profile.secCIKPadded))"
         )
     }
 
     private func fetchRecentForm4Accessions(limit: Int) async throws -> [String] {
-        let url = URL(string: "https://data.sec.gov/submissions/CIK\(muskCIKPadded).json")!
+        let url = URL(string: "https://data.sec.gov/submissions/CIK\(profile.secCIKPadded).json")!
         let data = try await fetchData(from: url)
         let payload = try JSONDecoder().decode(SECSubmissionsResponse.self, from: data)
 
         guard let recent = payload.filings.recent else {
-            throw HoldingsSyncError.noFilingsFound
+            throw HoldingsSyncError.noFilingsFound(personName: profile.displayName)
         }
 
         var accessions: [String] = []
@@ -68,7 +67,7 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
         }
 
         guard !accessions.isEmpty else {
-            throw HoldingsSyncError.noFilingsFound
+            throw HoldingsSyncError.noFilingsFound(personName: profile.displayName)
         }
 
         return accessions
@@ -76,7 +75,7 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
 
     private func resolveForm4XMLURL(accession: String) async throws -> URL? {
         let folder = accession.replacingOccurrences(of: "-", with: "")
-        let indexURL = URL(string: "https://www.sec.gov/Archives/edgar/data/\(muskCIKNumeric)/\(folder)/\(accession)-index.htm")!
+        let indexURL = URL(string: "https://www.sec.gov/Archives/edgar/data/\(profile.secCIKNumeric)/\(folder)/\(accession)-index.htm")!
 
         let html = String(data: try await fetchData(from: indexURL), encoding: .utf8) ?? ""
         let pattern = #"href="(/Archives/edgar/data/\d+/\d+/[^"]+\.xml)""#
@@ -98,7 +97,7 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
         return nil
     }
 
-    private func parseForm4(xmlURL: URL) async throws -> (tslaShares: Int64?, spcxShares: Int64?) {
+    private func parseForm4(xmlURL: URL) async throws -> [String: Int64] {
         let data = try await fetchData(from: xmlURL)
         let parser = Form4OwnershipParser(data: data)
         return parser.parse()

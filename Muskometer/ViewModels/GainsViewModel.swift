@@ -15,7 +15,7 @@ final class GainsViewModel {
     let settings: AppSettings
 
     private let stockService: any StockPriceServiceProtocol
-    private let holdingsSyncService: any HoldingsSyncServiceProtocol
+    private let holdingsSyncServiceFactory: (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol
     private let marketHours: any MarketHoursServiceProtocol
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
@@ -24,12 +24,12 @@ final class GainsViewModel {
     init(
         settings: AppSettings = .shared,
         stockService: any StockPriceServiceProtocol = YahooFinanceStockPriceService(),
-        holdingsSyncService: any HoldingsSyncServiceProtocol = SECHoldingsSyncService(),
+        holdingsSyncServiceFactory: @escaping (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol = { SECHoldingsSyncService(profile: $0) },
         marketHours: any MarketHoursServiceProtocol = MarketHoursService()
     ) {
         self.settings = settings
         self.stockService = stockService
-        self.holdingsSyncService = holdingsSyncService
+        self.holdingsSyncServiceFactory = holdingsSyncServiceFactory
         self.marketHours = marketHours
     }
 
@@ -147,28 +147,33 @@ final class GainsViewModel {
 
         defer { isSyncingHoldings = false }
 
+        let profile = settings.selectedProfile
+        let expectedSymbols = profile.expectedSymbols
+
         do {
-            let result = try await holdingsSyncService.syncHoldings()
+            let service = holdingsSyncServiceFactory(profile)
+            let result = try await service.syncHoldings()
             let syncComplete = settings.applyHoldingsSync(result)
 
             if syncComplete {
-                holdingsSyncMessage = "Holdings updated from SEC (TSLA, SPCX)."
+                let symbols = expectedSymbols.sorted().joined(separator: ", ")
+                holdingsSyncMessage = "Holdings updated from SEC (\(symbols))."
 
                 if snapshot != nil {
                     await refresh(force: true)
                 }
             } else {
-                var parts: [String] = []
-                if result.tslaShares != nil { parts.append("TSLA") }
-                if result.spcxShares != nil { parts.append("SPCX") }
+                let found = result.sharesBySymbol.keys
+                    .filter { expectedSymbols.contains($0) }
+                    .sorted()
 
-                if parts.isEmpty {
+                if found.isEmpty {
                     holdingsSyncMessage = "SEC sync incomplete — will retry later."
                 } else {
-                    holdingsSyncMessage = "SEC sync incomplete — will retry later (\(parts.joined(separator: ", ")) found)."
+                    holdingsSyncMessage = "SEC sync incomplete — will retry later (\(found.joined(separator: ", ")) found)."
                 }
 
-                if !parts.isEmpty, snapshot != nil {
+                if !found.isEmpty, snapshot != nil {
                     await refresh(force: true)
                 }
             }

@@ -147,14 +147,15 @@ struct SettingsView: View {
             Text("Price refresh")
                 .font(.subheadline.weight(.semibold))
 
-            Text("Auto-refresh interval: \(Int(refreshInterval)) seconds")
-                .font(.subheadline)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Refresh interval: \(Int(refreshInterval)) seconds")
+                    .font(.subheadline)
 
-            Slider(value: $refreshInterval, in: 60...120, step: 5) {
-                Text("Refresh interval")
-            }
-            .onChange(of: refreshInterval) { _, newValue in
-                settings.refreshIntervalSeconds = newValue
+                Slider(value: $refreshInterval, in: 60...120, step: 5)
+                    .accessibilityLabel("Refresh interval")
+                    .onChange(of: refreshInterval) { _, newValue in
+                        settings.refreshIntervalSeconds = newValue
+                    }
             }
 
             Text("Stock prices refresh automatically while the US market is open. Share counts are separate.")

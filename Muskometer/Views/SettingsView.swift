@@ -74,34 +74,46 @@ struct SettingsView: View {
     }
 
     private var header: some View {
-        HStack {
-            if embeddedInPopover {
-                Button {
-                    finish()
-                } label: {
-                    Label("Back", systemImage: "chevron.left")
-                }
-                .buttonStyle(.plain)
-            }
-
+        ZStack {
             Text("Settings")
-                .font(.headline)
+                .font(.system(.title3, design: .rounded, weight: .bold))
 
-            Spacer()
-
-            if !embeddedInPopover {
-                Button("Done") {
-                    finish()
+            HStack {
+                if embeddedInPopover {
+                    backButton
                 }
-                .keyboardShortcut(.cancelAction)
+
+                Spacer()
+
+                if !embeddedInPopover {
+                    Button("Done") {
+                        finish()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .keyboardShortcut(.cancelAction)
+                }
             }
         }
+        .padding(.bottom, 2)
+    }
+
+    private var backButton: some View {
+        Button {
+            finish()
+        } label: {
+            Label("Back", systemImage: "chevron.left")
+                .font(.subheadline)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
     }
 
     private var generalSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("General")
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             Toggle("Launch at login", isOn: $settings.launchAtLogin)
 
@@ -123,7 +135,8 @@ struct SettingsView: View {
     private var menuBarSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Menu bar")
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             Picker("Display", selection: $settings.menuBarDisplayMode) {
                 ForEach(MenuBarDisplayMode.allCases) { mode in
@@ -145,11 +158,12 @@ struct SettingsView: View {
     private var priceRefreshSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Price refresh")
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Refresh interval: \(Int(refreshInterval)) seconds")
-                    .font(.subheadline)
+                    .font(.body)
 
                 Slider(value: $refreshInterval, in: 60...120, step: 5)
                     .accessibilityLabel("Refresh interval")
@@ -169,7 +183,8 @@ struct SettingsView: View {
     private var holdingsSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Share counts (SEC)")
-                .font(.subheadline.weight(.semibold))
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
 
             if let lastSync = settings.lastHoldingsSyncDate {
                 Text("Last SEC sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")

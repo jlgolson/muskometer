@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Text", sans-serif;
+      background: linear-gradient(160deg, #1a2744 0%, #0d0d0f 45%, #111 100%);
+      padding: 48px;
+      width: 920px;
+      color: #f5f5f7;
+    }
+    .scene {
+      display: grid;
+      gap: 28px;
+      justify-items: center;
+    }
+    .menubar {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      background: rgba(40, 40, 42, 0.92);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      padding: 10px 18px;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+      width: 100%;
+      max-width: 720px;
+    }
+    .menubar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #98989d;
+      font-size: 12px;
+    }
+    .menubar-icon {
+      width: 14px;
+      height: 14px;
+      opacity: 0.75;
+    }
+    .menubar-gain {
+      margin-left: auto;
+      font-size: 13px;
+      font-weight: 600;
+      color: #34c759;
+      font-variant-numeric: tabular-nums;
+    }
+    .popover {
+      width: 360px;
+      background: rgba(28, 28, 30, 0.98);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px;
+      padding: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .subtitle {
+      margin-top: 4px;
+      font-size: 12px;
+      color: #98989d;
+    }
+    .card {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+    }
+    .card.accent {
+      background: rgba(94, 139, 255, 0.12);
+    }
+    .label {
+      font-size: 12px;
+      color: #98989d;
+    }
+    .ownership-value {
+      margin-top: 4px;
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .combined-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .gain {
+      margin-top: 6px;
+      font-size: 28px;
+      font-weight: 700;
+      color: #34c759;
+      font-variant-numeric: tabular-nums;
+    }
+    .percent {
+      margin-top: 4px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #34c759;
+      font-variant-numeric: tabular-nums;
+    }
+    .market {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #98989d;
+    }
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34c759;
+    }
+    .btn {
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.04);
+      color: #f5f5f7;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+    .stock {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.06);
+    }
+    .stock-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+    .symbol {
+      font-size: 17px;
+      font-weight: 600;
+    }
+    .shares {
+      margin-top: 2px;
+      font-size: 12px;
+      color: #98989d;
+    }
+    .price {
+      font-size: 15px;
+      font-weight: 600;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .price-change {
+      margin-top: 2px;
+      font-size: 12px;
+      font-weight: 500;
+      text-align: right;
+      color: #34c759;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .metric .value {
+      font-size: 15px;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric .muted { color: #98989d; }
+    .gain-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+    .gain-row .value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #34c759;
+      font-variant-numeric: tabular-nums;
+    }
+    .footer-btns {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .footer-meta {
+      margin-top: 10px;
+      font-size: 11px;
+      color: #98989d;
+    }
+    .footer-links {
+      margin-top: 4px;
+      font-size: 11px;
+      color: #5e8bff;
+    }
+  </style>
+</head>
+<body>
+  <div class="scene">
+    <div class="menubar">
+      <div class="menubar-left">
+        <svg class="menubar-icon" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M2 12 L5 8 L8 10 L11 4 L14 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>Finder</span>
+        <span>File</span>
+        <span>Edit</span>
+      </div>
+      <div class="menubar-gain">+$3.3B</div>
+    </div>
+
+    <div class="popover">
+      <div class="title">Muskometer</div>
+      <div class="subtitle">What's Elon up to today?</div>
+
+      <div class="card">
+        <div class="label">Elon's Ownership</div>
+        <div class="ownership-value">$412.8B</div>
+      </div>
+
+      <div class="card accent">
+        <div class="combined-row">
+          <div>
+            <div class="label">Combined today</div>
+            <div class="gain">+$3.3B</div>
+            <div class="percent">+0.81%</div>
+            <div class="market"><span class="dot"></span> Market open</div>
+          </div>
+          <button class="btn" type="button">Copy</button>
+        </div>
+      </div>
+
+      <div class="stock">
+        <div class="stock-top">
+          <div>
+            <div class="symbol">TSLA</div>
+            <div class="shares">699.6M shares</div>
+          </div>
+          <div>
+            <div class="price">$342.18</div>
+            <div class="price-change">+1.12%</div>
+          </div>
+        </div>
+        <div class="metric"><span class="muted">Elon's Stake</span><span class="value">$239.4B</span></div>
+        <div class="gain-row"><span class="muted">Today's Gain</span><span class="value">+$3.3B</span></div>
+      </div>
+
+      <div class="stock">
+        <div class="stock-top">
+          <div>
+            <div class="symbol">SPCX</div>
+            <div class="shares">6.07B shares</div>
+          </div>
+          <div>
+            <div class="price">$28.54</div>
+            <div class="price-change">+0.04%</div>
+          </div>
+        </div>
+        <div class="metric"><span class="muted">Elon's Stake</span><span class="value">$173.4B</span></div>
+        <div class="gain-row"><span class="muted">Today's Gain</span><span class="value">+$69M</span></div>
+      </div>
+
+      <div class="footer-btns">
+        <button class="btn" type="button">Refresh</button>
+        <button class="btn" type="button">Settings</button>
+        <button class="btn" type="button">Quit</button>
+      </div>
+      <div class="footer-meta">Updated 2:14 PM · muskometer.org · Disclaimer</div>
+      <div class="footer-meta">Quotes: Yahoo Finance · Holdings: SEC EDGAR</div>
+    </div>
+  </div>
+</body>
+</html>

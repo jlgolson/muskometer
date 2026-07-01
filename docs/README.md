@@ -6,7 +6,10 @@ Static landing page for Muskometer, served from this `/docs` folder.
 |------|---------|
 | `index.html` | Landing page |
 | `styles.css` | Styles |
-| `favicon.png` | Favicon + social preview image |
+| `favicon.png` | Favicon |
+| `screenshots/app-preview.png` | Landing page screenshot |
+| `screenshots/og-image.png` | Open Graph / Twitter card image |
+| `screenshots/render-*.html` | Source mocks to regenerate PNGs |
 | `CNAME` | Custom domain (`muskometer.org`) |
 
 ## Prerequisites

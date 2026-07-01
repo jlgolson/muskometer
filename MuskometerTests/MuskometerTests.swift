@@ -593,7 +593,7 @@ final class GainSummaryFormatterTests: XCTestCase {
 
         XCTAssertTrue(formatted.contains("Illustrative."))
         XCTAssertTrue(formatted.contains("Not financial advice."))
-        XCTAssertTrue(formatted.contains("SPCX"))
+        XCTAssertTrue(formatted.contains("SpaceX stock"))
         XCTAssertTrue(formatted.contains("Muskometer —"))
     }
 }

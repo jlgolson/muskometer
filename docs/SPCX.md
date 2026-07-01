@@ -1,10 +1,10 @@
-# How Muskometer uses SPCX
+# SPCX and SpaceX
 
-Muskometer shows two numbers for SpaceX-related exposure:
+**SPCX** is SpaceX’s publicly traded stock. Muskometer tracks Musk’s paper gains on TSLA and SpaceX using:
 
-1. **Share counts** — aggregated from Elon Musk’s SEC Form 3/4 filings (Class A/B trust lines plus restricted shares noted in remarks). Defaults are about **6 billion** Class A-equivalent shares.
-2. **Price quotes** — the **SPCX** ticker on Yahoo Finance, which Muskometer uses as the public market mark for SpaceX-related paper-gain math.
+1. **Share counts** — aggregated from Elon Musk’s SEC Form 3/4 filings (Class A/B trust lines plus restricted shares noted in remarks; about **6 billion** Class A-equivalent shares by default).
+2. **Live prices** — the **SPCX** stock price from Yahoo Finance (same ticker, public market quote).
 
-SPCX is the ticker Yahoo provides for this purpose. It is a **market-data input**, not a claim about how you should value a private cap table. Combined dollar figures are **illustrative paper gains** — not financial advice.
+Paper gain = `share count × (current price − prior close)`. Figures are **illustrative** — not financial advice.
 
-See also [DISCLAIMER.md](DISCLAIMER.md).
+See [DISCLAIMER.md](DISCLAIMER.md).

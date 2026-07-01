@@ -109,7 +109,7 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Illustrative paper gains only. SPCX prices from Yahoo Finance; SpaceX counts from SEC filings.")
+            Text("Illustrative paper gains only. SPCX is SpaceX stock; share counts from SEC filings.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

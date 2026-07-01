@@ -15,6 +15,6 @@ enum GainSummaryFormatter {
             .joined(separator: " / ")
 
         let headline = todaysGainLossLabel(for: snapshot.combinedPaperGain).lowercased()
-        return "Muskometer — \(headline): \(combined) (\(percent)) — \(breakdown) (Illustrative. SPCX = Yahoo price mark; holdings from SEC. Not financial advice.)"
+        return "Muskometer — \(headline): \(combined) (\(percent)) — \(breakdown) (Illustrative. SPCX is SpaceX stock; holdings from SEC. Not financial advice.)"
     }
 }

@@ -33,7 +33,7 @@ paperGain = shareCount × (currentPrice − previousClose)
 ```
 
 - **TSLA** — share count from SEC Form 4 (direct).
-- **SPCX** — Yahoo Finance ticker for SpaceX price quotes; share counts aggregate Class A/B trust lines plus restricted shares from SEC Form 3/4 remarks (~6B Class A-equivalent). See [SPCX.md](SPCX.md).
+- **SPCX** — SpaceX’s publicly traded stock; share counts aggregate Class A/B trust lines plus restricted shares from SEC Form 3/4 remarks (~6B Class A-equivalent). Live quotes via Yahoo Finance. See [SPCX.md](SPCX.md).
 
 Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
 

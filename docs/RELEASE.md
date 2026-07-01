@@ -1,10 +1,30 @@
 # Releasing Muskometer
 
-Guide for maintainers to ship a signed, notarized macOS build to [GitHub Releases](https://github.com/jlgolson/muskometer/releases).
+Guide for maintainers shipping builds to [GitHub Releases](https://github.com/jlgolson/muskometer/releases).
 
-## Overview
+## Unsigned DMG (free — no Apple Developer Program)
 
-End users should **download a pre-built DMG** — they should not need Xcode. The release pipeline:
+```bash
+./scripts/package-dmg.sh
+```
+
+Builds a Release `.app`, then outputs:
+
+- `dist/Muskometer-<version>.dmg`
+- `dist/Muskometer-<version>.zip`
+
+No signing or notarization. Tell users to **right-click → Open** on first launch. This is what we ship today.
+
+Upload:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+gh release create v0.1.0 dist/Muskometer-0.1.0.dmg dist/Muskometer-0.1.0.zip --title "Muskometer 0.1.0"
+```
+
+## Signed + notarized DMG ($99/year Apple Developer Program)
+
+End users get a normal double-click install. The release pipeline:
 
 1. **Archive** a Release build with your **Developer ID Application** certificate
 2. **Export** as `developer-id`

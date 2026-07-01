@@ -1,33 +1,27 @@
 # Installing Muskometer
 
-## Install now
+## Download
 
-There is no pre-built download yet. Build and run locally with Xcode:
-
-1. Clone the repo: `git clone https://github.com/jlgolson/muskometer.git`
-2. Open `Muskometer.xcodeproj` in Xcode 15+
-3. Scheme **Muskometer**, destination **My Mac**, press **⌘R**
-
-The app appears in your menu bar (no Dock icon).
+1. Go to **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)**.
+2. Download **`Muskometer-<version>.dmg`**.
+3. Open the DMG and drag **Muskometer** into **Applications**.
+4. Eject the disk image.
 
 **Requirements:** macOS 14.0 (Sonoma) or later, internet access (Yahoo Finance + SEC EDGAR).
 
-## Install from a release (when available)
-
-A signed `.dmg` will be published on [GitHub Releases](https://github.com/jlgolson/muskometer/releases). When it’s there:
-
-1. Download **`Muskometer-<version>.dmg`**
-2. Open the DMG and drag **Muskometer** into **Applications**
-3. Eject the disk image
-
 ## First launch (Gatekeeper)
 
-Because Muskometer is distributed outside the Mac App Store, macOS may ask you to confirm the first open:
+Muskometer releases are **unsigned** (no $99 Apple Developer account). macOS will block a normal double-click the first time.
 
-1. Open **Applications** and double-click **Muskometer**.
-2. If you see *"Muskometer can't be opened because it is from an unidentified developer"*, go to **System Settings → Privacy & Security** and click **Open Anyway** (or right-click the app → **Open** → **Open**).
+**Do this once:**
 
-**Official GitHub releases** are **Developer ID signed and notarized** — Gatekeeper should allow a normal double-click. If macOS still prompts, use **Open Anyway** in Privacy & Security or right-click → **Open**.
+1. Open **Applications**.
+2. **Right-click** (or Control-click) **Muskometer** → **Open**.
+3. Click **Open** in the dialog.
+
+After that, you can launch it normally from Applications or Spotlight.
+
+If you prefer **System Settings → Privacy & Security → Open Anyway**, that works too.
 
 ## Find it in the menu bar
 
@@ -45,6 +39,14 @@ If you don't see it, other menu bar items may be hiding it — click the **◀**
 
 Muskometer will start quietly in the background whenever you log in.
 
+## Build from source
+
+If you prefer to compile yourself (or there’s no release for your Mac yet):
+
+1. Clone: `git clone https://github.com/jlgolson/muskometer.git`
+2. Open `Muskometer.xcodeproj` in Xcode 15+
+3. Scheme **Muskometer**, destination **My Mac**, press **⌘R**
+
 ## Uninstall
 
 1. Quit Muskometer (popover → **Quit**, or **⌘Q** if the app is frontmost).
@@ -56,6 +58,7 @@ Preferences are stored in `~/Library/Preferences/` under the app bundle ID (`org
 
 | Issue | What to try |
 |-------|-------------|
+| App won't open | Right-click → **Open** (see First launch above) |
 | Stale or `—` label | Click **Refresh** or wait for the next auto-refresh |
 | SEC sync message | Holdings update daily from Form 4 — partial syncs retry automatically |
 | Wrong number after hours | Expected — outside 9:30 AM–4:00 PM ET the label reflects prior close |

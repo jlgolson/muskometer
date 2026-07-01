@@ -6,7 +6,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [0.1.0] - 2026-07-01
 
-First public release of Muskometer for macOS (source). A signed `.dmg` will follow on GitHub Releases.
+First public release of Muskometer for macOS. Unsigned `.dmg` on GitHub Releases — right-click → Open on first launch.
 
 ### Added
 

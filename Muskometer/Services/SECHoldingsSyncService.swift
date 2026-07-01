@@ -6,7 +6,9 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
     private let profile: TrackedPersonProfile
     private let expectedSymbols: Set<String>
     private let session: URLSession
-    private let userAgent = "Muskometer/0.1.0 (info@muskometer.org; https://muskometer.org)"
+    private var userAgent: String {
+        "Muskometer/\(AppVersion.short) (info@muskometer.org; https://muskometer.org)"
+    }
 
     init(profile: TrackedPersonProfile = .musk, session: URLSession = .shared) {
         self.profile = profile

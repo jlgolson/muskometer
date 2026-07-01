@@ -250,6 +250,9 @@ struct PopoverContentView: View {
                 Link("muskometer.org", destination: AppURLs.website)
                     .font(.caption2)
 
+                Link("Disclaimer", destination: AppURLs.disclaimer)
+                    .font(.caption2)
+
                 Spacer(minLength: 0)
             }
 

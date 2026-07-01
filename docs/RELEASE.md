@@ -171,6 +171,8 @@ Pushing a `v*` tag runs [`.github/workflows/release.yml`](../.github/workflows/r
 
 **Do not** manually upload artifacts for the same tag afterward — CI assets are canonical and include SHA-256 checksums in the release notes.
 
+**Do not** delete and re-push a release tag without updating the GitHub Release body. Re-uploading assets changes file bytes; stale SHA-256 checksums in the release notes will no longer match. If you must replace artifacts on an existing tag, recompute checksums (`shasum -a 256` or `gh release view <tag> --json assets` for the `digest` field) and edit the release notes before announcing the build.
+
 For local testing before tagging:
 
 ```bash

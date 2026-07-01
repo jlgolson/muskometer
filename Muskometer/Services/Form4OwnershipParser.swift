@@ -14,7 +14,7 @@ struct Form4OwnershipParser {
         }
 
         switch symbol {
-        case "TSLA", "META":
+        case "TSLA":
             guard let shares = extractDirectBeneficialOwnershipShares(from: xml) else { return [:] }
             return [symbol: shares]
         case "SPCX":

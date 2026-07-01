@@ -255,6 +255,7 @@ final class AppSettings {
         refreshIntervalSeconds = Self.defaultRefreshInterval
         menuBarDisplayMode = .combinedDollars
         showMenuBarIcon = true
+        selectedPersonID = TrackedPersonProfile.musk.id
 
         for spec in selectedProfile.holdingSpecs {
             setShareCount(spec.defaultShareCount, for: spec.symbol)

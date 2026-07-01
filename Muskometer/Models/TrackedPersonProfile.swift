@@ -26,7 +26,7 @@ struct TrackedPersonProfile: Identifiable, Sendable, Equatable {
         Set(holdingSpecs.map(\.symbol))
     }
 
-    static let registry: [TrackedPersonProfile] = [.musk, .zuckerberg]
+    static let registry: [TrackedPersonProfile] = [.musk]
 
     static let musk = TrackedPersonProfile(
         id: "musk",
@@ -49,24 +49,6 @@ struct TrackedPersonProfile: Identifiable, Sendable, Equatable {
                 displayName: "SpaceX",
                 defaultShareCount: 6_068_734_060,
                 parseStrategy: .spcxAggregate
-            )
-        ]
-    )
-
-    static let zuckerberg = TrackedPersonProfile(
-        id: "zuckerberg",
-        displayName: "Mark Zuckerberg",
-        possessiveName: "Mark's",
-        tagline: "What's Mark up to today?",
-        secCIKPadded: "0001264128",
-        secCIKNumeric: "1264128",
-        holdingSpecs: [
-            TrackedHoldingSpec(
-                id: "meta",
-                symbol: "META",
-                displayName: "Meta",
-                defaultShareCount: 342_606_898,
-                parseStrategy: .directBeneficial
             )
         ]
     )

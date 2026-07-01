@@ -26,11 +26,16 @@ struct SettingsView: View {
 
             settingsSections
 
-            Text(AppVersion.displayString)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.top, 4)
+            VStack(spacing: 4) {
+                Link("Disclaimer", destination: AppURLs.disclaimer)
+                    .font(.caption2)
+
+                Text(AppVersion.displayString)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 4)
         }
         .frame(minWidth: embeddedInPopover ? 408 : 500, alignment: .topLeading)
         .fixedSize(horizontal: false, vertical: true)
@@ -181,23 +186,6 @@ struct SettingsView: View {
             Text("Share counts (SEC)")
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
-
-            Picker("Person", selection: $settings.selectedPersonID) {
-                ForEach(TrackedPersonProfile.registry) { profile in
-                    Text(profile.displayName).tag(profile.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: settings.selectedPersonID) { _, _ in
-                syncTextFieldsFromSettings()
-                shareErrors = [:]
-                if let viewModel {
-                    Task {
-                        await viewModel.syncHoldingsIfNeeded()
-                        await viewModel.refresh(force: true)
-                    }
-                }
-            }
 
             if let lastSync = settings.lastHoldingsSyncDate {
                 Text("Last SEC sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")

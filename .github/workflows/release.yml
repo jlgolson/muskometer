@@ -36,7 +36,7 @@ jobs:
             echo ""
             echo "First launch: right-click **Muskometer** → **Open** → **Open**."
             echo ""
-            sed -n '/^## \[/,$p' CHANGELOG.md | head -40
+            sed -n '/^## \[/,$p' CHANGELOG.md
             echo ""
             echo "**Checksums (SHA-256)**"
             echo '```'

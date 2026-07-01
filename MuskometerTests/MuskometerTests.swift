@@ -238,77 +238,13 @@ final class AppSettingsHoldingsSyncTests: XCTestCase {
         XCTAssertEqual(settings.holdingsSyncSource, "SEC EDGAR Form 4")
     }
 
-    func testMETAOnlyResultCompletesForZuckerbergProfile() {
+    func testUnknownPersonIDFallsBackToMusk() {
         let settings = makeSettings()
-        settings.selectedPersonID = TrackedPersonProfile.zuckerberg.id
-        let syncedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        settings.selectedPersonID = "zuckerberg"
 
-        let complete = settings.applyHoldingsSync(
-            HoldingsSyncResult(
-                sharesBySymbol: ["META": 342_606_898],
-                syncedAt: syncedAt,
-                sourceDescription: "SEC EDGAR Form 4 (CIK 0001264128)"
-            )
-        )
-
-        XCTAssertTrue(complete)
-        XCTAssertEqual(settings.shareCount(for: "META"), 342_606_898)
-        XCTAssertEqual(settings.lastHoldingsSyncDate, syncedAt)
-    }
-
-    func testPartialTSLAResultDoesNotCompleteForZuckerbergProfile() {
-        let settings = makeSettings()
-        settings.selectedPersonID = TrackedPersonProfile.zuckerberg.id
-        let syncedAt = Date(timeIntervalSince1970: 1_700_000_000)
-
-        let complete = settings.applyHoldingsSync(
-            HoldingsSyncResult(
-                sharesBySymbol: ["TSLA": 123],
-                syncedAt: syncedAt,
-                sourceDescription: "SEC EDGAR Form 4"
-            )
-        )
-
-        XCTAssertFalse(complete)
-        XCTAssertNil(settings.lastHoldingsSyncDate)
-    }
-
-    func testZuckerbergProfileExpectsOnlyMETAForSyncComplete() {
-        let profile = TrackedPersonProfile.zuckerberg
-        XCTAssertEqual(profile.expectedSymbols, Set(["META"]))
-    }
-    func testLastHoldingsSyncIsPerProfile() {
-        let settings = makeSettings()
-        let muskSync = Date(timeIntervalSince1970: 1_700_000_000)
-        let zuckSync = Date(timeIntervalSince1970: 1_800_000_000)
-
-        settings.selectedPersonID = TrackedPersonProfile.musk.id
-        _ = settings.applyHoldingsSync(
-            HoldingsSyncResult(
-                sharesBySymbol: ["TSLA": 1, "SPCX": 2],
-                syncedAt: muskSync,
-                sourceDescription: "Musk SEC"
-            )
-        )
-
-        settings.selectedPersonID = TrackedPersonProfile.zuckerberg.id
-        XCTAssertNil(settings.lastHoldingsSyncDate)
-        XCTAssertTrue(settings.needsHoldingsSync)
-
-        _ = settings.applyHoldingsSync(
-            HoldingsSyncResult(
-                sharesBySymbol: ["META": 342_606_898],
-                syncedAt: zuckSync,
-                sourceDescription: "Zuck SEC"
-            )
-        )
-
-        XCTAssertEqual(settings.lastHoldingsSyncDate, zuckSync)
-        XCTAssertEqual(settings.holdingsSyncSource, "Zuck SEC")
-
-        settings.selectedPersonID = TrackedPersonProfile.musk.id
-        XCTAssertEqual(settings.lastHoldingsSyncDate, muskSync)
-        XCTAssertEqual(settings.holdingsSyncSource, "Musk SEC")
+        XCTAssertEqual(settings.selectedPersonID, "zuckerberg")
+        XCTAssertEqual(settings.selectedProfile.id, TrackedPersonProfile.musk.id)
+        XCTAssertEqual(settings.selectedProfile.expectedSymbols, Set(["TSLA", "SPCX"]))
     }
 
 }
@@ -515,36 +451,6 @@ final class Form4OwnershipParserTests: XCTestCase {
         let result = parser.parse()
 
         XCTAssertEqual(result["TSLA"], 699_580_882)
-    }
-
-    func testMETAUsesDirectBeneficialOwnership() {
-        let xml = """
-        <ownershipDocument>
-            <issuer>
-                <issuerTradingSymbol>META</issuerTradingSymbol>
-            </issuer>
-            <nonDerivativeTable>
-                <nonDerivativeHolding>
-                    <postTransactionAmounts>
-                        <sharesOwnedFollowingTransaction>
-                            <value>342606898</value>
-                        </sharesOwnedFollowingTransaction>
-                    </postTransactionAmounts>
-                    <ownershipNature>
-                        <directOrIndirectOwnership>
-                            <value>D</value>
-                        </directOrIndirectOwnership>
-                    </ownershipNature>
-                </nonDerivativeHolding>
-            </nonDerivativeTable>
-        </ownershipDocument>
-        """
-
-        let parser = Form4OwnershipParser(data: Data(xml.utf8))
-        let result = parser.parse()
-
-        XCTAssertEqual(result["META"], 342_606_898)
-        XCTAssertNil(result["TSLA"])
     }
 
     func testSPCXUsesOwnershipAggregatorNotSingleRow() {

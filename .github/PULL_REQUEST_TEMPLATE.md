@@ -6,7 +6,7 @@
 
 - [ ] `./scripts/verify.sh` passes locally
 - [ ] Tests added or updated for logic changes (formatters, parsers, view models)
-- [ ] **UI changes:** disclaimer / “not financial advice” tone preserved where relevant
+- [ ] **UI changes:** no new investment-advice copy in the app (legal text stays in docs/site)
 - [ ] Docs updated if behavior, install steps, or release process changed
 
 ## Notes

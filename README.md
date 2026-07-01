@@ -54,7 +54,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk. See **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**.
 
 **Where do share counts come from?**  
-**TSLA** and **SPCX** (SpaceX’s publicly traded stock) share counts come from Musk’s SEC Form 3/4 filings. SpaceX holdings aggregate Class A/B trust lines (about **6 billion** Class A-equivalent shares) multiplied by the live **SPCX** stock price. See **[docs/SPCX.md](docs/SPCX.md)**.
+**TSLA** and **SPCX** share counts come from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
 
 **When does the number update?**  
 Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the label uses the prior close and refreshes less often.
@@ -67,8 +67,12 @@ Nothing leaves your Mac except HTTPS requests to Yahoo Finance and SEC EDGAR for
 | Doc | Description |
 |-----|-------------|
 | [INSTALL.md](docs/INSTALL.md) | Install guide |
+| [HOLDINGS.md](docs/HOLDINGS.md) | Share counts, quotes, and paper-gain math |
 | [DISCLAIMER.md](docs/DISCLAIMER.md) | Entertainment-only disclaimer |
 | [PRIVACY.md](docs/PRIVACY.md) | Data & privacy |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | App structure and data flow |
+| [DEVELOPING.md](docs/DEVELOPING.md) | Build, test, and verify locally |
+| [RELEASE.md](docs/RELEASE.md) | Maintainer release process |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [SECURITY.md](SECURITY.md) | Security policy |
@@ -83,4 +87,4 @@ MIT — see [LICENSE](LICENSE). Copyright [Jordan Golson](https://jordangolson.c
 
 ## Disclaimer
 
-**SPCX** is SpaceX’s publicly traded stock. Share counts come from SEC Form 4 filings. Figures are illustrative — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk. **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)** · **[docs/SPCX.md](docs/SPCX.md)**
+Share counts come from SEC Form 4 filings. Figures are illustrative — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk. **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)** · **[docs/HOLDINGS.md](docs/HOLDINGS.md)**

@@ -21,7 +21,7 @@ body:
     id: muskometer_version
     attributes:
       label: Muskometer version
-      description: From **Muskometer → Settings** or the release tag you installed
+      description: From the menu bar popover → Settings, **⌘,**, or the release tag you installed
       placeholder: 0.1.0
     validations:
       required: true

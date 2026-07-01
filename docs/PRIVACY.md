@@ -21,7 +21,7 @@ The app makes **outbound HTTPS** requests only:
 | Destination | Purpose |
 |-------------|---------|
 | Yahoo Finance (`query1.finance.yahoo.com`) | Live TSLA and SPCX quotes |
-| SEC EDGAR | Public Form 4 filings for reported holdings |
+| SEC EDGAR (`data.sec.gov`, `www.sec.gov`) | Public Form 4 filings for reported holdings |
 
 These services receive standard request metadata (IP address, TLS handshake, etc.) as any HTTPS client would. Muskometer does **not** send your name, email, Apple ID, or other personal identifiers.
 

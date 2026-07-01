@@ -8,16 +8,16 @@ Muskometer is an **entertainment** menu bar utility. It is **not** financial adv
 - Figures are **illustrative** — they reflect reported holdings and live market prices, not realized wealth or cash flows.
 - Quotes may be delayed, stale, or wrong. SEC filings may lag actual ownership.
 
-## TSLA and SpaceX (SPCX)
+## TSLA and SPCX
 
-- **TSLA** — Tesla, Inc. common stock; share counts from Musk’s SEC Form 3/4 filings.
-- **SPCX** — SpaceX’s **publicly traded stock**. Share counts come from Musk’s SEC Form 3/4 filings; prices from Yahoo Finance.
+- **TSLA** — share counts from Musk's SEC Form 4 filings; prices from Yahoo Finance.
+- **SPCX** — share counts from Musk's SEC Form 4 filings; prices from Yahoo Finance.
 
-See [SPCX.md](SPCX.md) for how holdings and quotes combine.
+See [HOLDINGS.md](HOLDINGS.md) for how holdings and quotes combine.
 
 ## Holdings data
 
-Share counts come from **public SEC Form 3/4 filings** attributed to Elon Musk. You can override counts in Settings; defaults follow the latest SEC sync.
+Share counts come from **public SEC Form 4 filings** attributed to Elon Musk. You can override counts in Settings; defaults follow the latest SEC sync.
 
 ## No affiliation
 

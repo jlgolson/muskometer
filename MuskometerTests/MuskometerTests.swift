@@ -579,7 +579,7 @@ final class GainSummaryFormatterTests: XCTestCase {
         XCTAssertEqual(GainSummaryFormatter.todaysGainLossLabel(for: 0), "Today's Gain/Loss")
     }
 
-    func testFormatAppendsClipboardDisclaimer() {
+    func testFormatOmitsLegalDisclaimer() {
         let tsla = HoldingGain(
             id: "tsla",
             symbol: "TSLA",

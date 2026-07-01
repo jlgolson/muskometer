@@ -21,7 +21,7 @@ First public release of Muskometer for macOS. Unsigned `.dmg` on GitHub Releases
 - **Yahoo Finance integration** — live quotes for TSLA and SPCX
 - **Market hours awareness** — 9:30 AM–4:00 PM ET with weekend/holiday handling
 - **Settings** — refresh interval, menu bar display mode, trend icon, manual SEC sync
-- **Keyboard shortcuts** — ⌘R refresh, ⌘, settings
+- **Keyboard shortcuts** — ⌘R refresh, ⌘, settings, Esc closes standalone Settings
 
 ### Notes
 

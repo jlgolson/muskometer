@@ -1,6 +1,6 @@
 import Foundation
 
-/// Aggregates Elon Musk's SpaceX (SPCX) beneficial ownership from SEC Form 3/4 XML.
+/// Aggregates Elon Musk's SpaceX (SPCX) beneficial ownership from SEC Form 4 ownership XML.
 ///
 /// SpaceX filings split holdings across Class A, Class B, preferred series,
 /// and trusts. We sum the latest per-trust rows, convert

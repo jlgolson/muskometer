@@ -16,8 +16,8 @@ echo "PASS: typecheck"
 
 echo ""
 echo "=== 2. Unit tests (xcodebuild test) ==="
-TEST_DERIVED="$ROOT/build/verify-derived"
-rm -rf "$TEST_DERIVED"
+TEST_DERIVED="$ROOT/build/verify-derived-$$"
+mkdir -p "$ROOT/build"
 xcodebuild test \
   -scheme Muskometer \
   -configuration Debug \
@@ -36,7 +36,7 @@ echo "PASS: release build"
 
 echo ""
 echo "=== 4. Entitlements on built app ==="
-APP=$(find "$ROOT/build/verify-derived/Build/Products/Debug" -name "Muskometer.app" 2>/dev/null | head -1)
+APP=$(find "$TEST_DERIVED/Build/Products/Debug" -name "Muskometer.app" 2>/dev/null | head -1)
 if [[ -z "$APP" ]]; then
   APP=$(find ~/Library/Developer/Xcode/DerivedData/Muskometer-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
 fi
@@ -54,6 +54,7 @@ echo "=== 5. Live Yahoo API + paper gain math ==="
 python3 <<'PY'
 import json, urllib.request, sys
 
+# TSLA uses bundled default (pre-SEC-sync); SPCX uses app default aggregate.
 SHARES = {"TSLA": 699_580_882, "SPCX": 6_068_734_060}
 total = 0.0
 for sym, shares in SHARES.items():

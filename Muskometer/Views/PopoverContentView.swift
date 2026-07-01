@@ -249,7 +249,7 @@ struct PopoverContentView: View {
                 Spacer(minLength: 0)
             }
 
-            Text("Paper gains for entertainment. SPCX is a Yahoo proxy, not SpaceX stock. Not financial advice.")
+            Text("Illustrative paper gains. SPCX = Yahoo price mark; SpaceX share counts from SEC. Not financial advice.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)

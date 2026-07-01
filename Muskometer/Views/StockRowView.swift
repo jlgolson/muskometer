@@ -12,7 +12,7 @@ struct StockRowView: View {
                         .font(.system(.headline, design: .rounded, weight: .semibold))
 
                     if holding.symbol == "SPCX" {
-                        Text("SpaceX proxy")
+                        Text("SEC holdings · SPCX quote")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

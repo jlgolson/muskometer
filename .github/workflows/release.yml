@@ -3,9 +3,8 @@
 # No Apple Developer Program secrets required. Recipients must right-click → Open
 # on first launch (Gatekeeper). See docs/INSTALL.md.
 #
-# For signed + notarized releases (no Gatekeeper prompt), maintainers with a
-# Developer ID Application certificate can use scripts/release.sh locally or
-# wire that script into CI with Apple secrets — see docs/RELEASE.md.
+# For signed + notarized releases, maintainers with a Developer ID certificate
+# can use scripts/release.sh locally — see docs/RELEASE.md.
 
 name: Release
 
@@ -29,10 +28,28 @@ jobs:
       - name: Package DMG and zip
         run: ./scripts/package-dmg.sh
 
+      - name: Write release notes with checksums
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          {
+            echo "Muskometer ${VERSION} — unsigned macOS menu bar app."
+            echo ""
+            echo "First launch: right-click **Muskometer** → **Open** → **Open**."
+            echo ""
+            sed -n '/^## \[/,$p' CHANGELOG.md | head -40
+            echo ""
+            echo "**Checksums (SHA-256)**"
+            echo '```'
+            shasum -a 256 dist/Muskometer-"${VERSION}".dmg dist/Muskometer-"${VERSION}".zip
+            echo '```'
+          } > /tmp/release-notes.md
+          cat /tmp/release-notes.md
+
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             dist/Muskometer-*.dmg
             dist/Muskometer-*.zip
-          generate_release_notes: true
+          body_path: /tmp/release-notes.md
+          generate_release_notes: false

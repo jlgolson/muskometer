@@ -10,15 +10,17 @@ Muskometer is an **entertainment** menu bar utility. It is **not** financial adv
 
 ## SPCX and SpaceX
 
-**SPCX** is a public ticker on Yahoo Finance used as a **proxy** for SpaceX exposure. It is **not** SpaceX stock. SpaceX is private; any price or gain shown for SPCX is a market-data convenience, not an official SpaceX valuation.
+- **Share counts** for SpaceX exposure come from Musk’s **SEC Form 3/4** filings (trust aggregation documented in the codebase).
+- **Prices** use the **SPCX** ticker on **Yahoo Finance** — the market mark Muskometer uses for paper-gain math.
+- SPCX is a **Yahoo Finance data source**, not an official cap-table valuation. See [SPCX.md](SPCX.md) for detail.
 
 ## Holdings data
 
-Share counts for TSLA and SPCX come from **public SEC Form 3/4 filings** attributed to Elon Musk. The app aggregates trust lines and remarks as documented in the codebase. You can override counts in Settings, but defaults follow the latest sync.
+Share counts for TSLA and SPCX come from **public SEC Form 3/4 filings** attributed to Elon Musk. You can override counts in Settings; defaults follow the latest SEC sync.
 
 ## No affiliation
 
-Muskometer is an independent open-source project by [Jordan Golson](https://jordangolson.com). It is **not** affiliated with, endorsed by, or connected to Tesla, SpaceX, Elon Musk, or Yahoo Finance.
+Muskometer is an independent project by [Jordan Golson](https://jordangolson.com). It is **not** affiliated with, endorsed by, or connected to Tesla, SpaceX, Elon Musk, or Yahoo Finance.
 
 ## Use at your own discretion
 

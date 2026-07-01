@@ -18,7 +18,7 @@ First public release of Muskometer for macOS. Unsigned `.dmg` on GitHub Releases
 - **Copy summary** — one-click clipboard text for sharing
 - **Launch at login** — optional background startup via menu bar utility pattern
 - **SEC holdings sync** — TSLA and SPCX share counts from Form 4 filings (~6B Class A-equivalent SPCX aggregation)
-- **Yahoo Finance integration** — live quotes for TSLA and SPCX proxy ticker
+- **Yahoo Finance integration** — live quotes for TSLA and SPCX (SpaceX price mark)
 - **Market hours awareness** — 9:30 AM–4:00 PM ET with weekend/holiday handling
 - **Settings** — refresh interval, menu bar display mode, trend icon, manual SEC sync
 - **Keyboard shortcuts** — ⌘R refresh, ⌘, settings

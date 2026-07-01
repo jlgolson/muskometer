@@ -109,7 +109,7 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Paper gains for entertainment only. SPCX is a Yahoo proxy, not SpaceX stock.")
+            Text("Illustrative paper gains only. SPCX prices from Yahoo Finance; SpaceX counts from SEC filings.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

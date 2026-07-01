@@ -161,22 +161,25 @@ Commit the version bump before tagging.
 
 ---
 
-## CI releases (optional / future)
+## CI releases (unsigned, automatic)
 
-A [GitHub Actions workflow](../.github/workflows/release.yml) can build signed, notarized artifacts on tag push when repository secrets are configured. **It is not used for v0.1.0.** Manual `./scripts/package-dmg.sh` is the supported public release path until you import a Developer ID certificate and notary API key into GitHub Secrets.
+Pushing a `v*` tag runs [`.github/workflows/release.yml`](../.github/workflows/release.yml):
 
-Required secrets for automated signed releases:
+1. `./scripts/verify.sh`
+2. `./scripts/package-dmg.sh`
+3. Upload `dist/Muskometer-*.dmg` and `.zip` to the GitHub Release
 
-| Secret | Purpose |
-|--------|---------|
-| `APPLE_TEAM_ID` | Team ID |
-| `APPLE_CERTIFICATE_BASE64` | Base64-encoded `.p12` (Developer ID cert + private key) |
-| `APPLE_CERTIFICATE_PASSWORD` | `.p12` export password |
-| `APPLE_API_KEY_ID` | Notarization API key |
-| `APPLE_API_KEY_ISSUER_ID` | Notarization issuer |
-| `APPLE_API_KEY_BASE64` | Base64-encoded `AuthKey_*.p8` |
+**Do not** manually upload artifacts for the same tag afterward — CI assets are canonical and include SHA-256 checksums in the release notes.
 
-See the workflow file comments for import steps.
+For local testing before tagging:
+
+```bash
+./scripts/package-dmg.sh
+```
+
+### Optional: signed + notarized CI
+
+To automate `scripts/release.sh` instead, configure Apple secrets in the repo and replace the workflow steps. See workflow comments and the signed path above. Not required for v0.1.0.
 
 ## Troubleshooting
 

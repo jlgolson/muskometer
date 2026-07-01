@@ -2,8 +2,8 @@ import Foundation
 
 /// Aggregates Elon Musk's SPCX beneficial ownership from SEC Form 3/4 XML.
 ///
-/// SpaceX filings split holdings across Class A, Class B, preferred (pre-IPO),
-/// and trusts. SPCX tracks Class A. We sum the latest per-trust rows, convert
+/// SpaceX filings split holdings across Class A, Class B, preferred series,
+/// and trusts. We sum the latest per-trust rows, convert
 /// preferred per filing footnotes, and add restricted Class B cited in remarks.
 enum SPCXOwnershipCalculator {
     static func totalPublicShares(from xml: String) -> Int64? {

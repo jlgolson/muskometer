@@ -54,7 +54,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk. See **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**.
 
 **Where do share counts come from?**  
-TSLA and SPCX (SpaceX) holdings come from Elon Musk’s SEC Form 3/4 filings. For SpaceX, the app totals Class A and Class B across trusts (plus restricted shares noted in the filing remarks) — about **6 billion** Class A-equivalent shares — then multiplies by the live SPCX price for paper-gain math.
+**TSLA** share counts come from Musk’s SEC Form 3/4 filings. **SpaceX exposure** uses SEC-reported holdings (Class A/B trust aggregation, about **6 billion** Class A-equivalent shares) multiplied by the **SPCX** ticker on Yahoo Finance for price quotes. See **[docs/SPCX.md](docs/SPCX.md)**.
 
 **When does the number update?**  
 Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the label uses the prior close and refreshes less often.
@@ -83,4 +83,4 @@ MIT — see [LICENSE](LICENSE). Copyright [Jordan Golson](https://jordangolson.c
 
 ## Disclaimer
 
-SPCX is SpaceX’s public ticker on Yahoo Finance. Share counts come from SEC Form 4 filings. Figures are illustrative entertainment — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk. Full text: **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**.
+**SPCX** is the Yahoo Finance ticker Muskometer uses for SpaceX price quotes; share counts come from SEC Form 4 filings. Figures are illustrative — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk. **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)** · **[docs/SPCX.md](docs/SPCX.md)**

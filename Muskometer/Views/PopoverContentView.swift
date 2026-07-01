@@ -4,7 +4,7 @@ import AppKit
 struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
-    @State private var didCopySummary = false
+    @State private var didShareImage = false
     @State private var settingsContentHeight: CGFloat = 760
 
     var body: some View {
@@ -183,12 +183,15 @@ struct PopoverContentView: View {
 
                 Spacer()
 
-                Button(didCopySummary ? "Copied!" : "Copy") {
-                    copySummary(snapshot)
+                Button {
+                    shareImage(snapshot)
+                } label: {
+                    Label(didShareImage ? "Copied!" : "Share", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(didCopySummary)
+                .disabled(didShareImage)
+                .help("Copy a shareable image to paste in Messages")
             }
         }
         .padding(14)
@@ -267,15 +270,18 @@ struct PopoverContentView: View {
         Task { await viewModel.refresh(force: true) }
     }
 
-    private func copySummary(_ snapshot: GainsSnapshot) {
-        let text = GainSummaryFormatter.format(snapshot)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        didCopySummary = true
+    private func shareImage(_ snapshot: GainsSnapshot) {
+        let copied = ShareImageExporter.copyToPasteboard(
+            snapshot: snapshot,
+            profile: viewModel.settings.selectedProfile
+        )
+        guard copied else { return }
+
+        didShareImage = true
 
         Task {
             try? await Task.sleep(for: .seconds(1.5))
-            didCopySummary = false
+            didShareImage = false
         }
     }
 

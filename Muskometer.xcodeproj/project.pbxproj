@@ -39,6 +39,8 @@
 		A10000000000000000000021 /* SettingsContentHeightKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* SettingsContentHeightKey.swift */; };
 		A10000000000000000000022 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* AboutView.swift */; };
 		A10000000000000000000023 /* TrackedPersonProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* TrackedPersonProfile.swift */; };
+		A10000000000000000000024 /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* ShareCardView.swift */; };
+		A10000000000000000000025 /* ShareImageExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* ShareImageExporter.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -78,6 +80,8 @@
 		A20000000000000000000021 /* SettingsContentHeightKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsContentHeightKey.swift; sourceTree = "<group>"; };
 		A20000000000000000000022 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* TrackedPersonProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedPersonProfile.swift; sourceTree = "<group>"; };
+		A20000000000000000000024 /* ShareCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardView.swift; sourceTree = "<group>"; };
+		A20000000000000000000025 /* ShareImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImageExporter.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -210,6 +214,7 @@
 				A2000000000000000000000C /* MenuBarLabelView.swift */,
 				A20000000000000000000021 /* SettingsContentHeightKey.swift */,
 				A20000000000000000000022 /* AboutView.swift */,
+				A20000000000000000000024 /* ShareCardView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -226,6 +231,7 @@
 				A2000000000000000000001E /* SPCXOwnershipCalculator.swift */,
 				A2000000000000000000001A /* String+Truncation.swift */,
 				A20000000000000000000020 /* AppVersion.swift */,
+				A20000000000000000000025 /* ShareImageExporter.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -359,6 +365,8 @@
 				A10000000000000000000021 /* SettingsContentHeightKey.swift in Sources */,
 				A10000000000000000000022 /* AboutView.swift in Sources */,
 				A10000000000000000000023 /* TrackedPersonProfile.swift in Sources */,
+				A10000000000000000000024 /* ShareCardView.swift in Sources */,
+				A10000000000000000000025 /* ShareImageExporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

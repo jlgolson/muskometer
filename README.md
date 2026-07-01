@@ -36,7 +36,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 - **Trend icon toggle** — optional chart icon beside the label; hide it for text only
 - **Popover** — **Elon's Ownership** total, per-stock price, **Today's Gain/Loss** labels, combined total, market status
 - **Auto-refresh** — every 60–120 seconds while the US market is open
-- **Copy summary** — one-click clipboard for sharing on X
+- **Share** — copy a branded image card to paste in Messages or anywhere
 - **Launch at login** — always-on menu bar utility
 - **SEC holdings sync** — TSLA/SPCX share counts from Form 4 filings
 

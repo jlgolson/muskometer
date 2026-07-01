@@ -580,6 +580,32 @@ final class GainsSnapshotTests: XCTestCase {
     }
 }
 
+@MainActor
+final class ShareImageExporterTests: XCTestCase {
+    func testRendersNonEmptyPNG() {
+        let tsla = HoldingGain(
+            id: "tsla",
+            symbol: "TSLA",
+            displayName: "Tesla",
+            shareCount: 699_580_882,
+            quote: StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 342, previousClose: 338, currency: "USD")
+        )
+        let spcx = HoldingGain(
+            id: "spcx",
+            symbol: "SPCX",
+            displayName: "SpaceX",
+            shareCount: 6_068_734_060,
+            quote: StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 28.5, previousClose: 28.4, currency: "USD")
+        )
+        let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
+
+        let png = ShareImageExporter.renderPNGData(snapshot: snapshot, profile: .musk)
+
+        XCTAssertNotNil(png)
+        XCTAssertGreaterThan(png?.count ?? 0, 1_000)
+    }
+}
+
 final class GainSummaryFormatterTests: XCTestCase {
     func testTodaysGainLossLabel() {
         XCTAssertEqual(GainSummaryFormatter.todaysGainLossLabel(for: 1), "Today's Gain")

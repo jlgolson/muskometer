@@ -64,8 +64,8 @@ Preferences are stored in `~/Library/Preferences/` under the app bundle ID (`org
 | SEC sync message | Holdings update daily from Form 4 — partial syncs retry automatically |
 | Wrong number after hours | Expected — outside 9:30 AM–4:00 PM ET the label reflects prior close |
 
-Questions or bugs? [Open an issue on GitHub](https://github.com/jlgolson/muskometer/issues).
+Questions or bugs? [Open an issue on GitHub](https://github.com/jlgolson/muskometer/issues) or email [info@muskometer.org](mailto:info@muskometer.org).
 
 ---
 
-© [Jordan Golson](https://jordangolson.com) · MIT License
+© [Jordan Golson](https://jordangolson.com) · [info@muskometer.org](mailto:info@muskometer.org) · MIT License

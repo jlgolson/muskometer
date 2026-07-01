@@ -94,7 +94,7 @@ struct SettingsView: View {
             HStack(spacing: 12) {
                 Link("muskometer.org", destination: AppURLs.website)
                 Link("GitHub", destination: AppURLs.github)
-                Link("jordangolson.com", destination: AppURLs.author)
+                Link("info@muskometer.org", destination: AppURLs.contact)
             }
             .font(.caption)
         }

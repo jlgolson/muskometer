@@ -136,4 +136,4 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md). Short version: fork, branch, run `scr
 
 ---
 
-© [Jordan Golson](https://jordangolson.com)
+© [Jordan Golson](https://jordangolson.com) · [info@muskometer.org](mailto:info@muskometer.org)

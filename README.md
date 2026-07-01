@@ -89,6 +89,10 @@ The landing page lives in [`docs/`](docs/) and is published via **GitHub Pages**
 2. **Custom domain:** `muskometer.org` (the `docs/CNAME` file is already set)
 3. At your registrar, point `muskometer.org` to GitHub Pages ([GitHub's DNS guide](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site))
 
+## Contact
+
+[info@muskometer.org](mailto:info@muskometer.org)
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Copyright [Jordan Golson](https://jordangolson.com) / [@jlgolson](https://github.com/jlgolson).

@@ -101,4 +101,4 @@ Force refresh (`⌘R`) bypasses the in-flight guard and increments a generation 
 
 ---
 
-© [Jordan Golson](https://jordangolson.com)
+© [Jordan Golson](https://jordangolson.com) · [info@muskometer.org](mailto:info@muskometer.org)

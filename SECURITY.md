@@ -29,7 +29,7 @@ If you find a security issue, please **do not** open a public issue with exploit
 Instead:
 
 1. Open a [GitHub Security Advisory](https://github.com/jlgolson/muskometer/security/advisories/new), or
-2. Email the maintainer via the contact on [jordangolson.com](https://jordangolson.com)
+2. Email [info@muskometer.org](mailto:info@muskometer.org)
 
 We'll acknowledge receipt and work on a fix. This is a solo side project — please allow reasonable time for response.
 
@@ -41,4 +41,4 @@ We'll acknowledge receipt and work on a fix. This is a solo side project — ple
 
 ---
 
-© [Jordan Golson](https://jordangolson.com)
+© [Jordan Golson](https://jordangolson.com) · [info@muskometer.org](mailto:info@muskometer.org)

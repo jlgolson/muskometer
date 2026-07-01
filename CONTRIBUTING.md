@@ -32,7 +32,7 @@ Muskometer is a personal fun project — but PRs and ideas are welcome!
 
 ## Questions?
 
-Open a [GitHub issue](https://github.com/jlgolson/muskometer/issues) — no formal CLA, just the MIT license.
+Open a [GitHub issue](https://github.com/jlgolson/muskometer/issues) or email [info@muskometer.org](mailto:info@muskometer.org) — no formal CLA, just the MIT license.
 
 Thanks for helping make the billion-dollar menu bar slightly more accurate. 🚀
 

@@ -1,22 +1,24 @@
 # Installing Muskometer
 
-A quick guide for running Muskometer on your Mac — no Xcode required.
+## Install now
 
-## Requirements
+There is no pre-built download yet. Build and run locally with Xcode:
 
-- **macOS 14.0 (Sonoma)** or later
-- Internet access (Yahoo Finance + SEC EDGAR)
+1. Clone the repo: `git clone https://github.com/jlgolson/muskometer.git`
+2. Open `Muskometer.xcodeproj` in Xcode 15+
+3. Scheme **Muskometer**, destination **My Mac**, press **⌘R**
 
-## Download
+The app appears in your menu bar (no Dock icon).
 
-1. Go to **[GitHub Releases → Latest](https://github.com/jlgolson/muskometer/releases/latest)**.
-2. Download **`Muskometer-<version>.dmg`**.
+**Requirements:** macOS 14.0 (Sonoma) or later, internet access (Yahoo Finance + SEC EDGAR).
 
-## Install
+## Install from a release (when available)
 
-1. Open the DMG.
-2. Drag **Muskometer** into your **Applications** folder.
-3. Eject the disk image.
+A signed `.dmg` will be published on [GitHub Releases](https://github.com/jlgolson/muskometer/releases). When it’s there:
+
+1. Download **`Muskometer-<version>.dmg`**
+2. Open the DMG and drag **Muskometer** into **Applications**
+3. Eject the disk image
 
 ## First launch (Gatekeeper)
 

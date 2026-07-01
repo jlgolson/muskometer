@@ -8,15 +8,6 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 
 ## Install
 
-### Download latest release
-
-1. **[GitHub Releases → Latest](https://github.com/jlgolson/muskometer/releases/latest)** — download `Muskometer-0.1.0.dmg`
-2. Open the DMG, drag **Muskometer** to **Applications**, launch from Applications or Spotlight
-
-Step-by-step help (Gatekeeper, menu bar, launch at login): **[docs/INSTALL.md](docs/INSTALL.md)**
-
-### Build from source *(advanced)*
-
 Requires macOS 14.0+ and Xcode 15+.
 
 ```bash
@@ -25,7 +16,11 @@ cd muskometer
 open Muskometer.xcodeproj
 ```
 
-Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
+Select the **Muskometer** scheme, **My Mac**, press **⌘R**. The app appears in your menu bar.
+
+Step-by-step help: **[docs/INSTALL.md](docs/INSTALL.md)**
+
+A signed `.dmg` for drag-to-Applications install will be posted on [GitHub Releases](https://github.com/jlgolson/muskometer/releases) when it’s ready.
 
 ## Features
 

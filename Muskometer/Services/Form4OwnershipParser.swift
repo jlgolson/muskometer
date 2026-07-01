@@ -18,7 +18,7 @@ struct Form4OwnershipParser {
         case "TSLA":
             return (shares, nil)
         case "SPCX":
-            return (nil, shares)
+            return (nil, SPCXHoldings.publicShares(fromSECReported: shares))
         default:
             return (nil, nil)
         }

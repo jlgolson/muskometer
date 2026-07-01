@@ -45,6 +45,10 @@ The landing page lives in [`docs/`](docs/) and is published via **GitHub Pages**
 2. **Custom domain:** `muskometer.org` (the `docs/CNAME` file is already set)
 3. At your registrar, point `muskometer.org` to GitHub Pages ([GitHub's DNS guide](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site))
 
+## License
+
+MIT — see [LICENSE](LICENSE). It's a weekend menu bar toy; use it however you like.
+
 ## Disclaimer
 
-SPCX is a proxy ticker for SpaceX exposure, not SpaceX stock itself. Figures are illustrative paper gains for entertainment — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.
+SPCX tracks Space Exploration Technologies Corp. via Yahoo Finance. SEC Form 4 share counts are scaled ÷100 for public-ticker paper-gain math. Figures are illustrative entertainment — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.

@@ -260,7 +260,21 @@ final class AppSettingsTests: XCTestCase {
         let settings = AppSettings(defaults: defaults)
 
         XCTAssertEqual(settings.tslaShareCount, 699_580_882)
-        XCTAssertEqual(settings.spcxShareCount, 6_068_547_515)
+        XCTAssertEqual(settings.spcxShareCount, 60_685_475)
+    }
+}
+
+final class SPCXHoldingsTests: XCTestCase {
+    func testScalesSECReportedSharesBy100() {
+        XCTAssertEqual(SPCXHoldings.publicShares(fromSECReported: 6_068_547_515), 60_685_475)
+    }
+
+    func testMigratesLegacyStoredDefault() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 60_685_475)
+    }
+
+    func testLeavesAlreadyScaledSharesUntouched() {
+        XCTAssertEqual(SPCXHoldings.publicShares(fromSECReported: 60_685_475), 60_685_475)
     }
 }
 
@@ -387,7 +401,7 @@ final class Form4OwnershipParserTests: XCTestCase {
         let result = parser.parse()
 
         XCTAssertNil(result.tslaShares)
-        XCTAssertEqual(result.spcxShares, 6_068_547_515)
+        XCTAssertEqual(result.spcxShares, 60_685_475)
     }
 }
 

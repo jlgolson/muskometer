@@ -48,7 +48,7 @@ echo "=== 5. Live Yahoo API + paper gain math ==="
 python3 <<'PY'
 import json, urllib.request, sys
 
-SHARES = {"TSLA": 699_580_882, "SPCX": 6_068_547_515}
+SHARES = {"TSLA": 699_580_882, "SPCX": 60_685_475}
 total = 0.0
 for sym, shares in SHARES.items():
     req = urllib.request.Request(

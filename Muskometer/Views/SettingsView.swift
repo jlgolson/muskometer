@@ -109,13 +109,6 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Illustrative paper gains only. Share counts from SEC filings.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Link("Full disclaimer", destination: AppURLs.disclaimer)
-                .font(.caption)
-
             HStack(spacing: 12) {
                 Link("muskometer.org", destination: AppURLs.website)
                 Link("GitHub", destination: AppURLs.github)

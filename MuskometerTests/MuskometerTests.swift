@@ -591,9 +591,8 @@ final class GainSummaryFormatterTests: XCTestCase {
 
         let formatted = GainSummaryFormatter.format(snapshot)
 
-        XCTAssertTrue(formatted.contains("Illustrative."))
-        XCTAssertTrue(formatted.contains("Not financial advice."))
-        XCTAssertTrue(formatted.contains("Holdings from SEC"))
+        XCTAssertFalse(formatted.contains("financial advice"))
+        XCTAssertFalse(formatted.contains("Illustrative"))
         XCTAssertTrue(formatted.contains("Muskometer —"))
     }
 }

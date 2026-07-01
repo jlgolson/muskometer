@@ -17,14 +17,7 @@ struct AboutView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Illustrative paper gains for entertainment. Share counts from SEC filings. Not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-
             HStack(spacing: 12) {
-                Link("Disclaimer", destination: AppURLs.disclaimer)
                 Link("muskometer.org", destination: AppURLs.website)
                 Link("info@muskometer.org", destination: AppURLs.contact)
             }

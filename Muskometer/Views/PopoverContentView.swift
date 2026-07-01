@@ -249,11 +249,6 @@ struct PopoverContentView: View {
                 Spacer(minLength: 0)
             }
 
-            Text("Illustrative paper gains. Share counts from SEC. Not financial advice.")
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
-
             Text("Quotes: Yahoo Finance · Holdings: SEC EDGAR")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)

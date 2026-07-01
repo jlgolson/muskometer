@@ -4,12 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Muskometer — What's Elon up to today?</title>
-  <meta name="description" content="A tiny macOS menu bar app that tracks Elon Musk's daily paper gains on TSLA and SpaceX. Not financial advice — just absurd numbers for fun.">
+  <meta name="description" content="A tiny macOS menu bar app that tracks Elon Musk's daily paper gains on TSLA and SPCX — a Yahoo Finance proxy for SpaceX, not actual SpaceX stock. Entertainment only, not financial advice.">
   <meta property="og:title" content="Muskometer">
-  <meta property="og:description" content="What's Elon up to today? Live paper gains in your menu bar.">
+  <meta property="og:description" content="What's Elon up to today? Live paper gains on TSLA and SPCX in your menu bar. Entertainment only.">
   <meta property="og:url" content="https://muskometer.org">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary_large_image">
+  <meta property="og:image" content="https://muskometer.org/favicon.png">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:image" content="https://muskometer.org/favicon.png">
   <link rel="icon" href="favicon.png" type="image/png">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -19,10 +21,10 @@
       <div class="badge">macOS menu bar · open source</div>
       <h1>Muskometer</h1>
       <p class="tagline">What's Elon up to today?</p>
-      <p class="lede">Live <strong>paper gains</strong> on TSLA &amp; SpaceX — right in your menu bar. Green days, red days, billion-dollar swings. Entertainment only.</p>
+      <p class="lede">Live <strong>paper gains</strong> on TSLA and <strong>SPCX</strong> — a Yahoo Finance <em>proxy</em> for SpaceX price movement, not actual SpaceX equity — right in your menu bar. Green days, red days, billion-dollar swings. Entertainment only.</p>
       <div class="cta-row">
         <a class="btn primary" href="https://github.com/jlgolson/muskometer/releases" rel="noopener">Download for macOS</a>
-        <a class="btn ghost" href="https://github.com/jlgolson/muskometer" rel="noopener">View on GitHub</a>
+        <a class="btn ghost" href="https://github.com/jlgolson/muskometer" rel="noopener">Star on GitHub</a>
       </div>
       <p class="cta-note">First launch: right-click the app → <strong>Open</strong> · <a href="https://github.com/jlgolson/muskometer/blob/main/docs/INSTALL.md">Install guide</a></p>
     </header>
@@ -47,7 +49,7 @@
       </article>
       <article>
         <h3>TSLA + SPCX</h3>
-        <p>Tesla shares and SpaceX proxy exposure, with SEC-synced holdings and live Yahoo Finance quotes.</p>
+        <p>Tesla shares and SPCX proxy exposure, with SEC-synced holdings and Yahoo Finance quotes.</p>
       </article>
       <article>
         <h3>Paper, not payday</h3>
@@ -55,9 +57,26 @@
       </article>
     </section>
 
+    <section class="disclaimer" id="disclaimer">
+      <h2>Disclaimer</h2>
+      <p>Muskometer is a fan project for entertainment. It is <strong>not financial advice</strong> and <strong>not affiliated</strong> with Tesla, SpaceX, or Elon Musk.</p>
+      <ul>
+        <li><strong>SPCX</strong> is a Yahoo Finance proxy ticker — not real SpaceX stock. SpaceX is private; its shares are not publicly traded.</li>
+        <li><strong>Share counts</strong> come from SEC Form 3/4 filings and may be delayed, incomplete, or inaccurate.</li>
+        <li><strong>Quotes</strong> use unofficial Yahoo Finance data. This is not a real-time trading tool.</li>
+      </ul>
+      <p class="disclaimer-links">
+        <a href="https://github.com/jlgolson/muskometer/blob/main/docs/DISCLAIMER.md">Full disclaimer</a>
+        ·
+        <a href="https://github.com/jlgolson/muskometer/blob/main/docs/PRIVACY.md">Privacy policy</a>
+        ·
+        <a href="mailto:info@muskometer.org">info@muskometer.org</a>
+      </p>
+    </section>
+
     <footer>
-      <p><strong>Disclaimer:</strong> SPCX is a proxy ticker, not SpaceX stock. Muskometer is a fan project — not affiliated with Tesla, SpaceX, or Elon Musk.</p>
-      <p>© 2026 <a href="https://jordangolson.com">Jordan Golson</a> · <a href="mailto:info@muskometer.org">info@muskometer.org</a> · <a href="https://muskometer.org">muskometer.org</a> · <a href="https://github.com/jlgolson/muskometer">GitHub</a> · <a href="https://github.com/jlgolson/muskometer/blob/main/docs/INSTALL.md">Install guide</a></p>
+      <p>© 2026 <a href="https://jordangolson.com">Jordan Golson</a> · <a href="https://muskometer.org">muskometer.org</a> · <a href="https://github.com/jlgolson/muskometer">GitHub</a> · <a href="https://github.com/jlgolson/muskometer/blob/main/docs/INSTALL.md">Install guide</a></p>
+      <p><a href="#disclaimer">Disclaimer</a> · <a href="https://github.com/jlgolson/muskometer/blob/main/docs/PRIVACY.md">Privacy</a> · <a href="mailto:info@muskometer.org">Contact</a></p>
     </footer>
   </main>
 </body>

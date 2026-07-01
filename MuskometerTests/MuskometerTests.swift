@@ -261,6 +261,37 @@ final class AppSettingsTests: XCTestCase {
 
         XCTAssertEqual(settings.tslaShareCount, 699_580_882)
         XCTAssertEqual(settings.spcxShareCount, 6_068_734_060)
+        XCTAssertTrue(settings.showMenuBarIcon)
+    }
+
+    func testShowMenuBarIconPersists() {
+        let defaults = UserDefaults(suiteName: "MuskometerTests-menubar-icon")!
+        defaults.removePersistentDomain(forName: "MuskometerTests-menubar-icon")
+
+        let settings = AppSettings(defaults: defaults)
+        let initialEpoch = settings.menuBarLabelEpoch
+        settings.showMenuBarIcon = false
+
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertFalse(reloaded.showMenuBarIcon)
+        XCTAssertGreaterThan(settings.menuBarLabelEpoch, initialEpoch)
+    }
+
+    func testTotalWorthDisplayModePersists() {
+        let defaults = UserDefaults(suiteName: "MuskometerTests-total-worth")!
+        defaults.removePersistentDomain(forName: "MuskometerTests-total-worth")
+
+        let settings = AppSettings(defaults: defaults)
+        settings.menuBarDisplayMode = .totalWorth
+
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertEqual(reloaded.menuBarDisplayMode, .totalWorth)
+    }
+}
+
+final class MenuBarDisplayModeTests: XCTestCase {
+    func testTotalWorthLabel() {
+        XCTAssertEqual(MenuBarDisplayMode.totalWorth.label, "Total worth")
     }
 }
 
@@ -538,5 +569,29 @@ final class GainsSnapshotTests: XCTestCase {
         let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
 
         XCTAssertEqual(snapshot.combinedPaperGain, 2_000)
+    }
+}
+
+final class GainSummaryFormatterTests: XCTestCase {
+    func testTodaysGainLossLabel() {
+        XCTAssertEqual(GainSummaryFormatter.todaysGainLossLabel(for: 1), "Today's Gain")
+        XCTAssertEqual(GainSummaryFormatter.todaysGainLossLabel(for: -1), "Today's Loss")
+        XCTAssertEqual(GainSummaryFormatter.todaysGainLossLabel(for: 0), "Today's Gain/Loss")
+    }
+
+    func testFormatAppendsClipboardDisclaimer() {
+        let tsla = HoldingGain(
+            id: "tsla",
+            symbol: "TSLA",
+            displayName: "Tesla",
+            shareCount: 100,
+            quote: StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD")
+        )
+        let snapshot = GainsSnapshot(holdings: [tsla], lastUpdated: .now, marketIsOpen: true)
+
+        let formatted = GainSummaryFormatter.format(snapshot)
+
+        XCTAssertTrue(formatted.hasSuffix("(Illustrative. Not financial advice.)"))
+        XCTAssertTrue(formatted.contains("Muskometer —"))
     }
 }

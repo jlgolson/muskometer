@@ -12,6 +12,7 @@ final class AppSettings {
         static let tslaShares = "tslaShareCount"
         static let spcxShares = "spcxShareCount"
         static let menuBarDisplayMode = "menuBarDisplayMode"
+        static let showMenuBarIcon = "showMenuBarIcon"
         static let lastHoldingsSync = "lastHoldingsSyncDate"
         static let holdingsSyncSource = "holdingsSyncSource"
         static let launchAtLogin = "launchAtLogin"
@@ -35,10 +36,24 @@ final class AppSettings {
         }
     }
 
+    private(set) var menuBarLabelEpoch = 0
+
     var menuBarDisplayMode: MenuBarDisplayMode {
         didSet {
             defaults.set(menuBarDisplayMode.rawValue, forKey: Keys.menuBarDisplayMode)
+            bumpMenuBarLabelEpoch()
         }
+    }
+
+    var showMenuBarIcon: Bool {
+        didSet {
+            defaults.set(showMenuBarIcon, forKey: Keys.showMenuBarIcon)
+            bumpMenuBarLabelEpoch()
+        }
+    }
+
+    private func bumpMenuBarLabelEpoch() {
+        menuBarLabelEpoch += 1
     }
 
     var tslaShareCount: Int64 {
@@ -117,6 +132,12 @@ final class AppSettings {
             self.menuBarDisplayMode = .combinedDollars
         }
 
+        if defaults.object(forKey: Keys.showMenuBarIcon) != nil {
+            self.showMenuBarIcon = defaults.bool(forKey: Keys.showMenuBarIcon)
+        } else {
+            self.showMenuBarIcon = true
+        }
+
         if let storedTSLA = defaults.string(forKey: Keys.tslaShares), let value = Int64(storedTSLA) {
             self.tslaShareCount = value
         } else {
@@ -160,6 +181,7 @@ final class AppSettings {
     func resetToDefaults() {
         refreshIntervalSeconds = Self.defaultRefreshInterval
         menuBarDisplayMode = .combinedDollars
+        showMenuBarIcon = true
         tslaShareCount = 699_580_882
         spcxShareCount = SPCXHoldings.defaultShareCount
         lastHoldingsSyncDate = nil

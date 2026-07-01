@@ -6,7 +6,7 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
     private let session: URLSession
     private let muskCIKPadded = "0001494730"
     private let muskCIKNumeric = "1494730"
-    private let userAgent = "Muskometer/1.0 (https://muskometer.org; holdings-sync)"
+    private let userAgent = "Muskometer/0.1.0 (info@muskometer.org; https://muskometer.org)"
 
     init(session: URLSession = .shared) {
         self.session = session

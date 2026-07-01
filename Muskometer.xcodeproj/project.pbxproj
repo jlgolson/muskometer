@@ -35,6 +35,9 @@
 		A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* Form4OwnershipParser.swift */; };
 		A10000000000000000000018 /* String+Truncation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001A /* String+Truncation.swift */; };
 		A10000000000000000000019 /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001B /* AppNotifications.swift */; };
+		A10000000000000000000020 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* AppVersion.swift */; };
+		A10000000000000000000021 /* SettingsContentHeightKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* SettingsContentHeightKey.swift */; };
+		A10000000000000000000022 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* AboutView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -70,6 +73,9 @@
 		A20000000000000000000019 /* Form4OwnershipParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Form4OwnershipParser.swift; sourceTree = "<group>"; };
 		A2000000000000000000001A /* String+Truncation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Truncation.swift"; sourceTree = "<group>"; };
 		A2000000000000000000001B /* AppNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
+		A20000000000000000000020 /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
+		A20000000000000000000021 /* SettingsContentHeightKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsContentHeightKey.swift; sourceTree = "<group>"; };
+		A20000000000000000000022 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -199,6 +205,8 @@
 				A2000000000000000000000A /* StockRowView.swift */,
 				A2000000000000000000000B /* SettingsView.swift */,
 				A2000000000000000000000C /* MenuBarLabelView.swift */,
+				A20000000000000000000021 /* SettingsContentHeightKey.swift */,
+				A20000000000000000000022 /* AboutView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -214,6 +222,7 @@
 				A2000000000000000000001D /* SPCXHoldings.swift */,
 				A2000000000000000000001E /* SPCXOwnershipCalculator.swift */,
 				A2000000000000000000001A /* String+Truncation.swift */,
+				A20000000000000000000020 /* AppVersion.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -343,6 +352,9 @@
 				A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */,
 				A10000000000000000000018 /* String+Truncation.swift in Sources */,
 				A10000000000000000000019 /* AppNotifications.swift in Sources */,
+				A10000000000000000000020 /* AppVersion.swift in Sources */,
+				A10000000000000000000021 /* SettingsContentHeightKey.swift in Sources */,
+				A10000000000000000000022 /* AboutView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,7 +433,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -449,7 +461,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -467,7 +479,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -485,7 +497,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

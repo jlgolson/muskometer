@@ -195,11 +195,14 @@ final class GainsViewModel {
             return Self.formatSplitMenuBarTitle(
                 snapshot.holdings.map { CurrencyFormatter.formatPercent($0.quote.percentChange) }
             )
+        case .totalWorth:
+            return CurrencyFormatter.formatMarketValue(snapshot.combinedMarketValue)
         }
     }
 
     var gainColor: GainColor {
         guard let snapshot else { return .neutral }
+        if settings.menuBarDisplayMode == .totalWorth { return .neutral }
         if snapshot.combinedPaperGain > 0 { return .positive }
         if snapshot.combinedPaperGain < 0 { return .negative }
         return .neutral
@@ -220,6 +223,9 @@ final class GainsViewModel {
         }
 
         var lines = ["Muskometer"]
+        if settings.menuBarDisplayMode == .totalWorth {
+            lines.append("Total worth: \(CurrencyFormatter.formatMarketValue(snapshot.combinedMarketValue))")
+        }
         for holding in snapshot.holdings {
             let gain = CurrencyFormatter.formatCurrency(holding.paperGain)
             let percent = CurrencyFormatter.formatPercent(holding.quote.percentChange)
@@ -235,6 +241,7 @@ final class GainsViewModel {
 
     var shouldDimMenuBarLabel: Bool {
         guard let snapshot else { return false }
+        if settings.menuBarDisplayMode == .totalWorth { return false }
         return !snapshot.marketIsOpen
     }
 

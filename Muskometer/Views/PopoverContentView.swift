@@ -5,6 +5,7 @@ struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
     @State private var didCopySummary = false
+    @State private var settingsContentHeight: CGFloat = 760
 
     var body: some View {
         Group {
@@ -17,10 +18,17 @@ struct PopoverContentView: View {
         .padding(16)
         .frame(
             width: showingSettings ? 440 : 360,
-            height: showingSettings ? 680 : nil,
+            height: showingSettings ? settingsContentHeight + 32 : nil,
             alignment: .topLeading
         )
-        .onAppear { PopoverVisibility.isVisible = true }
+        .onPreferenceChange(SettingsContentHeightKey.self) { height in
+            guard height > 0 else { return }
+            settingsContentHeight = height
+        }
+        .onAppear {
+            PopoverVisibility.isVisible = true
+            showingSettings = false
+        }
         .onDisappear { PopoverVisibility.isVisible = false }
         .onReceive(NotificationCenter.default.publisher(for: .openMuskometerSettings)) { _ in
             showingSettings = true
@@ -113,7 +121,7 @@ struct PopoverContentView: View {
 
     private func ownershipCard(_ snapshot: GainsSnapshot) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Total ownership")
+            Text("Elon's Ownership")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -188,12 +196,47 @@ struct PopoverContentView: View {
     }
 
     private var footer: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Spacer()
+
+                Button(action: performRefresh) {
+                    HStack(spacing: 4) {
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .controlSize(.small)
+                                .frame(width: 12, height: 12)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                        }
+                        Text("Refresh")
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .keyboardShortcut("r", modifiers: .command)
+
+                Button("Settings") {
+                    NSApp.activate(ignoringOtherApps: true)
+                    NotificationCenter.default.post(name: .openMuskometerSettings, object: nil)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .keyboardShortcut(",", modifiers: .command)
+
+                Button("Quit") {
+                    NSApplication.shared.terminate(nil)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+
+            HStack(spacing: 12) {
                 if let updated = viewModel.snapshot?.lastUpdated {
                     Text("Updated \(updated.formatted(date: .omitted, time: .shortened))")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 } else {
                     Text("Not yet updated")
                         .font(.caption2)
@@ -202,39 +245,18 @@ struct PopoverContentView: View {
 
                 Link("muskometer.org", destination: AppURLs.website)
                     .font(.caption2)
+
+                Spacer(minLength: 0)
             }
 
-            Spacer()
+            Text("Paper gains for entertainment. SPCX is a Yahoo proxy, not SpaceX stock. Not financial advice.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
 
-            Button(action: performRefresh) {
-                HStack(spacing: 4) {
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
-                            .frame(width: 12, height: 12)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    Text("Refresh")
-                }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .keyboardShortcut("r", modifiers: .command)
-
-            Button("Settings") {
-                NSApp.activate(ignoringOtherApps: true)
-                NotificationCenter.default.post(name: .openMuskometerSettings, object: nil)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .keyboardShortcut(",", modifiers: .command)
-
-            Button("Quit") {
-                NSApplication.shared.terminate(nil)
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
+            Text("Quotes: Yahoo Finance · Holdings: SEC EDGAR")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
         }
     }
 

@@ -35,9 +35,10 @@ We'll acknowledge receipt and work on a fix. This is a solo side project — ple
 
 ## Supported versions
 
-| Version | Supported |
-|---------|-----------|
-| 0.1.x   | ✅        |
+| Version | Supported | Notes |
+|---------|-----------|-------|
+| 0.1.x   | ✅        | Current public release line (0.1.0) |
+| < 0.1   | ❌        | Pre-release / not distributed |
 
 ---
 

@@ -16,9 +16,12 @@ echo "PASS: typecheck"
 
 echo ""
 echo "=== 2. Unit tests (xcodebuild test) ==="
+TEST_DERIVED="$ROOT/build/verify-derived"
+rm -rf "$TEST_DERIVED"
 xcodebuild test \
   -scheme Muskometer \
   -configuration Debug \
+  -derivedDataPath "$TEST_DERIVED" \
   -destination 'platform=macOS' \
   -quiet
 echo "PASS: unit tests"
@@ -33,7 +36,10 @@ echo "PASS: release build"
 
 echo ""
 echo "=== 4. Entitlements on built app ==="
-APP=$(find ~/Library/Developer/Xcode/DerivedData/Muskometer-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
+APP=$(find "$ROOT/build/verify-derived/Build/Products/Debug" -name "Muskometer.app" 2>/dev/null | head -1)
+if [[ -z "$APP" ]]; then
+  APP=$(find ~/Library/Developer/Xcode/DerivedData/Muskometer-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
+fi
 if [[ -n "$APP" ]]; then
   codesign -d --entitlements :- "$APP" 2>/dev/null | grep -E "app-sandbox|network.client" || {
     echo "WARN: could not verify entitlements"

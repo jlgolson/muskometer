@@ -181,6 +181,45 @@ h1 {
   font-size: 0.95rem;
 }
 
+.disclaimer {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid #2a2a2e;
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 48px;
+  scroll-margin-top: 24px;
+}
+
+.disclaimer h2 {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
+}
+
+.disclaimer p {
+  color: #d1d1d6;
+  font-size: 0.95rem;
+}
+
+.disclaimer ul {
+  margin: 12px 0 0;
+  padding-left: 1.25rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.disclaimer li + li { margin-top: 8px; }
+
+.disclaimer-links {
+  margin-top: 16px;
+  font-size: 0.9rem;
+}
+
+.disclaimer a { color: var(--accent); }
+
 footer {
   text-align: center;
   color: var(--muted);

@@ -5,6 +5,7 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable, Sendable {
     case combinedPercent
     case splitDollars
     case splitPercent
+    case totalWorth
 
     var id: String { rawValue }
 
@@ -18,6 +19,8 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable, Sendable {
             return "Split $ gains"
         case .splitPercent:
             return "Split % gains"
+        case .totalWorth:
+            return "Total worth"
         }
     }
 }

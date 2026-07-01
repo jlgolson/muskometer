@@ -22,7 +22,7 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 | `ViewModels/GainsViewModel.swift` | Core state machine + refresh loop |
 | `Services/YahooFinanceStockPriceService.swift` | Chart API → `StockQuote` |
 | `Services/SECHoldingsSyncService.swift` | EDGAR Form 4 → TSLA/SPCX share counts |
-| `Services/MarketHoursService.swift` | 9:30–16:00 ET, weekends, holiday set |
+| `Services/MarketHoursService.swift` | 9:30–16:00 ET, weekends, US market holiday set |
 | `Utilities/SPCXHoldings.swift` | Default SPCX share count + legacy migration |
 | `Utilities/AppSettings.swift` | Holdings, refresh interval, launch at login |
 
@@ -88,6 +88,12 @@ flowchart LR
 6. Repeat until `stop()` on app terminate.
 
 Force refresh (`⌘R`) bypasses the in-flight guard and increments a generation token to drop stale responses.
+
+## Market holidays
+
+`MarketHoursService` treats US equity market holidays as a **hardcoded date set** in `MarketHoursService.swift` covering **2026 and 2027** only (NYSE-style calendar: New Year's Day, MLK Day, Presidents' Day, Good Friday, Memorial Day, Juneteenth, Independence Day observed, Labor Day, Thanksgiving, Christmas).
+
+This is intentional for v0.1.0 — no external holiday API. **Maintainers must extend the set annually** (or replace it with a maintained data source) so refresh timing and "market open" status stay correct after 2027.
 
 ## Sandbox & storage
 

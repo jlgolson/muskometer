@@ -28,30 +28,48 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            ScrollView(.vertical, showsIndicators: true) {
-                VStack(alignment: .leading, spacing: 16) {
-                    generalSection
-                    menuBarSection
-                    priceRefreshSection
-                    holdingsSection
-                    resetSection
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 8)
-            }
-            .frame(maxHeight: embeddedInPopover ? 610 : 480)
+            settingsSections
+
+            Text(AppVersion.displayString)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 4)
         }
-        .frame(
-            minWidth: embeddedInPopover ? 408 : 480,
-            maxWidth: .infinity,
-            maxHeight: .infinity,
-            alignment: .topLeading
-        )
+        .frame(minWidth: embeddedInPopover ? 408 : 500, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: true)
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: SettingsContentHeightKey.self, value: geometry.size.height)
+            }
+        }
         .onAppear {
             syncTextFieldsFromSettings()
         }
         .onDisappear {
             applyShareCounts()
+        }
+    }
+
+    @ViewBuilder
+    private var settingsSections: some View {
+        let sections = VStack(alignment: .leading, spacing: 16) {
+            generalSection
+            menuBarSection
+            priceRefreshSection
+            holdingsSection
+            resetSection
+                .padding(.top, 8)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+
+        if embeddedInPopover {
+            sections
+        } else {
+            ScrollView(.vertical, showsIndicators: true) {
+                sections
+            }
+            .frame(maxHeight: 720)
         }
     }
 
@@ -91,6 +109,13 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            Text("Paper gains for entertainment only. SPCX is a Yahoo proxy, not SpaceX stock.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Link("Full disclaimer", destination: AppURLs.disclaimer)
+                .font(.caption)
+
             HStack(spacing: 12) {
                 Link("muskometer.org", destination: AppURLs.website)
                 Link("GitHub", destination: AppURLs.github)
@@ -114,7 +139,9 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
 
-            Text("Choose whether the menu bar shows dollar gains, percent change, or a split view.")
+            Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
+
+            Text("Choose gains, percent change, split view, or total worth across TSLA and SPCX. Hide the trend icon for text only.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

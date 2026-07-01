@@ -2,12 +2,21 @@ import SwiftUI
 
 struct MenuBarLabelView: View {
     @Bindable var viewModel: GainsViewModel
+    @Bindable var settings: AppSettings
+
+    init(viewModel: GainsViewModel) {
+        self._viewModel = Bindable(wrappedValue: viewModel)
+        self._settings = Bindable(wrappedValue: viewModel.settings)
+    }
 
     var body: some View {
         HStack(spacing: 4) {
-            Image(systemName: "chart.line.uptrend.xyaxis")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.secondary)
+            if settings.showMenuBarIcon {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+            }
 
             if viewModel.isLoading, viewModel.snapshot == nil {
                 ProgressView()
@@ -27,8 +36,9 @@ struct MenuBarLabelView: View {
         }
         .opacity(labelOpacity)
         .help(viewModel.menuBarTooltip)
-        .accessibilityLabel("Muskometer daily paper gains")
+        .accessibilityLabel("Muskometer daily gain or loss")
         .accessibilityValue(displayText)
+        .id(settings.menuBarLabelEpoch)
         .onAppear { viewModel.start() }
     }
 

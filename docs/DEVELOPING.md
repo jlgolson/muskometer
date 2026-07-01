@@ -68,7 +68,8 @@ muskometer/
 ├── MuskometerTests/
 ├── scripts/
 │   ├── verify.sh         # CI-style checks
-│   └── release.sh        # Signed DMG + notarization (maintainers)
+│   ├── package-dmg.sh    # Unsigned DMG + zip (primary release path)
+│   └── release.sh        # Signed DMG + notarization (optional)
 ├── Config/               # Optional local signing overrides (gitignored)
 └── docs/                 # GitHub Pages site + documentation
 ```
@@ -97,12 +98,10 @@ cp Config/Release.xcconfig.example Config/Release.xcconfig
 
 ### Distribution (maintainers)
 
-Signed, notarized DMG releases use **Developer ID Application** + `xcrun notarytool`. See **[RELEASE.md](RELEASE.md)** for one-time Apple portal setup, env vars, and GitHub Releases.
+Public releases use the **unsigned** `./scripts/package-dmg.sh` path (no Apple Developer account). Signed, notarized builds via `release.sh` are optional — see **[RELEASE.md](RELEASE.md)**.
 
 ```bash
-export APPLE_TEAM_ID=YOUR_TEAM_ID
-export NOTARY_PROFILE=muskometer-notary   # after notarytool store-credentials
-./scripts/release.sh
+./scripts/package-dmg.sh
 ```
 
 ## Entitlements

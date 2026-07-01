@@ -11,6 +11,12 @@ struct StockRowView: View {
                     Text(holding.symbol)
                         .font(.system(.headline, design: .rounded, weight: .semibold))
 
+                    if holding.symbol == "SPCX" {
+                        Text("SpaceX proxy")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+
                     Text("\(CurrencyFormatter.formatShareCount(holding.shareCount)) shares")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -30,10 +36,10 @@ struct StockRowView: View {
                 }
             }
 
-            metricRow(label: "Ownership", value: CurrencyFormatter.formatMarketValue(holding.marketValue))
+            metricRow(label: "Elon's Stake", value: CurrencyFormatter.formatMarketValue(holding.marketValue))
 
             HStack {
-                Text("Paper gain")
+                Text(GainSummaryFormatter.todaysGainLossLabel(for: holding.paperGain))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

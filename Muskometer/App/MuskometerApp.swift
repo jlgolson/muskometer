@@ -23,6 +23,10 @@ struct MuskometerApp: App {
         }
         .menuBarExtraStyle(.window)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                OpenAboutWindowButton()
+            }
+
             CommandGroup(after: .toolbar) {
                 Button("Refresh") {
                     Task { await viewModel.refresh(force: true) }
@@ -45,7 +49,13 @@ struct MuskometerApp: App {
 
         Settings {
             SettingsView(settings: viewModel.settings, viewModel: viewModel)
-                .frame(minWidth: 500, minHeight: 720)
+                .frame(minWidth: 500)
+                .fixedSize(horizontal: false, vertical: true)
         }
+
+        Window("About Muskometer", id: "about") {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
     }
 }

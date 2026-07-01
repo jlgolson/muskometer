@@ -130,7 +130,7 @@ final class AppSettings {
                 defaults.set(String(migrated), forKey: Keys.spcxShares)
             }
         } else {
-            self.spcxShareCount = SPCXHoldings.defaultPublicShareCount
+            self.spcxShareCount = SPCXHoldings.defaultShareCount
         }
 
         let lastSync = defaults.double(forKey: Keys.lastHoldingsSync)
@@ -161,7 +161,7 @@ final class AppSettings {
         refreshIntervalSeconds = Self.defaultRefreshInterval
         menuBarDisplayMode = .combinedDollars
         tslaShareCount = 699_580_882
-        spcxShareCount = SPCXHoldings.defaultPublicShareCount
+        spcxShareCount = SPCXHoldings.defaultShareCount
         lastHoldingsSyncDate = nil
         holdingsSyncSource = nil
     }
@@ -172,7 +172,7 @@ final class AppSettings {
             tslaShareCount = tsla
         }
         if let spcx = result.spcxShares, spcx > 0 {
-            spcxShareCount = SPCXHoldings.publicShares(fromSECReported: spcx)
+            spcxShareCount = spcx
         }
 
         let isComplete = result.tslaShares.map { $0 > 0 } == true

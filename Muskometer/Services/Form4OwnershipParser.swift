@@ -18,7 +18,7 @@ struct Form4OwnershipParser {
         case "TSLA":
             return (shares, nil)
         case "SPCX":
-            return (nil, SPCXHoldings.publicShares(fromSECReported: shares))
+            return (nil, shares)
         default:
             return (nil, nil)
         }
@@ -40,8 +40,10 @@ struct Form4OwnershipParser {
         guard !blocks.isEmpty else { return nil }
 
         let directBlocks = blocks.filter { $0.ownership == "D" }
-        let qualifying = directBlocks.isEmpty ? blocks : directBlocks
-        return qualifying.last?.shares
+        if !directBlocks.isEmpty {
+            return directBlocks.last?.shares
+        }
+        return blocks.map(\.shares).max()
     }
 
     private func extractOwnershipBlocks(from tableContent: String) -> [OwnershipBlock] {

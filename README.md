@@ -10,7 +10,7 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 
 ### Download
 
-1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download `Muskometer-0.1.0.dmg`
+1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download `Muskometer-0.1.1.dmg`
 2. Open the DMG, drag **Muskometer** to **Applications**
 3. **First launch:** right-click **Muskometer** → **Open** → **Open** (unsigned build — macOS will trust it after that once)
 
@@ -50,8 +50,8 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 **Is this financial advice?**  
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk.
 
-**Why is SPCX share count divided by 100?**  
-SEC Form 4 filings report SpaceX beneficial ownership in units that are **100×** the public SPCX ticker share count used with Yahoo quotes. The app scales SEC values ÷100 so paper-gain math matches the proxy ticker.
+**Where do share counts come from?**  
+TSLA and SPCX (SpaceX) holdings are read from Elon Musk’s SEC Form 4 filings and multiplied by live Yahoo Finance prices for paper-gain math.
 
 **When does the number update?**  
 Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the label uses the prior close and refreshes less often.
@@ -75,4 +75,4 @@ MIT — see [LICENSE](LICENSE). Copyright [Jordan Golson](https://jordangolson.c
 
 ## Disclaimer
 
-SPCX tracks Space Exploration Technologies Corp. via Yahoo Finance. SEC Form 4 share counts are scaled ÷100 for public-ticker paper-gain math. Figures are illustrative entertainment — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.
+SPCX is SpaceX’s public ticker on Yahoo Finance. Share counts come from SEC Form 4 filings. Figures are illustrative entertainment — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.

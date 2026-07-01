@@ -1,22 +1,22 @@
 import Foundation
 
-/// SPCX share counts for Yahoo paper-gain math.
-///
-/// SEC Form 4 reports SpaceX beneficial ownership in units that are 100× the
-/// public SPCX ticker share count used with Yahoo quotes.
+/// Default SPCX share count and migration for prior app versions.
 enum SPCXHoldings {
-    static let secToPublicShareDivisor: Int64 = 100
-    static let defaultPublicShareCount: Int64 = 60_685_475
-    static let legacyIncorrectDefault: Int64 = 6_068_547_515
+    /// Beneficial ownership from the latest SEC Form 4 (June 2026 SpaceX filing).
+    static let defaultShareCount: Int64 = 842_091_670
 
-    static func publicShares(fromSECReported raw: Int64) -> Int64 {
-        guard raw > 0 else { return defaultPublicShareCount }
-        if raw == legacyIncorrectDefault { return defaultPublicShareCount }
-        if raw > 1_000_000_000 { return raw / secToPublicShareDivisor }
-        return raw
-    }
+    /// v0.1.0 incorrectly divided SEC counts by 100 (proxy-ticker assumption).
+    private static let legacyScaledDefault: Int64 = 60_685_475
+    private static let legacyUnscaledDefault: Int64 = 6_068_547_515
+    /// Parser used to pick the last Form 4 row (a small GRAT slice), not total holdings.
+    private static let legacyMisparseLastRow: Int64 = 7_402_770
 
     static func migrateStoredShareCount(_ stored: Int64) -> Int64 {
-        publicShares(fromSECReported: stored)
+        switch stored {
+        case legacyScaledDefault, legacyUnscaledDefault, legacyMisparseLastRow:
+            return defaultShareCount
+        default:
+            return stored
+        }
     }
 }

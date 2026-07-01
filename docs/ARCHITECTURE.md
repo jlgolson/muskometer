@@ -10,7 +10,7 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 | **ViewModel** | `GainsViewModel` — refresh loop, holdings sync, formatted menu bar title |
 | **Models** | `StockQuote`, `GainsSnapshot`, `PortfolioHolding`, `MenuBarDisplayMode` |
 | **Services** | Yahoo quotes, SEC Form 4 sync, US market hours |
-| **Utilities** | `AppSettings` (UserDefaults), formatters, `SPCXHoldings` scaling |
+| **Utilities** | `AppSettings` (UserDefaults), formatters, `SPCXHoldings` defaults |
 
 `GainsViewModel` is `@Observable` and `@MainActor`. Services conform to small protocols (`StockPriceServiceProtocol`, `HoldingsSyncServiceProtocol`, `MarketHoursServiceProtocol`) for test injection.
 
@@ -23,7 +23,7 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 | `Services/YahooFinanceStockPriceService.swift` | Chart API → `StockQuote` |
 | `Services/SECHoldingsSyncService.swift` | EDGAR Form 4 → TSLA/SPCX share counts |
 | `Services/MarketHoursService.swift` | 9:30–16:00 ET, weekends, holiday set |
-| `Utilities/SPCXHoldings.swift` | SEC ÷100 scaling for SPCX public ticker |
+| `Utilities/SPCXHoldings.swift` | Default SPCX share count + legacy migration |
 | `Utilities/AppSettings.swift` | Holdings, refresh interval, launch at login |
 
 ## Paper gain math
@@ -33,7 +33,7 @@ paperGain = shareCount × (currentPrice − previousClose)
 ```
 
 - **TSLA** — share count from SEC Form 4 (direct).
-- **SPCX** — proxy ticker for SpaceX; SEC-reported units are divided by **100** before multiplying by Yahoo price (`SPCXHoldings.publicShares(fromSECReported:)`).
+- **SPCX** — SpaceX’s public ticker; share count from SEC Form 4, multiplied by Yahoo price.
 
 Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
 

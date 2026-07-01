@@ -17,7 +17,7 @@ struct PortfolioHolding: Identifiable, Equatable, Sendable {
             id: "spcx",
             symbol: "SPCX",
             displayName: "SpaceX",
-            shareCount: SPCXHoldings.defaultPublicShareCount
+            shareCount: SPCXHoldings.defaultShareCount
         )
     ]
 }

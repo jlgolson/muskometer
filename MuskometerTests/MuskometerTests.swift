@@ -260,21 +260,25 @@ final class AppSettingsTests: XCTestCase {
         let settings = AppSettings(defaults: defaults)
 
         XCTAssertEqual(settings.tslaShareCount, 699_580_882)
-        XCTAssertEqual(settings.spcxShareCount, 60_685_475)
+        XCTAssertEqual(settings.spcxShareCount, 842_091_670)
     }
 }
 
 final class SPCXHoldingsTests: XCTestCase {
-    func testScalesSECReportedSharesBy100() {
-        XCTAssertEqual(SPCXHoldings.publicShares(fromSECReported: 6_068_547_515), 60_685_475)
+    func testMigratesLegacyScaledDefault() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), 842_091_670)
     }
 
-    func testMigratesLegacyStoredDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 60_685_475)
+    func testMigratesLegacyUnscaledDefault() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 842_091_670)
     }
 
-    func testLeavesAlreadyScaledSharesUntouched() {
-        XCTAssertEqual(SPCXHoldings.publicShares(fromSECReported: 60_685_475), 60_685_475)
+    func testMigratesLegacyMisparseLastRow() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(7_402_770), 842_091_670)
+    }
+
+    func testLeavesCurrentShareCountUntouched() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), 842_091_670)
     }
 }
 
@@ -362,7 +366,7 @@ final class Form4OwnershipParserTests: XCTestCase {
         XCTAssertEqual(result.tslaShares, 699_580_882)
     }
 
-    func testFallsBackToLastIndirectWhenNoDirectRows() {
+    func testUsesMaxIndirectWhenNoDirectRows() {
         let xml = """
         <ownershipDocument>
             <issuer>
@@ -372,7 +376,7 @@ final class Form4OwnershipParserTests: XCTestCase {
                 <nonDerivativeTransaction>
                     <postTransactionAmounts>
                         <sharesOwnedFollowingTransaction>
-                            <value>7000000000</value>
+                            <value>526177290</value>
                         </sharesOwnedFollowingTransaction>
                     </postTransactionAmounts>
                     <ownershipNature>
@@ -384,7 +388,7 @@ final class Form4OwnershipParserTests: XCTestCase {
                 <nonDerivativeTransaction>
                     <postTransactionAmounts>
                         <sharesOwnedFollowingTransaction>
-                            <value>6068547515</value>
+                            <value>842091670</value>
                         </sharesOwnedFollowingTransaction>
                     </postTransactionAmounts>
                     <ownershipNature>
@@ -393,6 +397,18 @@ final class Form4OwnershipParserTests: XCTestCase {
                         </directOrIndirectOwnership>
                     </ownershipNature>
                 </nonDerivativeTransaction>
+                <nonDerivativeHolding>
+                    <postTransactionAmounts>
+                        <sharesOwnedFollowingTransaction>
+                            <value>7402770</value>
+                        </sharesOwnedFollowingTransaction>
+                    </postTransactionAmounts>
+                    <ownershipNature>
+                        <directOrIndirectOwnership>
+                            <value>I</value>
+                        </directOrIndirectOwnership>
+                    </ownershipNature>
+                </nonDerivativeHolding>
             </nonDerivativeTable>
         </ownershipDocument>
         """
@@ -401,7 +417,7 @@ final class Form4OwnershipParserTests: XCTestCase {
         let result = parser.parse()
 
         XCTAssertNil(result.tslaShares)
-        XCTAssertEqual(result.spcxShares, 60_685_475)
+        XCTAssertEqual(result.spcxShares, 842_091_670)
     }
 }
 

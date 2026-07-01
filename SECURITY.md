@@ -37,7 +37,7 @@ We'll acknowledge receipt and work on a fix. This is a solo side project — ple
 
 | Version | Supported |
 |---------|-----------|
-| 1.0.x   | ✅        |
+| 0.1.x   | ✅        |
 
 ---
 

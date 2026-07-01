@@ -9,12 +9,8 @@ A quick guide for running Muskometer on your Mac — no Xcode required.
 
 ## Download
 
-> **Status:** The first signed DMG is not on GitHub Releases yet. Until it ships, use [build from source](../README.md#build-from-source). Watch [releases](https://github.com/jlgolson/muskometer/releases) for `Muskometer-<version>.dmg`.
-
-When a release is available:
-
 1. Go to **[GitHub Releases → Latest](https://github.com/jlgolson/muskometer/releases/latest)**.
-2. Download **`Muskometer-<version>.dmg`** (or the `.zip` if you prefer).
+2. Download **`Muskometer-<version>.dmg`**.
 
 ## Install
 
@@ -30,8 +26,6 @@ Because Muskometer is distributed outside the Mac App Store, macOS may ask you t
 2. If you see *"Muskometer can't be opened because it is from an unidentified developer"*, go to **System Settings → Privacy & Security** and click **Open Anyway** (or right-click the app → **Open** → **Open**).
 
 **Official GitHub releases** are **Developer ID signed and notarized** — Gatekeeper should allow a normal double-click. If macOS still prompts, use **Open Anyway** in Privacy & Security or right-click → **Open**.
-
-**Local Debug builds** from Xcode are not notarized; expect Gatekeeper prompts unless you disable SIP or ad-hoc sign for personal use only.
 
 ## Find it in the menu bar
 

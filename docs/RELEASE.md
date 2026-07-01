@@ -109,7 +109,7 @@ cp Config/Release.xcconfig.example Config/Release.xcconfig
 
 Update in Xcode or in `Muskometer.xcodeproj` / `Info.plist`:
 
-- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `1.0`)
+- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.0`)
 - `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `2`)
 
 Commit the version bump.
@@ -133,16 +133,16 @@ Unsigned local development is unchanged; only `release.sh` requires signing cred
 ### 3. Tag and push
 
 ```bash
-git tag v1.0
-git push origin v1.0
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
 ### 4. Create GitHub Release
 
 1. Go to [New release](https://github.com/jlgolson/muskometer/releases/new)
-2. Choose tag `v1.0`
-3. Title: **Muskometer 1.0**
-4. Attach `dist/Muskometer-1.0.dmg` (and optionally the `.zip`)
+2. Choose tag `v0.1.0`
+3. Title: **Muskometer 0.1.0**
+4. Attach `dist/Muskometer-0.1.0.dmg` (and optionally the `.zip`)
 5. Short release notes (what changed)
 6. **Publish release**
 

@@ -1,6 +1,6 @@
 # Contributing
 
-Muskometer is a personal fun project — but PRs and ideas are welcome!
+Muskometer is an open-source side project — pull requests and ideas are welcome.
 
 ## Quick start
 
@@ -13,7 +13,7 @@ Muskometer is a personal fun project — but PRs and ideas are welcome!
 ## Guidelines
 
 - **Keep it small.** Focused PRs are easier to review.
-- **Match the tone.** Fun project, professional code — no drive-by refactors.
+- **Match the tone.** Clear, focused changes — no drive-by refactors.
 - **Tests appreciated.** Especially for formatters, parsers, and view model edge cases.
 - **No secrets.** The app has no API keys; please don't add any.
 
@@ -34,6 +34,6 @@ Muskometer is a personal fun project — but PRs and ideas are welcome!
 
 Open a [GitHub issue](https://github.com/jlgolson/muskometer/issues) or email [info@muskometer.org](mailto:info@muskometer.org) — no formal CLA, just the MIT license.
 
-Thanks for helping make the billion-dollar menu bar slightly more accurate. 🚀
+Thanks for helping improve Muskometer.
 
 — [Jordan Golson](https://jordangolson.com)

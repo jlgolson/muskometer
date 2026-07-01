@@ -6,21 +6,16 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 
 🌐 **[muskometer.org](https://muskometer.org)** · 📦 **[github.com/jlgolson/muskometer](https://github.com/jlgolson/muskometer)**
 
-<!-- Screenshot placeholder: add docs/screenshot.png when available -->
-> **Screenshot:** Menu bar label + popover preview coming soon — see [muskometer.org](https://muskometer.org) for a live mockup.
-
 ## Install
 
 ### Download latest release
 
-1. **[GitHub Releases → Latest](https://github.com/jlgolson/muskometer/releases/latest)** — download `Muskometer-<version>.dmg`
+1. **[GitHub Releases → Latest](https://github.com/jlgolson/muskometer/releases/latest)** — download `Muskometer-0.1.0.dmg`
 2. Open the DMG, drag **Muskometer** to **Applications**, launch from Applications or Spotlight
 
 Step-by-step help (Gatekeeper, menu bar, launch at login): **[docs/INSTALL.md](docs/INSTALL.md)**
 
-> No release published yet? Use [build from source](#build-from-source) below, or watch [releases](https://github.com/jlgolson/muskometer/releases).
-
-### Build from source
+### Build from source *(advanced)*
 
 Requires macOS 14.0+ and Xcode 15+.
 
@@ -31,15 +26,6 @@ open Muskometer.xcodeproj
 ```
 
 Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
-
-Or from Terminal:
-
-```bash
-xcodebuild -scheme Muskometer -configuration Debug build
-scripts/verify.sh
-```
-
-Developer setup: **[docs/DEVELOPING.md](docs/DEVELOPING.md)** · Maintainer releases: **[docs/RELEASE.md](docs/RELEASE.md)**
 
 ## Features
 
@@ -64,7 +50,7 @@ Developer setup: **[docs/DEVELOPING.md](docs/DEVELOPING.md)** · Maintainer rele
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk.
 
 **Why is SPCX share count divided by 100?**  
-SEC Form 4 filings report SpaceX beneficial ownership in units that are **100×** the public SPCX ticker share count used with Yahoo quotes. `SPCXHoldings.swift` scales SEC values ÷100 so paper-gain math matches the proxy ticker. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+SEC Form 4 filings report SpaceX beneficial ownership in units that are **100×** the public SPCX ticker share count used with Yahoo quotes. The app scales SEC values ÷100 so paper-gain math matches the proxy ticker.
 
 **When does the number update?**  
 Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the label uses the prior close and refreshes less often.
@@ -73,21 +59,10 @@ Quotes refresh every 60–120 seconds while the US equity market is open (9:30 A
 
 | Doc | Description |
 |-----|-------------|
-| [INSTALL.md](docs/INSTALL.md) | End-user install guide |
-| [RELEASE.md](docs/RELEASE.md) | Signed DMG, notarization, GitHub Releases |
-| [DEVELOPING.md](docs/DEVELOPING.md) | Clone, build, test, sign |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | MVVM layout and data flow |
+| [INSTALL.md](docs/INSTALL.md) | Install guide |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
 | [CHANGELOG.md](CHANGELOG.md) | Release history |
 | [SECURITY.md](SECURITY.md) | Security & privacy |
-
-## Website & domain
-
-The landing page lives in [`docs/`](docs/) and is published via **GitHub Pages**.
-
-1. Repo **Settings → Pages → Build from branch `main` / `/docs`**
-2. **Custom domain:** `muskometer.org` (the `docs/CNAME` file is already set)
-3. At your registrar, point `muskometer.org` to GitHub Pages ([GitHub's DNS guide](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site))
 
 ## Contact
 

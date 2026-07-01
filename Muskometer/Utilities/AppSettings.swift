@@ -17,6 +17,7 @@ final class AppSettings {
         static let lastHoldingsSync = "lastHoldingsSyncDate"
         static let holdingsSyncSource = "holdingsSyncSource"
         static let launchAtLogin = "launchAtLogin"
+        static let shareFormat = "shareFormat"
     }
 
     private static func shareCountKey(for symbol: String) -> String {
@@ -111,6 +112,12 @@ final class AppSettings {
         }
     }
 
+    var shareFormat: ShareFormat {
+        didSet {
+            defaults.set(shareFormat.rawValue, forKey: Keys.shareFormat)
+        }
+    }
+
     var holdings: [PortfolioHolding] {
         selectedProfile.holdingSpecs.map { spec in
             PortfolioHolding(
@@ -159,6 +166,13 @@ final class AppSettings {
         self.shareCountsBySymbol = Self.loadShareCounts(defaults: defaults)
 
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
+
+        if let rawFormat = defaults.string(forKey: Keys.shareFormat),
+           let format = ShareFormat(rawValue: rawFormat) {
+            self.shareFormat = format
+        } else {
+            self.shareFormat = .image
+        }
     }
 
     private static func loadLastHoldingsSyncDate(personID: String, defaults: UserDefaults) -> Date? {
@@ -255,6 +269,7 @@ final class AppSettings {
         refreshIntervalSeconds = Self.defaultRefreshInterval
         menuBarDisplayMode = .combinedDollars
         showMenuBarIcon = true
+        shareFormat = .image
         selectedPersonID = TrackedPersonProfile.musk.id
 
         for spec in selectedProfile.holdingSpecs {

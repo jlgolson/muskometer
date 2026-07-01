@@ -4,7 +4,7 @@ import AppKit
 struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
-    @State private var didShareImage = false
+    @State private var didCopyShare = false
     @State private var settingsContentHeight: CGFloat = 760
 
     var body: some View {
@@ -184,14 +184,17 @@ struct PopoverContentView: View {
                 Spacer()
 
                 Button {
-                    shareImage(snapshot)
+                    copyShare(snapshot)
                 } label: {
-                    Label(didShareImage ? "Copied!" : "Share", systemImage: "square.and.arrow.up")
+                    Label(
+                        didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
+                        systemImage: viewModel.settings.shareFormat.buttonIcon
+                    )
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .disabled(didShareImage)
-                .help("Copy a shareable image to paste in Messages")
+                .disabled(didCopyShare)
+                .help(viewModel.settings.shareFormat.helpText)
             }
         }
         .padding(14)
@@ -270,18 +273,19 @@ struct PopoverContentView: View {
         Task { await viewModel.refresh(force: true) }
     }
 
-    private func shareImage(_ snapshot: GainsSnapshot) {
+    private func copyShare(_ snapshot: GainsSnapshot) {
         let copied = ShareImageExporter.copyToPasteboard(
             snapshot: snapshot,
-            profile: viewModel.settings.selectedProfile
+            profile: viewModel.settings.selectedProfile,
+            format: viewModel.settings.shareFormat
         )
         guard copied else { return }
 
-        didShareImage = true
+        didCopyShare = true
 
         Task {
             try? await Task.sleep(for: .seconds(1.5))
-            didShareImage = false
+            didCopyShare = false
         }
     }
 

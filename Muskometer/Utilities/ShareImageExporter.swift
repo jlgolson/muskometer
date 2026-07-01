@@ -3,7 +3,24 @@ import SwiftUI
 
 enum ShareImageExporter {
     @MainActor
-    static func copyToPasteboard(snapshot: GainsSnapshot, profile: TrackedPersonProfile) -> Bool {
+    static func copyToPasteboard(
+        snapshot: GainsSnapshot,
+        profile: TrackedPersonProfile,
+        format: ShareFormat
+    ) -> Bool {
+        switch format {
+        case .image:
+            return copyImageToPasteboard(snapshot: snapshot, profile: profile)
+        case .text:
+            return copyTextToPasteboard(snapshot: snapshot)
+        }
+    }
+
+    @MainActor
+    private static func copyImageToPasteboard(
+        snapshot: GainsSnapshot,
+        profile: TrackedPersonProfile
+    ) -> Bool {
         guard let image = renderImage(snapshot: snapshot, profile: profile) else {
             return false
         }
@@ -11,6 +28,13 @@ enum ShareImageExporter {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         return pasteboard.writeObjects([image])
+    }
+
+    @MainActor
+    private static func copyTextToPasteboard(snapshot: GainsSnapshot) -> Bool {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        return pasteboard.setString(GainSummaryFormatter.format(snapshot), forType: .string)
     }
 
     @MainActor

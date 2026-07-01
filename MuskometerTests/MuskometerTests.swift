@@ -582,7 +582,7 @@ final class GainsSnapshotTests: XCTestCase {
 
 @MainActor
 final class ShareImageExporterTests: XCTestCase {
-    func testRendersNonEmptyPNG() {
+    private func sampleSnapshot() -> GainsSnapshot {
         let tsla = HoldingGain(
             id: "tsla",
             symbol: "TSLA",
@@ -597,12 +597,26 @@ final class ShareImageExporterTests: XCTestCase {
             shareCount: 6_068_734_060,
             quote: StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 28.5, previousClose: 28.4, currency: "USD")
         )
-        let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
+        return GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
+    }
 
-        let png = ShareImageExporter.renderPNGData(snapshot: snapshot, profile: .musk)
+    func testRendersNonEmptyPNG() {
+        let png = ShareImageExporter.renderPNGData(snapshot: sampleSnapshot(), profile: .musk)
 
         XCTAssertNotNil(png)
         XCTAssertGreaterThan(png?.count ?? 0, 1_000)
+    }
+
+    func testCopiesTextSummaryToPasteboard() {
+        let snapshot = sampleSnapshot()
+
+        XCTAssertTrue(
+            ShareImageExporter.copyToPasteboard(snapshot: snapshot, profile: .musk, format: .text)
+        )
+        XCTAssertEqual(
+            NSPasteboard.general.string(forType: .string),
+            GainSummaryFormatter.format(snapshot)
+        )
     }
 }
 

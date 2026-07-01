@@ -56,6 +56,7 @@ struct SettingsView: View {
     private var settingsSections: some View {
         let sections = VStack(alignment: .leading, spacing: 16) {
             generalSection
+            sharingSection
             menuBarSection
             priceRefreshSection
             holdingsSection
@@ -128,6 +129,27 @@ struct SettingsView: View {
                 Link("info@muskometer.org", destination: AppURLs.contact)
             }
             .font(.caption)
+        }
+        .padding(12)
+        .background(sectionBackground)
+    }
+
+    private var sharingSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Sharing")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            Picker("Copy format", selection: $settings.shareFormat) {
+                ForEach(ShareFormat.allCases) { format in
+                    Text(format.label).tag(format)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Text("Choose what the Copy button puts on your clipboard — a branded image card for Messages, or a text summary for X.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(12)
         .background(sectionBackground)

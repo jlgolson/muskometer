@@ -273,9 +273,13 @@ final class SPCXHoldingsTests: XCTestCase {
         XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), 6_068_734_060)
     }
 
+    func testMigratesLegacyPartialAggregateDefault() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 6_068_734_060)
+    }
+
     func testLeavesAggregatedShareCountUntouched() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 6_068_547_515)
         XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_514), 6_068_547_514)
     }
 }
 

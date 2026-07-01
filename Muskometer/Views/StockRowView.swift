@@ -11,12 +11,6 @@ struct StockRowView: View {
                     Text(holding.symbol)
                         .font(.system(.headline, design: .rounded, weight: .semibold))
 
-                    if holding.symbol == "SPCX" {
-                        Text("SpaceX stock")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
                     Text("\(CurrencyFormatter.formatShareCount(holding.shareCount)) shares")
                         .font(.caption)
                         .foregroundStyle(.secondary)

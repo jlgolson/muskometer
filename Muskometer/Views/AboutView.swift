@@ -17,7 +17,7 @@ struct AboutView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Illustrative paper gains for entertainment. SPCX is SpaceX stock; share counts from SEC filings. Not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.")
+            Text("Illustrative paper gains for entertainment. Share counts from SEC filings. Not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)

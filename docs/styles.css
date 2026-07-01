@@ -66,6 +66,16 @@ h1 {
   margin-top: 28px;
 }
 
+.cta-note {
+  margin-top: 14px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.cta-note a {
+  color: #9ad4b0;
+}
+
 .btn {
   display: inline-block;
   padding: 12px 20px;

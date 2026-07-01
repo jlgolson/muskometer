@@ -3,6 +3,11 @@
 xcuserdata/
 DerivedData/
 .build/
+build/
+dist/
+Config/Release.xcconfig
 *.ipa
+*.p12
+*.p8
 *.dSYM.zip
 *.dSYM

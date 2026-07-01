@@ -1,0 +1,9 @@
+// Copy to Config/Release.xcconfig (gitignored) for local signed Release builds.
+// release.sh also reads DEVELOPMENT_TEAM from Config/Release.xcconfig when APPLE_TEAM_ID is unset.
+//
+// Find Team ID: https://developer.apple.com/account → Membership details
+
+DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE
+
+// Optional overrides (release.sh sets these by default):
+// CODE_SIGN_IDENTITY = Developer ID Application

@@ -47,7 +47,7 @@ The landing page lives in [`docs/`](docs/) and is published via **GitHub Pages**
 
 ## License
 
-MIT — see [LICENSE](LICENSE). It's a weekend menu bar toy; use it however you like.
+MIT — see [LICENSE](LICENSE). Copyright [Jordan Golson](https://jordangolson.com) / [@jlgolson](https://github.com/jlgolson).
 
 ## Disclaimer
 

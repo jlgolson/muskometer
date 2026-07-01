@@ -31,6 +31,7 @@
 		A10000000000000000000016 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* LaunchAtLoginManager.swift */; };
 		A1000000000000000000001C /* AppURLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001C /* AppURLs.swift */; };
 		A1000000000000000000001D /* SPCXHoldings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001D /* SPCXHoldings.swift */; };
+		A1000000000000000000001E /* SPCXOwnershipCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001E /* SPCXOwnershipCalculator.swift */; };
 		A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* Form4OwnershipParser.swift */; };
 		A10000000000000000000018 /* String+Truncation.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001A /* String+Truncation.swift */; };
 		A10000000000000000000019 /* AppNotifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001B /* AppNotifications.swift */; };
@@ -65,6 +66,7 @@
 		A20000000000000000000018 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
 		A2000000000000000000001C /* AppURLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppURLs.swift; sourceTree = "<group>"; };
 		A2000000000000000000001D /* SPCXHoldings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SPCXHoldings.swift; sourceTree = "<group>"; };
+		A2000000000000000000001E /* SPCXOwnershipCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SPCXOwnershipCalculator.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* Form4OwnershipParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Form4OwnershipParser.swift; sourceTree = "<group>"; };
 		A2000000000000000000001A /* String+Truncation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "String+Truncation.swift"; sourceTree = "<group>"; };
 		A2000000000000000000001B /* AppNotifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNotifications.swift; sourceTree = "<group>"; };
@@ -210,6 +212,7 @@
 				A20000000000000000000018 /* LaunchAtLoginManager.swift */,
 				A2000000000000000000001C /* AppURLs.swift */,
 				A2000000000000000000001D /* SPCXHoldings.swift */,
+				A2000000000000000000001E /* SPCXOwnershipCalculator.swift */,
 				A2000000000000000000001A /* String+Truncation.swift */,
 			);
 			path = Utilities;
@@ -336,6 +339,7 @@
 				A10000000000000000000016 /* LaunchAtLoginManager.swift in Sources */,
 				A1000000000000000000001C /* AppURLs.swift in Sources */,
 				A1000000000000000000001D /* SPCXHoldings.swift in Sources */,
+				A1000000000000000000001E /* SPCXOwnershipCalculator.swift in Sources */,
 				A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */,
 				A10000000000000000000018 /* String+Truncation.swift in Sources */,
 				A10000000000000000000019 /* AppNotifications.swift in Sources */,
@@ -417,7 +421,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -445,7 +449,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -463,7 +467,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -481,7 +485,7 @@
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

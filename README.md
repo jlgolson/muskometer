@@ -51,7 +51,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk.
 
 **Where do share counts come from?**  
-TSLA and SPCX (SpaceX) holdings are read from Elon Musk’s SEC Form 4 filings and multiplied by live Yahoo Finance prices for paper-gain math.
+TSLA and SPCX (SpaceX) holdings come from Elon Musk’s SEC Form 3/4 filings. For SpaceX, the app totals Class A and Class B across trusts (plus restricted shares noted in the filing remarks) — about **6 billion** Class A-equivalent shares — then multiplies by the live SPCX price for paper-gain math.
 
 **When does the number update?**  
 Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the label uses the prior close and refreshes less often.

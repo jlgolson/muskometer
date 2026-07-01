@@ -260,25 +260,69 @@ final class AppSettingsTests: XCTestCase {
         let settings = AppSettings(defaults: defaults)
 
         XCTAssertEqual(settings.tslaShareCount, 699_580_882)
-        XCTAssertEqual(settings.spcxShareCount, 842_091_670)
+        XCTAssertEqual(settings.spcxShareCount, 6_068_734_060)
     }
 }
 
 final class SPCXHoldingsTests: XCTestCase {
     func testMigratesLegacyScaledDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), 842_091_670)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), 6_068_734_060)
     }
 
-    func testMigratesLegacyUnscaledDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 842_091_670)
+    func testMigratesLegacySingleRowParse() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), 6_068_734_060)
     }
 
-    func testMigratesLegacyMisparseLastRow() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(7_402_770), 842_091_670)
+    func testLeavesAggregatedShareCountUntouched() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 6_068_547_515)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), 6_068_734_060)
     }
+}
 
-    func testLeavesCurrentShareCountUntouched() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), 842_091_670)
+final class SPCXOwnershipCalculatorTests: XCTestCase {
+    func testAggregatesJune2026Form4Holdings() {
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <nonDerivativeTable>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>842091670</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>7402770</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By EM 2024 GRAT-A</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>186545</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+            </nonDerivativeTable>
+            <derivativeTable>
+                <derivativeHolding>
+                    <securityTitle><value>Class B Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>3788654145</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </derivativeHolding>
+                <derivativeHolding>
+                    <securityTitle><value>Class B Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>127426150</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Mission Trust</value></natureOfOwnership></ownershipNature>
+                </derivativeHolding>
+                <derivativeHolding>
+                    <securityTitle><value>Class B Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>900495</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Musk 2017 Sprinkling Trust</value></natureOfOwnership></ownershipNature>
+                </derivativeHolding>
+            </derivativeTable>
+            <remarks>does not include 1302072285 shares of restricted Class B Common Stock</remarks>
+        </ownershipDocument>
+        """
+
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 6_068_734_060)
     }
 }
 
@@ -366,50 +410,35 @@ final class Form4OwnershipParserTests: XCTestCase {
         XCTAssertEqual(result.tslaShares, 699_580_882)
     }
 
-    func testUsesMaxIndirectWhenNoDirectRows() {
+    func testSPCXUsesOwnershipAggregatorNotSingleRow() {
         let xml = """
         <ownershipDocument>
-            <issuer>
-                <issuerTradingSymbol>SPCX</issuerTradingSymbol>
-            </issuer>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
             <nonDerivativeTable>
-                <nonDerivativeTransaction>
-                    <postTransactionAmounts>
-                        <sharesOwnedFollowingTransaction>
-                            <value>526177290</value>
-                        </sharesOwnedFollowingTransaction>
-                    </postTransactionAmounts>
-                    <ownershipNature>
-                        <directOrIndirectOwnership>
-                            <value>I</value>
-                        </directOrIndirectOwnership>
-                    </ownershipNature>
-                </nonDerivativeTransaction>
-                <nonDerivativeTransaction>
-                    <postTransactionAmounts>
-                        <sharesOwnedFollowingTransaction>
-                            <value>842091670</value>
-                        </sharesOwnedFollowingTransaction>
-                    </postTransactionAmounts>
-                    <ownershipNature>
-                        <directOrIndirectOwnership>
-                            <value>I</value>
-                        </directOrIndirectOwnership>
-                    </ownershipNature>
-                </nonDerivativeTransaction>
                 <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
                     <postTransactionAmounts>
-                        <sharesOwnedFollowingTransaction>
-                            <value>7402770</value>
-                        </sharesOwnedFollowingTransaction>
+                        <sharesOwnedFollowingTransaction><value>7402770</value></sharesOwnedFollowingTransaction>
                     </postTransactionAmounts>
                     <ownershipNature>
-                        <directOrIndirectOwnership>
-                            <value>I</value>
-                        </directOrIndirectOwnership>
+                        <directOrIndirectOwnership><value>I</value></directOrIndirectOwnership>
+                        <natureOfOwnership><value>By EM 2024 GRAT-A</value></natureOfOwnership>
                     </ownershipNature>
                 </nonDerivativeHolding>
             </nonDerivativeTable>
+            <derivativeTable>
+                <derivativeHolding>
+                    <securityTitle><value>Class B Common Stock</value></securityTitle>
+                    <underlyingSecurityShares><value>1000000000</value></underlyingSecurityShares>
+                    <ownershipNature>
+                        <directOrIndirectOwnership><value>I</value></directOrIndirectOwnership>
+                        <natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership>
+                    </ownershipNature>
+                </derivativeHolding>
+            </derivativeTable>
+            <remarks>
+                does not include 500000000 shares of restricted Class B Common Stock
+            </remarks>
         </ownershipDocument>
         """
 
@@ -417,7 +446,7 @@ final class Form4OwnershipParserTests: XCTestCase {
         let result = parser.parse()
 
         XCTAssertNil(result.tslaShares)
-        XCTAssertEqual(result.spcxShares, 842_091_670)
+        XCTAssertEqual(result.spcxShares, 1_507_402_770)
     }
 }
 

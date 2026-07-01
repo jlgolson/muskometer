@@ -4,6 +4,12 @@ All notable changes to Muskometer are documented here.
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.1.2] - 2026-07-01
+
+### Fixed
+
+- **SPCX share count** — aggregate all Class A/B trust lines plus restricted shares from SEC remarks (~6.07B Class A-equivalent), not a single Form 4 row.
+
 ## [0.1.1] - 2026-07-01
 
 ### Fixed

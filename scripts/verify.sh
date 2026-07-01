@@ -9,15 +9,15 @@ SDK=$(xcrun --show-sdk-path)
 swiftc -typecheck \
   -target arm64-apple-macos14.0 \
   -sdk "$SDK" \
-  -module-name ElonGains \
+  -module-name Muskometer \
   -parse-as-library \
-  $(find ElonGains -name "*.swift" | sort)
+  $(find Muskometer -name "*.swift" | sort)
 echo "PASS: typecheck"
 
 echo ""
 echo "=== 2. Unit tests (xcodebuild test) ==="
 xcodebuild test \
-  -scheme ElonGains \
+  -scheme Muskometer \
   -configuration Debug \
   -destination 'platform=macOS' \
   -quiet
@@ -26,14 +26,14 @@ echo "PASS: unit tests"
 echo ""
 echo "=== 3. Release build ==="
 xcodebuild build \
-  -scheme ElonGains \
+  -scheme Muskometer \
   -configuration Release \
   -quiet
 echo "PASS: release build"
 
 echo ""
 echo "=== 4. Entitlements on built app ==="
-APP=$(find ~/Library/Developer/Xcode/DerivedData/ElonGains-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
+APP=$(find ~/Library/Developer/Xcode/DerivedData/Muskometer-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
 if [[ -n "$APP" ]]; then
   codesign -d --entitlements :- "$APP" 2>/dev/null | grep -E "app-sandbox|network.client" || {
     echo "WARN: could not verify entitlements"

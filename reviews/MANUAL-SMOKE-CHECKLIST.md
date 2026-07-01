@@ -1,4 +1,4 @@
-# Manual smoke checklist — Elon Gains
+# Manual smoke checklist — Muskometer
 
 Run after `scripts/verify.sh` passes. Takes ~5 minutes.
 
@@ -32,7 +32,7 @@ Run after `scripts/verify.sh` passes. Takes ~5 minutes.
 
 - [ ] Turn off Wi-Fi → error state with **Try Again** (not a crash)
 - [ ] Turn Wi-Fi back on → **Try Again** recovers
-- [ ] Quit app (Activity Monitor or `killall "Elon Gains"`) → no orphan processes
+- [ ] Quit app (Activity Monitor or `killall "Muskometer"`) → no orphan processes
 
 ## Optional
 

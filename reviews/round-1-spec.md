@@ -1,4 +1,4 @@
-# Round 1 Spec Compliance Review — Elon Gains
+# Round 1 Spec Compliance Review — Muskometer
 
 **Date:** 2026-06-30  
 **Scope:** All Swift sources, Info.plist, entitlements, gain color assets  

@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000001 /* ElonGainsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* ElonGainsApp.swift */; };
+		A10000000000000000000001 /* MuskometerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* MuskometerApp.swift */; };
 		A10000000000000000000010 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000012 /* AppDelegate.swift */; };
 		A10000000000000000000002 /* StockQuote.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* StockQuote.swift */; };
 		A10000000000000000000003 /* PortfolioHolding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* PortfolioHolding.swift */; };
@@ -23,7 +23,7 @@
 		A1000000000000000000000D /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000D /* CurrencyFormatter.swift */; };
 		A1000000000000000000000E /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000E /* AppSettings.swift */; };
 		A1000000000000000000000F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000F /* Assets.xcassets */; };
-		A10000000000000000000011 /* ElonGainsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* ElonGainsTests.swift */; };
+		A10000000000000000000011 /* MuskometerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000013 /* MuskometerTests.swift */; };
 		A10000000000000000000012 /* MenuBarDisplayMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000014 /* MenuBarDisplayMode.swift */; };
 		A10000000000000000000013 /* HoldingsSyncServiceProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000015 /* HoldingsSyncServiceProtocol.swift */; };
 		A10000000000000000000014 /* SECHoldingsSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000016 /* SECHoldingsSyncService.swift */; };
@@ -36,7 +36,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A20000000000000000000001 /* ElonGainsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElonGainsApp.swift; sourceTree = "<group>"; };
+		A20000000000000000000001 /* MuskometerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuskometerApp.swift; sourceTree = "<group>"; };
 		A20000000000000000000012 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A20000000000000000000002 /* StockQuote.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockQuote.swift; sourceTree = "<group>"; };
 		A20000000000000000000003 /* PortfolioHolding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioHolding.swift; sourceTree = "<group>"; };
@@ -52,11 +52,11 @@
 		A2000000000000000000000D /* CurrencyFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyFormatter.swift; sourceTree = "<group>"; };
 		A2000000000000000000000E /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		A2000000000000000000000F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		A20000000000000000000010 /* ElonGains.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ElonGains.entitlements; sourceTree = "<group>"; };
+		A20000000000000000000010 /* Muskometer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Muskometer.entitlements; sourceTree = "<group>"; };
 		A20000000000000000000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A30000000000000000000001 /* Muskometer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Muskometer.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A20000000000000000000013 /* ElonGainsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElonGainsTests.swift; sourceTree = "<group>"; };
-		A30000000000000000000002 /* ElonGainsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ElonGainsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000013 /* MuskometerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuskometerTests.swift; sourceTree = "<group>"; };
+		A30000000000000000000002 /* MuskometerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MuskometerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000014 /* MenuBarDisplayMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayMode.swift; sourceTree = "<group>"; };
 		A20000000000000000000015 /* HoldingsSyncServiceProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HoldingsSyncServiceProtocol.swift; sourceTree = "<group>"; };
 		A20000000000000000000016 /* SECHoldingsSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SECHoldingsSyncService.swift; sourceTree = "<group>"; };
@@ -91,14 +91,14 @@
 			containerPortal = A70000000000000000000001 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = A60000000000000000000001;
-			remoteInfo = ElonGains;
+			remoteInfo = Muskometer;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
 		AB0000000000000000000002 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = A60000000000000000000001 /* ElonGains */;
+			target = A60000000000000000000001 /* Muskometer */;
 			targetProxy = AB0000000000000000000001 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -107,13 +107,13 @@
 		A50000000000000000000001 = {
 			isa = PBXGroup;
 			children = (
-				A50000000000000000000002 /* ElonGains */,
-				A5000000000000000000000B /* ElonGainsTests */,
+				A50000000000000000000002 /* Muskometer */,
+				A5000000000000000000000B /* MuskometerTests */,
 				A50000000000000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		A50000000000000000000002 /* ElonGains */ = {
+		A50000000000000000000002 /* Muskometer */ = {
 			isa = PBXGroup;
 			children = (
 				A50000000000000000000004 /* App */,
@@ -124,32 +124,32 @@
 				A50000000000000000000009 /* Utilities */,
 				A5000000000000000000000A /* Resources */,
 				A2000000000000000000000F /* Assets.xcassets */,
-				A20000000000000000000010 /* ElonGains.entitlements */,
+				A20000000000000000000010 /* Muskometer.entitlements */,
 			);
-			path = ElonGains;
+			path = Muskometer;
 			sourceTree = "<group>";
 		};
 		A50000000000000000000003 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A30000000000000000000001 /* Elon Gains.app */,
-				A30000000000000000000002 /* ElonGainsTests.xctest */,
+				A30000000000000000000001 /* Muskometer.app */,
+				A30000000000000000000002 /* MuskometerTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A5000000000000000000000B /* ElonGainsTests */ = {
+		A5000000000000000000000B /* MuskometerTests */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000013 /* ElonGainsTests.swift */,
+				A20000000000000000000013 /* MuskometerTests.swift */,
 			);
-			path = ElonGainsTests;
+			path = MuskometerTests;
 			sourceTree = "<group>";
 		};
 		A50000000000000000000004 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				A20000000000000000000001 /* ElonGainsApp.swift */,
+				A20000000000000000000001 /* MuskometerApp.swift */,
 				A20000000000000000000012 /* AppDelegate.swift */,
 				A2000000000000000000001B /* AppNotifications.swift */,
 			);
@@ -223,9 +223,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A60000000000000000000001 /* ElonGains */ = {
+		A60000000000000000000001 /* Muskometer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A80000000000000000000003 /* Build configuration list for PBXNativeTarget "ElonGains" */;
+			buildConfigurationList = A80000000000000000000003 /* Build configuration list for PBXNativeTarget "Muskometer" */;
 			buildPhases = (
 				A60000000000000000000002 /* Sources */,
 				A40000000000000000000001 /* Frameworks */,
@@ -235,14 +235,14 @@
 			);
 			dependencies = (
 			);
-			name = ElonGains;
-			productName = ElonGains;
+			name = Muskometer;
+			productName = Muskometer;
 			productReference = A30000000000000000000001 /* Muskometer.app */;
 			productType = "com.apple.product-type.application";
 		};
-		A60000000000000000000004 /* ElonGainsTests */ = {
+		A60000000000000000000004 /* MuskometerTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A80000000000000000000004 /* Build configuration list for PBXNativeTarget "ElonGainsTests" */;
+			buildConfigurationList = A80000000000000000000004 /* Build configuration list for PBXNativeTarget "MuskometerTests" */;
 			buildPhases = (
 				A60000000000000000000005 /* Sources */,
 				A40000000000000000000002 /* Frameworks */,
@@ -252,9 +252,9 @@
 			dependencies = (
 				AB0000000000000000000002 /* PBXTargetDependency */,
 			);
-			name = ElonGainsTests;
-			productName = ElonGainsTests;
-			productReference = A30000000000000000000002 /* ElonGainsTests.xctest */;
+			name = MuskometerTests;
+			productName = MuskometerTests;
+			productReference = A30000000000000000000002 /* MuskometerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
@@ -276,7 +276,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A80000000000000000000001 /* Build configuration list for PBXProject "ElonGains" */;
+			buildConfigurationList = A80000000000000000000001 /* Build configuration list for PBXProject "Muskometer" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -289,8 +289,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A60000000000000000000001 /* ElonGains */,
-				A60000000000000000000004 /* ElonGainsTests */,
+				A60000000000000000000001 /* Muskometer */,
+				A60000000000000000000004 /* MuskometerTests */,
 			);
 		};
 /* End PBXProject section */
@@ -311,7 +311,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000001 /* ElonGainsApp.swift in Sources */,
+				A10000000000000000000001 /* MuskometerApp.swift in Sources */,
 				A10000000000000000000010 /* AppDelegate.swift in Sources */,
 				A10000000000000000000002 /* StockQuote.swift in Sources */,
 				A10000000000000000000003 /* PortfolioHolding.swift in Sources */,
@@ -342,7 +342,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000011 /* ElonGainsTests.swift in Sources */,
+				A10000000000000000000011 /* MuskometerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,14 +399,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = ElonGains/ElonGains.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ElonGains/Resources/Info.plist;
+				INFOPLIST_FILE = Muskometer/Resources/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 muskometer.org";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -415,7 +415,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
-				PRODUCT_MODULE_NAME = Elon_Gains;
+				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -427,14 +427,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = ElonGains/ElonGains.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = ElonGains/Resources/Info.plist;
+				INFOPLIST_FILE = Muskometer/Resources/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 muskometer.org";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -442,8 +442,9 @@
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.elongains.menubar;
-				PRODUCT_NAME = "Elon Gains";
+				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
+				PRODUCT_MODULE_NAME = Muskometer;
+				PRODUCT_NAME = Muskometer;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 			};
@@ -488,7 +489,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A80000000000000000000001 /* Build configuration list for PBXProject "ElonGains" */ = {
+		A80000000000000000000001 /* Build configuration list for PBXProject "Muskometer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A90000000000000000000001 /* Debug */,
@@ -497,7 +498,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A80000000000000000000003 /* Build configuration list for PBXNativeTarget "ElonGains" */ = {
+		A80000000000000000000003 /* Build configuration list for PBXNativeTarget "Muskometer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A90000000000000000000003 /* Debug */,
@@ -506,7 +507,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A80000000000000000000004 /* Build configuration list for PBXNativeTarget "ElonGainsTests" */ = {
+		A80000000000000000000004 /* Build configuration list for PBXNativeTarget "MuskometerTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A90000000000000000000005 /* Debug */,

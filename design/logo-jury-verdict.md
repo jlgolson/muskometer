@@ -1,4 +1,4 @@
-# Logo Jury Verdict — Elon Gains
+# Logo Jury Verdict — Muskometer
 
 **Date:** 2026-06-30  
 **Context:** Menu bar utility tracking portfolio gains; icons must read at 16px and feel native on macOS.
@@ -41,4 +41,4 @@
 
 - Candidates: `design/logo-candidates/{orbit-gain,menu-spark,stack-launch}.jpg`
 - Winner v2: `design/logo-candidates/elon-gains-icon-v2-winner.jpg`
-- App icons: `ElonGains/Assets.xcassets/AppIcon.appiconset/`
+- App icons: `Muskometer/Assets.xcassets/AppIcon.appiconset/`

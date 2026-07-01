@@ -1,5 +1,5 @@
 import XCTest
-@testable import Elon_Gains
+@testable import Muskometer
 
 final class CurrencyFormatterTests: XCTestCase {
     func testFormatCurrencyBillionsPositive() {
@@ -178,7 +178,7 @@ final class MarketHoursServiceTests: XCTestCase {
 
 final class AppSettingsHoldingsSyncTests: XCTestCase {
     private func makeSettings() -> AppSettings {
-        let suiteName = "ElonGainsTests-holdings-sync-\(UUID().uuidString)"
+        let suiteName = "MuskometerTests-holdings-sync-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         return AppSettings(defaults: defaults)
@@ -244,8 +244,8 @@ final class AppSettingsHoldingsSyncTests: XCTestCase {
 
 final class AppSettingsTests: XCTestCase {
     func testRefreshIntervalClampsTo120() {
-        let defaults = UserDefaults(suiteName: "ElonGainsTests")!
-        defaults.removePersistentDomain(forName: "ElonGainsTests")
+        let defaults = UserDefaults(suiteName: "MuskometerTests")!
+        defaults.removePersistentDomain(forName: "MuskometerTests")
 
         let settings = AppSettings(defaults: defaults)
         settings.refreshIntervalSeconds = 999
@@ -254,8 +254,8 @@ final class AppSettingsTests: XCTestCase {
     }
 
     func testDefaultShareCounts() {
-        let defaults = UserDefaults(suiteName: "ElonGainsTests-defaults")!
-        defaults.removePersistentDomain(forName: "ElonGainsTests-defaults")
+        let defaults = UserDefaults(suiteName: "MuskometerTests-defaults")!
+        defaults.removePersistentDomain(forName: "MuskometerTests-defaults")
 
         let settings = AppSettings(defaults: defaults)
 

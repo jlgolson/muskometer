@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct ElonGainsApp: App {
+struct MuskometerApp: App {
     private let viewModel: GainsViewModel
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 

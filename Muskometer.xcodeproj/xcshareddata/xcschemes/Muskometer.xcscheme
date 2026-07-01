@@ -16,8 +16,8 @@
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A60000000000000000000001"
                BuildableName = "Muskometer.app"
-               BlueprintName = "ElonGains"
-               ReferencedContainer = "container:ElonGains.xcodeproj">
+               BlueprintName = "Muskometer"
+               ReferencedContainer = "container:Muskometer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -35,9 +35,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "A60000000000000000000004"
-               BuildableName = "ElonGainsTests.xctest"
-               BlueprintName = "ElonGainsTests"
-               ReferencedContainer = "container:ElonGains.xcodeproj">
+               BuildableName = "MuskometerTests.xctest"
+               BlueprintName = "MuskometerTests"
+               ReferencedContainer = "container:Muskometer.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -58,8 +58,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A60000000000000000000001"
             BuildableName = "Muskometer.app"
-            BlueprintName = "ElonGains"
-            ReferencedContainer = "container:ElonGains.xcodeproj">
+            BlueprintName = "Muskometer"
+            ReferencedContainer = "container:Muskometer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -75,8 +75,8 @@
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "A60000000000000000000001"
             BuildableName = "Muskometer.app"
-            BlueprintName = "ElonGains"
-            ReferencedContainer = "container:ElonGains.xcodeproj">
+            BlueprintName = "Muskometer"
+            ReferencedContainer = "container:Muskometer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

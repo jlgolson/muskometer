@@ -16,15 +16,15 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 ```bash
 git clone https://github.com/jlgolson/muskometer.git
 cd muskometer
-open ElonGains.xcodeproj
+open Muskometer.xcodeproj
 ```
 
-Select the **ElonGains** scheme, **My Mac**, press **⌘R**.
+Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 
 Or from Terminal:
 
 ```bash
-xcodebuild -scheme ElonGains -configuration Debug build
+xcodebuild -scheme Muskometer -configuration Debug build
 scripts/verify.sh
 ```
 

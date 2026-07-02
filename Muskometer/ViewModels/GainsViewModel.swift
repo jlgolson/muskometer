@@ -21,6 +21,7 @@ final class GainsViewModel {
     private(set) var comparisonLine: ComparisonLine?
     private(set) var activeMilestone: NetWorthMilestone?
     private(set) var trillionEasterEggMessage: String?
+    private(set) var enabledNotificationThresholdIDs: Set<String>
 
     let settings: AppSettings
 
@@ -61,6 +62,9 @@ final class GainsViewModel {
         self.comparisonLineSelector = comparisonLineSelector ?? ComparisonLineSelector()
         self.netWorthMilestoneTracker = netWorthMilestoneTracker ?? NetWorthMilestoneTracker()
         self.tradingDayCalendar = tradingDayCalendar
+        self.enabledNotificationThresholdIDs = self.gainThresholdNotificationService.enabledThresholdIDs(
+            for: settings.selectedPersonID
+        )
     }
 
     func start() {
@@ -311,10 +315,6 @@ final class GainsViewModel {
         activeMilestone = nil
     }
 
-    func enabledNotificationThresholdIDs() -> Set<String> {
-        gainThresholdNotificationService.enabledThresholdIDs(for: settings.selectedPersonID)
-    }
-
     func setNotificationThresholdEnabled(_ thresholdID: String, enabled: Bool) {
         var ids = gainThresholdNotificationService.enabledThresholdIDs(for: settings.selectedPersonID)
         if enabled {
@@ -323,6 +323,7 @@ final class GainsViewModel {
             ids.remove(thresholdID)
         }
         gainThresholdNotificationService.setEnabledThresholdIDs(ids, for: settings.selectedPersonID)
+        enabledNotificationThresholdIDs = ids
     }
 
     private func processSnapshotSideEffects(_ snapshot: GainsSnapshot) {

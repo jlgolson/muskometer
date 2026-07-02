@@ -37,11 +37,13 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 4)
         }
-        .frame(minWidth: embeddedInPopover ? 408 : 500, alignment: .topLeading)
-        .fixedSize(horizontal: false, vertical: true)
+        .frame(minWidth: embeddedInPopover ? 448 : 500, alignment: .topLeading)
+        .fixedSize(horizontal: false, vertical: embeddedInPopover ? false : true)
         .background {
-            GeometryReader { geometry in
-                Color.clear.preference(key: SettingsContentHeightKey.self, value: geometry.size.height)
+            if !embeddedInPopover {
+                GeometryReader { geometry in
+                    Color.clear.preference(key: SettingsContentHeightKey.self, value: geometry.size.height)
+                }
             }
         }
         .onAppear {
@@ -66,14 +68,10 @@ struct SettingsView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
 
-        if embeddedInPopover {
+        ScrollView(.vertical, showsIndicators: true) {
             sections
-        } else {
-            ScrollView(.vertical, showsIndicators: true) {
-                sections
-            }
-            .frame(maxHeight: 720)
         }
+        .frame(maxHeight: embeddedInPopover ? 460 : 720)
     }
 
     private var header: some View {
@@ -206,10 +204,10 @@ struct SettingsView: View {
     }
 
     private func notificationToggle(_ threshold: GainNotificationThreshold, viewModel: GainsViewModel) -> some View {
-        let enabled = viewModel.enabledNotificationThresholdIDs().contains(threshold.id)
+        let enabled = viewModel.enabledNotificationThresholdIDs.contains(threshold.id)
 
         return Toggle(threshold.label, isOn: Binding(
-            get: { viewModel.enabledNotificationThresholdIDs().contains(threshold.id) },
+            get: { viewModel.enabledNotificationThresholdIDs.contains(threshold.id) },
             set: { viewModel.setNotificationThresholdEnabled(threshold.id, enabled: $0) }
         ))
         .font(.body)

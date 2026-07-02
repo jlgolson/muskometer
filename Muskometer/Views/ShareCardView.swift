@@ -147,15 +147,9 @@ struct ShareCardView: View {
     }
 
     private var footer: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("muskometer.org")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(red: 0.45, green: 0.62, blue: 1.0))
-
-            Text("Entertainment only · Not financial advice")
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(muted)
-        }
+        Text("muskometer.org")
+            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .foregroundStyle(Color(red: 0.45, green: 0.62, blue: 1.0))
     }
 
     private var cardBackground: some View {

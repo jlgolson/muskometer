@@ -5,8 +5,6 @@ struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
     @State private var didCopyShare = false
-    @State private var settingsContentHeight: CGFloat = 760
-
     var body: some View {
         Group {
             if showingSettings {
@@ -17,14 +15,10 @@ struct PopoverContentView: View {
         }
         .padding(16)
         .frame(
-            width: showingSettings ? 440 : 360,
-            height: showingSettings ? settingsContentHeight + 32 : nil,
+            width: showingSettings ? 480 : 360,
+            height: showingSettings ? 500 : nil,
             alignment: .topLeading
         )
-        .onPreferenceChange(SettingsContentHeightKey.self) { height in
-            guard height > 0 else { return }
-            settingsContentHeight = height
-        }
         .onAppear {
             PopoverVisibility.isVisible = true
             showingSettings = false

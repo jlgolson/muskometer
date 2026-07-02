@@ -153,10 +153,28 @@ struct ShareCardView: View {
     }
 
     private var footer: some View {
-        Text("muskometer.org")
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
-            .foregroundStyle(Color(red: 0.45, green: 0.62, blue: 1.0))
+        HStack(alignment: .firstTextBaseline) {
+            Text("muskometer.org")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color(red: 0.45, green: 0.62, blue: 1.0))
+
+            Spacer(minLength: 8)
+
+            Text("As of \(Self.asOfFormatter.string(from: snapshot.lastUpdated))")
+                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .foregroundStyle(muted)
+                .multilineTextAlignment(.trailing)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
+
+    private static let asOfFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "MMM d, h:mm a 'ET'"
+        return formatter
+    }()
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)

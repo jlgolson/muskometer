@@ -24,7 +24,7 @@ struct MenuBarLabelView: View {
                     .frame(width: 12, height: 12)
             } else {
                 Text(displayText)
-                    .font(.system(size: 12, weight: labelFontWeight, design: .rounded))
+                    .font(.system(size: labelFontSize, weight: labelFontWeight, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(labelColor)
                     .contentTransition(.numericText())
@@ -63,6 +63,13 @@ struct MenuBarLabelView: View {
         }
     }
 
+    private var labelFontSize: CGFloat {
+        guard settings.menuBarMoodEnabled, viewModel.menuBarMoodLevel == .bigDay else {
+            return 12
+        }
+        return 13
+    }
+
     private var labelFontWeight: Font.Weight {
         guard settings.menuBarMoodEnabled else { return .semibold }
 
@@ -70,7 +77,7 @@ struct MenuBarLabelView: View {
         case .calm:
             return .semibold
         case .bigDay:
-            return .bold
+            return .heavy
         }
     }
 }

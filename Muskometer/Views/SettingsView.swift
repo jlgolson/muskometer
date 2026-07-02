@@ -216,7 +216,11 @@ struct SettingsView: View {
 
             Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
 
-            Toggle("Bold on big days", isOn: $settings.menuBarMoodEnabled)
+            Toggle("Emphasize big days", isOn: $settings.menuBarMoodEnabled)
+
+            Text("When today's move is unusually large, the menu bar number grows slightly and uses a heavier weight.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             if settings.menuBarMoodEnabled {
                 VStack(alignment: .leading, spacing: 6) {
@@ -238,7 +242,7 @@ struct SettingsView: View {
                 }
             }
 
-            Text("Choose gains, percent change, split view, or total worth across tracked holdings. Bold styling kicks in on unusually large moves.")
+            Text("Dollar thresholds apply in $ / split-$ / total-worth modes. Percent thresholds apply in % / split-% modes.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

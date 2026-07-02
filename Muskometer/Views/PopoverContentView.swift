@@ -101,11 +101,14 @@ struct PopoverContentView: View {
             ownershipCard(snapshot)
             combinedCard(snapshot)
             ComparisonCaptionView(line: viewModel.comparisonLine)
-            DailyRecordsCardView(
-                bestRecord: viewModel.dailyRecordsSnapshot.bestRecord,
-                worstRecord: viewModel.dailyRecordsSnapshot.worstRecord,
-                animateValues: true
-            )
+
+            if hasDailyRecords {
+                DailyRecordsCardView(
+                    bestRecord: viewModel.dailyRecordsSnapshot.bestRecord,
+                    worstRecord: viewModel.dailyRecordsSnapshot.worstRecord,
+                    animateValues: true
+                )
+            }
 
             ForEach(snapshot.holdings) { holding in
                 StockRowView(
@@ -306,6 +309,11 @@ struct PopoverContentView: View {
             try? await Task.sleep(for: .seconds(1.5))
             didCopyShare = false
         }
+    }
+
+    private var hasDailyRecords: Bool {
+        viewModel.dailyRecordsSnapshot.bestRecord != nil
+            || viewModel.dailyRecordsSnapshot.worstRecord != nil
     }
 
     private func combinedColor(_ snapshot: GainsSnapshot) -> Color {

@@ -19,29 +19,23 @@ struct DailyRecordsCardView: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 
-            if bestRecord == nil, worstRecord == nil {
-                Text("Tracking starts after the first full trading day.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    recordColumn(
-                        title: "Best",
-                        systemImage: "arrow.up.circle.fill",
-                        record: bestRecord,
-                        color: Color("GainPositive")
-                    )
+            HStack(alignment: .top, spacing: 12) {
+                recordColumn(
+                    title: "Best",
+                    systemImage: "arrow.up.circle.fill",
+                    record: bestRecord,
+                    color: Color("GainPositive")
+                )
 
-                    Divider()
-                        .frame(maxHeight: 44)
+                Divider()
+                    .frame(maxHeight: 44)
 
-                    recordColumn(
-                        title: "Worst",
-                        systemImage: "arrow.down.circle.fill",
-                        record: worstRecord,
-                        color: Color("GainNegative")
-                    )
-                }
+                recordColumn(
+                    title: "Worst",
+                    systemImage: "arrow.down.circle.fill",
+                    record: worstRecord,
+                    color: Color("GainNegative")
+                )
             }
         }
         .padding(12)

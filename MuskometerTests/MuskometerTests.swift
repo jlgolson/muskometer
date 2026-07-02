@@ -1296,6 +1296,46 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
         XCTAssertEqual(events.first?.threshold.id, "loss-10b")
         XCTAssertEqual(deliverer.requests.count, 1)
     }
+
+    func testPersistsStateAcrossServiceReload() async throws {
+        let deliverer = MockGainThresholdNotificationDeliverer()
+        let suiteName = "MuskometerTests-gain-notify-persist-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        let service1 = GainThresholdNotificationService(
+            defaults: defaults,
+            calendar: easternCalendar,
+            deliverer: deliverer
+        )
+        service1.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        _ = await service1.processUpdate(
+            paperGain: 9_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date,
+            marketIsOpen: true
+        )
+
+        let service2 = GainThresholdNotificationService(
+            defaults: defaults,
+            calendar: easternCalendar,
+            deliverer: deliverer
+        )
+        let events = await service2.processUpdate(
+            paperGain: 11_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(60),
+            marketIsOpen: true
+        )
+
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events.first?.threshold.id, "gain-10b")
+        XCTAssertEqual(deliverer.requests.count, 1)
+        XCTAssertTrue(deliverer.requests.first?.content.title.contains("+$10B") ?? false)
+    }
 }
 
 final class ComparisonLibraryTests: XCTestCase {

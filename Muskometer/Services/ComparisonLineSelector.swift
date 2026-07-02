@@ -33,7 +33,7 @@ final class ComparisonLineSelector {
     private var historyStore: ComparisonHistoryStore
     private var randomizer: any ComparisonRandomizing
 
-    nonisolated init(
+    init(
         historyStore: ComparisonHistoryStore = ComparisonHistoryStore(),
         randomizer: any ComparisonRandomizing = SystemComparisonRandomizer()
     ) {

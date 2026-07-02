@@ -151,6 +151,10 @@ struct SettingsView: View {
             Text("Choose what the Copy button puts on your clipboard — a branded image card for Messages, or a text summary for X.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+
+            Text("Use ⌘⇧C to copy from anywhere. Global copy requires Accessibility permission in System Settings → Privacy & Security → Accessibility.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .padding(12)
         .background(sectionBackground)
@@ -160,6 +164,10 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Notifications")
                 .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            Text("macOS notification permission is required (System Settings → Notifications → Muskometer).")
+                .font(.caption)
                 .foregroundStyle(.secondary)
 
             if let viewModel {

@@ -30,7 +30,7 @@ final class DailyRecordTracker {
     private var completedDayKeysByPerson: [String: Set<String>] = [:]
     private var openMarketSampleDayKeysByPerson: [String: Set<String>] = [:]
 
-    nonisolated init(
+    init(
         defaults: UserDefaults = .standard,
         calendar: TradingDayCalendar = TradingDayCalendar(),
         marketHours: any MarketHoursServiceProtocol = MarketHoursService()

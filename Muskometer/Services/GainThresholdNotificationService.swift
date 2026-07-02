@@ -26,13 +26,19 @@ final class GainThresholdNotificationService {
         var tradingDayKey: String?
     }
 
+    private struct PersistedThresholdState: Codable, Equatable {
+        var armed: Bool
+        var lastGain: Double?
+        var tradingDayKey: String?
+    }
+
     private let defaults: UserDefaults
     private let calendar: TradingDayCalendar
     private let deliverer: any GainThresholdNotificationDelivering
 
     private var stateByKey: [String: ThresholdState] = [:]
 
-    nonisolated init(
+    init(
         defaults: UserDefaults = .standard,
         calendar: TradingDayCalendar = TradingDayCalendar(),
         deliverer: any GainThresholdNotificationDelivering = SystemGainThresholdNotificationDeliverer()
@@ -72,12 +78,16 @@ final class GainThresholdNotificationService {
 
         for threshold in GainNotificationThreshold.presets where enabledIDs.contains(threshold.id) {
             let stateKey = Self.stateKey(personID: personID, thresholdID: threshold.id)
-            var state = stateByKey[stateKey] ?? ThresholdState(armed: true, lastGain: nil, tradingDayKey: dayKey)
+            var state = stateByKey[stateKey] ?? loadState(forKey: stateKey)
 
             if state.tradingDayKey != dayKey {
                 state.armed = true
                 state.lastGain = nil
                 state.tradingDayKey = dayKey
+            }
+
+            if state.lastGain == nil, state.tradingDayKey == dayKey, isPastThreshold(threshold: threshold, paperGain: paperGain) {
+                state.armed = false
             }
 
             if let previousGain = state.lastGain, state.armed, didCross(threshold: threshold, from: previousGain, to: paperGain) {
@@ -94,9 +104,41 @@ final class GainThresholdNotificationService {
             state.lastGain = paperGain
             state.armed = shouldRearm(threshold: threshold, paperGain: paperGain, currentlyArmed: state.armed)
             stateByKey[stateKey] = state
+            saveState(state, forKey: stateKey)
         }
 
         return fired
+    }
+
+    private func loadState(forKey stateKey: String) -> ThresholdState {
+        let persistKey = Self.persistedStateKey(stateKey)
+        guard let data = defaults.data(forKey: persistKey),
+              let persisted = try? JSONDecoder().decode(PersistedThresholdState.self, from: data) else {
+            return ThresholdState(armed: true, lastGain: nil, tradingDayKey: nil)
+        }
+        return ThresholdState(
+            armed: persisted.armed,
+            lastGain: persisted.lastGain,
+            tradingDayKey: persisted.tradingDayKey
+        )
+    }
+
+    private func saveState(_ state: ThresholdState, forKey stateKey: String) {
+        let persistKey = Self.persistedStateKey(stateKey)
+        let persisted = PersistedThresholdState(
+            armed: state.armed,
+            lastGain: state.lastGain,
+            tradingDayKey: state.tradingDayKey
+        )
+        guard let data = try? JSONEncoder().encode(persisted) else { return }
+        defaults.set(data, forKey: persistKey)
+    }
+
+    private func isPastThreshold(threshold: GainNotificationThreshold, paperGain: Double) -> Bool {
+        if threshold.isGainThreshold {
+            return paperGain >= threshold.amount
+        }
+        return paperGain <= threshold.amount
     }
 
     private func didCross(threshold: GainNotificationThreshold, from previous: Double, to current: Double) -> Bool {
@@ -140,5 +182,9 @@ final class GainThresholdNotificationService {
 
     private static func stateKey(personID: String, thresholdID: String) -> String {
         "\(personID)-\(thresholdID)"
+    }
+
+    private static func persistedStateKey(_ stateKey: String) -> String {
+        "gainNotificationThresholdState_\(stateKey)"
     }
 }

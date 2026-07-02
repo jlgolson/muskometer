@@ -6,8 +6,8 @@ struct GainSparklineView: View {
     let samples: [GainSample]
 
     private let height: CGFloat = 36
-    private let gainPositive = Color(red: 0.2, green: 0.78, blue: 0.45)
-    private let gainNegative = Color(red: 0.95, green: 0.35, blue: 0.35)
+    private let gainPositive = Color("GainPositive")
+    private let gainNegative = Color("GainNegative")
 
     var body: some View {
         Group {

@@ -40,6 +40,13 @@ final class DailyRecordTracker {
         self.marketHours = marketHours
     }
 
+    func resetRuntimeState(for personID: String) {
+        dayExtremesByPerson.removeValue(forKey: personID)
+        currentDayKeyByPerson.removeValue(forKey: personID)
+        completedDayKeysByPerson.removeValue(forKey: personID)
+        openMarketSampleDayKeysByPerson.removeValue(forKey: personID)
+    }
+
     func snapshot(for personID: String) -> Snapshot {
         let hasCompleted = defaults.bool(forKey: Self.firstDayCompleteKey(personID))
         guard hasCompleted else {
@@ -177,5 +184,12 @@ final class DailyRecordTracker {
 
     private static func firstDayCompleteKey(_ personID: String) -> String {
         "dailyRecordFirstDayComplete_\(personID)"
+    }
+
+    nonisolated static func resetPersistedState(for personID: String, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: "dailyRecordBest_\(personID)")
+        defaults.removeObject(forKey: "dailyRecordWorst_\(personID)")
+        defaults.removeObject(forKey: "dailyRecordInstallDay_\(personID)")
+        defaults.removeObject(forKey: "dailyRecordFirstDayComplete_\(personID)")
     }
 }

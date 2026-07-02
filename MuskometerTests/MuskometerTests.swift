@@ -823,6 +823,7 @@ private struct FixedMarketHours: MarketHoursServiceProtocol {
     }
 }
 
+@MainActor
 final class IntradayGainSampleStoreTests: XCTestCase {
     private var eastern: TimeZone!
     private var calendar: Calendar!
@@ -867,7 +868,7 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         let (store, _) = makeStore(isMarketOpen: true)
         let date = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
 
-        store.append(combinedPaperGain: 1_000_000_000, at: date)
+        store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: date)
 
         XCTAssertEqual(store.samples.count, 1)
         XCTAssertEqual(store.samples.first?.combinedPaperGain, 1_000_000_000)
@@ -878,7 +879,7 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         let (store, _) = makeStore(isMarketOpen: false)
         let date = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
 
-        store.append(combinedPaperGain: 1_000_000_000, at: date)
+        store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: date)
 
         XCTAssertTrue(store.samples.isEmpty)
     }
@@ -898,8 +899,8 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
         let tuesday = try easternDate(year: 2026, month: 7, day: 1, hour: 11)
 
-        store.append(combinedPaperGain: 100, at: monday)
-        store.append(combinedPaperGain: 200, at: tuesday)
+        store.append(personID: "musk", combinedPaperGain: 100, at: monday)
+        store.append(personID: "musk", combinedPaperGain: 200, at: tuesday)
 
         XCTAssertEqual(store.samples.count, 1)
         XCTAssertEqual(store.samples.first?.combinedPaperGain, 200)
@@ -912,7 +913,7 @@ final class IntradayGainSampleStoreTests: XCTestCase {
 
         for index in 0..<450 {
             let date = start.addingTimeInterval(TimeInterval(index * 60))
-            store.append(combinedPaperGain: Double(index), at: date)
+            store.append(personID: "musk", combinedPaperGain: Double(index), at: date)
         }
 
         XCTAssertEqual(store.samples.count, 400)
@@ -933,17 +934,18 @@ final class IntradayGainSampleStoreTests: XCTestCase {
             calendar: calendar,
             marketHours: marketHours
         )
-        store.append(combinedPaperGain: 42_000_000_000, at: date)
+        store.append(personID: "musk", combinedPaperGain: 42_000_000_000, at: date)
 
         let reloaded = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
             marketHours: marketHours
         )
+        let samples = reloaded.loadSamples(for: "musk")
 
-        XCTAssertEqual(reloaded.samples.count, 1)
-        XCTAssertEqual(reloaded.samples.first?.combinedPaperGain, 42_000_000_000)
-        XCTAssertEqual(reloaded.samples.first?.timestamp, date)
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.combinedPaperGain, 42_000_000_000)
+        XCTAssertEqual(samples.first?.timestamp, date)
     }
 }
 
@@ -1366,6 +1368,12 @@ final class ComparisonLibraryTests: XCTestCase {
         XCTAssertTrue(entry.line(forGain: 5_000_000_000).text.hasPrefix("Today's gain "))
         XCTAssertTrue(entry.line(forGain: -5_000_000_000).text.hasPrefix("Today's loss "))
     }
+
+    func testSports01UsesSportsCategory() {
+        let entry = ComparisonLibrary.entries.first { $0.id == "sports-01" }
+        XCTAssertNotNil(entry)
+        XCTAssertEqual(entry?.category, .sports)
+    }
 }
 
 final class ComparisonHistoryStoreTests: XCTestCase {
@@ -1385,9 +1393,9 @@ final class ComparisonHistoryStoreTests: XCTestCase {
         let dayOne = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
         let dayThree = try EasternTestDates.date(year: 2026, month: 7, day: 2, hour: 11)
 
-        store.recordUse(entryID: "econ-10", on: dayOne)
+        store.recordUse(entryID: "econ-10", personID: "musk", on: dayOne)
 
-        XCTAssertTrue(store.recentlyUsedEntryIDs(on: dayThree).contains("econ-10"))
+        XCTAssertTrue(store.recentlyUsedEntryIDs(personID: "musk", on: dayThree).contains("econ-10"))
     }
 
     func testDropsEntriesOlderThanSevenDays() throws {
@@ -1399,9 +1407,9 @@ final class ComparisonHistoryStoreTests: XCTestCase {
         let oldDay = try EasternTestDates.date(year: 2026, month: 6, day: 20, hour: 11)
         let currentDay = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
 
-        store.recordUse(entryID: "econ-10", on: oldDay)
+        store.recordUse(entryID: "econ-10", personID: "musk", on: oldDay)
 
-        XCTAssertFalse(store.recentlyUsedEntryIDs(on: currentDay).contains("econ-10"))
+        XCTAssertFalse(store.recentlyUsedEntryIDs(personID: "musk", on: currentDay).contains("econ-10"))
     }
 }
 
@@ -1409,7 +1417,7 @@ final class ComparisonHistoryStoreTests: XCTestCase {
 final class ComparisonLineSelectorTests: XCTestCase {
     func testReturnsNilForZeroGain() {
         let selector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 1))
-        XCTAssertNil(selector.selectLine(for: 0))
+        XCTAssertNil(selector.selectLine(for: 0, personID: "musk"))
     }
 
     func testSelectsLineFromMatchingBucket() {
@@ -1425,7 +1433,7 @@ final class ComparisonLineSelectorTests: XCTestCase {
             randomizer: SeededComparisonRandomizer(seed: 42)
         )
 
-        let line = selector.selectLine(for: 15_000_000_000)
+        let line = selector.selectLine(for: 15_000_000_000, personID: "musk")
 
         XCTAssertNotNil(line)
         XCTAssertTrue(line?.text.hasPrefix("Today's gain ") ?? false)
@@ -1443,7 +1451,7 @@ final class ComparisonLineSelectorTests: XCTestCase {
 
         let bucketEntries = ComparisonLibrary.candidates(forMagnitude: 15_000_000_000)
         for entry in bucketEntries {
-            store.recordUse(entryID: entry.id, on: date)
+            store.recordUse(entryID: entry.id, personID: "musk", on: date)
         }
 
         let selector = ComparisonLineSelector(
@@ -1451,7 +1459,7 @@ final class ComparisonLineSelectorTests: XCTestCase {
             randomizer: SeededComparisonRandomizer(seed: 7)
         )
 
-        let line = selector.selectLine(for: 15_000_000_000, on: date)
+        let line = selector.selectLine(for: 15_000_000_000, personID: "musk", on: date)
         XCTAssertNotNil(line)
     }
 }
@@ -1464,48 +1472,50 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
         return NetWorthMilestoneTracker(defaults: defaults)
     }
 
+    private let personID = TrackedPersonProfile.musk.id
+
     func testCelebratesCrossingOneTrillion() {
         let tracker = makeTracker()
-        let event = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion)
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion, personID: personID)
 
         guard case .celebration(let milestone) = event else {
             return XCTFail("Expected celebration")
         }
         XCTAssertEqual(milestone.title, "One trillion dollars!")
-        XCTAssertEqual(tracker.currentZone(), .aboveOneTrillion)
+        XCTAssertEqual(tracker.currentZone(for: personID), .aboveOneTrillion)
     }
 
     func testCelebratesCrossingTwoTrillion() {
         let tracker = makeTracker()
-        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 1)
-        let event = tracker.update(netWorth: NetWorthMilestoneTracker.twoTrillion)
+        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 1, personID: personID)
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.twoTrillion, personID: personID)
 
         guard case .celebration(let milestone) = event else {
             return XCTFail("Expected celebration")
         }
         XCTAssertEqual(milestone.title, "Two trillion club!")
-        XCTAssertEqual(tracker.currentZone(), .aboveTwoTrillion)
+        XCTAssertEqual(tracker.currentZone(for: personID), .aboveTwoTrillion)
     }
 
     func testHysteresisPreventsFlickerAroundOneTrillion() {
         let tracker = makeTracker()
-        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 5_000_000_000)
+        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 5_000_000_000, personID: personID)
 
-        XCTAssertNil(tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion * 0.995))
-        XCTAssertEqual(tracker.currentZone(), .aboveOneTrillion)
+        XCTAssertNil(tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion * 0.995, personID: personID))
+        XCTAssertEqual(tracker.currentZone(for: personID), .aboveOneTrillion)
 
-        let event = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion * 0.98)
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion * 0.98, personID: personID)
         guard case .fellBelowTrillion(let message) = event else {
             return XCTFail("Expected fellBelowTrillion")
         }
         XCTAssertEqual(message, NetWorthMilestoneTracker.belowTrillionMessage)
-        XCTAssertEqual(tracker.currentZone(), .belowOneTrillion)
+        XCTAssertEqual(tracker.currentZone(for: personID), .belowOneTrillion)
     }
 
     func testSadMessageUsesLonliestNumberCopy() {
         let tracker = makeTracker()
-        _ = tracker.update(netWorth: 1_100_000_000_000)
-        let event = tracker.update(netWorth: 900_000_000_000)
+        _ = tracker.update(netWorth: 1_100_000_000_000, personID: personID)
+        let event = tracker.update(netWorth: 900_000_000_000, personID: personID)
 
         guard case .fellBelowTrillion(let message) = event else {
             return XCTFail("Expected fellBelowTrillion")
@@ -1515,7 +1525,304 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
 
     func testNoCelebrationWhenAlreadyAboveTrillion() {
         let tracker = makeTracker()
-        _ = tracker.update(netWorth: 1_100_000_000_000)
-        XCTAssertNil(tracker.update(netWorth: 1_200_000_000_000))
+        _ = tracker.update(netWorth: 1_100_000_000_000, personID: personID)
+        XCTAssertNil(tracker.update(netWorth: 1_200_000_000_000, personID: personID))
+    }
+
+    func testZonesAreScopedPerPerson() {
+        let tracker = makeTracker()
+        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion, personID: "musk")
+        _ = tracker.update(netWorth: 500_000_000_000, personID: "other")
+
+        XCTAssertEqual(tracker.currentZone(for: "musk"), .aboveOneTrillion)
+        XCTAssertEqual(tracker.currentZone(for: "other"), .belowOneTrillion)
+    }
+}
+
+@MainActor
+final class ShareShortcutMatcherTests: XCTestCase {
+    func testMatchesCommandShiftC() {
+        XCTAssertTrue(
+            ShareShortcutMatcher.matches(
+                modifierFlags: [.command, .shift],
+                charactersIgnoringModifiers: "C"
+            )
+        )
+    }
+
+    func testRejectsCommandOnly() {
+        XCTAssertFalse(
+            ShareShortcutMatcher.matches(
+                modifierFlags: [.command],
+                charactersIgnoringModifiers: "C"
+            )
+        )
+    }
+
+    func testRejectsWrongKey() {
+        XCTAssertFalse(
+            ShareShortcutMatcher.matches(
+                modifierFlags: [.command, .shift],
+                charactersIgnoringModifiers: "V"
+            )
+        )
+    }
+}
+
+@MainActor
+final class GainsViewModelComparisonDebounceTests: XCTestCase {
+    private let personID = TrackedPersonProfile.musk.id
+
+    private func makeSettings() -> AppSettings {
+        let suiteName = "MuskometerTests-comparison-debounce-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return AppSettings(defaults: defaults)
+    }
+
+    private func quotes(producingCombinedGain gain: Double) -> [StockQuote] {
+        let tslaShares = 100.0
+        let tslaDelta = gain / tslaShares
+
+        return [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 100 + tslaDelta,
+                previousClose: 100,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 50,
+                previousClose: 50,
+                currency: "USD"
+            ),
+        ]
+    }
+
+    func testComparisonLineOnlyUpdatesOnDayOrBucketChange() async {
+        let settings = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: 15_000_000_000))
+        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: stockService,
+            comparisonLineSelector: comparisonSelector
+        )
+
+        await viewModel.refresh(force: true)
+        let firstLine = viewModel.comparisonLine
+        XCTAssertNotNil(firstLine)
+
+        stockService.quotes = quotes(producingCombinedGain: 16_000_000_000)
+        await viewModel.refresh(force: true)
+        XCTAssertEqual(viewModel.comparisonLine?.text, firstLine?.text)
+
+        stockService.quotes = quotes(producingCombinedGain: 25_000_000_000)
+        await viewModel.refresh(force: true)
+        XCTAssertNotEqual(viewModel.comparisonLine?.text, firstLine?.text)
+    }
+
+    func testComparisonLineUpdatesOnDayChange() async throws {
+        let settings = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let dayOne = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let dayTwo = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 11)
+        var currentDate = dayOne
+
+        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: 15_000_000_000))
+        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: stockService,
+            comparisonLineSelector: comparisonSelector,
+            dateProvider: { currentDate }
+        )
+
+        await viewModel.refresh(force: true)
+        let firstLine = try XCTUnwrap(viewModel.comparisonLine)
+
+        currentDate = dayTwo
+        await viewModel.refresh(force: true)
+        XCTAssertNotEqual(viewModel.comparisonLine?.text, firstLine.text)
+    }
+
+    func testComparisonDebounceIsPerPerson() async throws {
+        let settings = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        var currentDate = date
+
+        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: 15_000_000_000))
+        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: stockService,
+            comparisonLineSelector: comparisonSelector,
+            dateProvider: { currentDate }
+        )
+
+        await viewModel.refresh(force: true)
+        let muskLine = try XCTUnwrap(viewModel.comparisonLine)
+
+        stockService.quotes = quotes(producingCombinedGain: 16_000_000_000)
+        await viewModel.refresh(force: true)
+        XCTAssertEqual(viewModel.comparisonLine?.text, muskLine.text)
+
+        settings.selectedPersonID = "other"
+        stockService.quotes = quotes(producingCombinedGain: 15_000_000_000)
+        await viewModel.refresh(force: true)
+        let otherLine = try XCTUnwrap(viewModel.comparisonLine)
+
+        stockService.quotes = quotes(producingCombinedGain: 16_000_000_000)
+        await viewModel.refresh(force: true)
+        XCTAssertEqual(viewModel.comparisonLine?.text, otherLine.text)
+    }
+}
+
+@MainActor
+final class GainsViewModelResetTests: XCTestCase {
+    private func makeSettings(suiteName: String = "MuskometerTests-reset-\(UUID().uuidString)") -> (AppSettings, UserDefaults) {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return (AppSettings(defaults: defaults), defaults)
+    }
+
+    private func quotes(producingCombinedGain gain: Double) -> [StockQuote] {
+        let tslaShares = 100.0
+        let tslaDelta = gain / tslaShares
+
+        return [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 100 + tslaDelta,
+                previousClose: 100,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 50,
+                previousClose: 50,
+                currency: "USD"
+            ),
+        ]
+    }
+
+    func testResetToDefaultsClearsIntradaySamplesInViewModel() async throws {
+        let (settings, defaults) = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let calendar = EasternTestDates.calendar()
+        let intradayStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true)
+        )
+
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MutableMockStockService(quotes: quotes(producingCombinedGain: 1_000_000_000)),
+            intradayGainSampleStore: intradayStore,
+            dateProvider: { date }
+        )
+
+        await viewModel.refresh(force: true)
+        XCTAssertFalse(viewModel.intradaySamples.isEmpty)
+
+        settings.resetToDefaults()
+        viewModel.reloadPersistedDisplayState()
+
+        XCTAssertTrue(viewModel.intradaySamples.isEmpty)
+    }
+}
+
+@MainActor
+final class GainsViewModelTrillionEasterEggTests: XCTestCase {
+    private let personID = TrackedPersonProfile.musk.id
+
+    private func makeSettings(defaults: UserDefaults) -> AppSettings {
+        AppSettings(defaults: defaults)
+    }
+
+    private func quotes(netWorth: Double) -> [StockQuote] {
+        let shareCount = 1.0
+        return [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: netWorth / shareCount,
+                previousClose: (netWorth / shareCount) - 1,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 1,
+                previousClose: 1,
+                currency: "USD"
+            ),
+        ]
+    }
+
+    func testClearsTrillionEasterEggWhenNetWorthRecoversAboveOneTrillion() async {
+        let suiteName = "MuskometerTests-trillion-easter-egg-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = makeSettings(defaults: defaults)
+        settings.setShareCount(1, for: "TSLA")
+        settings.setShareCount(0, for: "SPCX")
+
+        let tracker = NetWorthMilestoneTracker(defaults: defaults)
+        let stockService = MutableMockStockService(quotes: quotes(netWorth: 1_100_000_000_000))
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: stockService,
+            netWorthMilestoneTracker: tracker
+        )
+
+        await viewModel.refresh(force: true)
+        XCTAssertNil(viewModel.trillionEasterEggMessage)
+
+        stockService.quotes = quotes(netWorth: 900_000_000_000)
+        await viewModel.refresh(force: true)
+        XCTAssertNotNil(viewModel.trillionEasterEggMessage)
+
+        defaults.set(
+            NetWorthZone.aboveOneTrillion.rawValue,
+            forKey: "netWorthMilestoneZone_\(personID)"
+        )
+
+        stockService.quotes = quotes(netWorth: 1_050_000_000_000)
+        await viewModel.refresh(force: true)
+
+        XCTAssertNil(viewModel.trillionEasterEggMessage)
+        XCTAssertEqual(tracker.currentZone(for: personID), .aboveOneTrillion)
+    }
+}
+
+@MainActor
+private final class MutableMockStockService: StockPriceServiceProtocol {
+    var quotes: [StockQuote]
+
+    init(quotes: [StockQuote]) {
+        self.quotes = quotes
+    }
+
+    func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
+        quotes
     }
 }

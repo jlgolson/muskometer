@@ -1,5 +1,16 @@
 import AppKit
 
+enum ShareShortcutMatcher {
+    static func matches(
+        modifierFlags: NSEvent.ModifierFlags,
+        charactersIgnoringModifiers: String?
+    ) -> Bool {
+        let flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
+        guard flags.contains(.command), flags.contains(.shift) else { return false }
+        return charactersIgnoringModifiers?.lowercased() == "c"
+    }
+}
+
 @MainActor
 final class ShareShortcutController {
     private var globalMonitor: Any?
@@ -50,9 +61,10 @@ final class ShareShortcutController {
     }
 
     private func matchesShortcut(_ event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.contains(.command), flags.contains(.shift) else { return false }
-        return event.charactersIgnoringModifiers?.lowercased() == "c"
+        ShareShortcutMatcher.matches(
+            modifierFlags: event.modifierFlags,
+            charactersIgnoringModifiers: event.charactersIgnoringModifiers
+        )
     }
 
     private func fire() {

@@ -359,6 +359,7 @@ struct SettingsView: View {
             shareErrors = [:]
 
             if let viewModel {
+                viewModel.reloadPersistedDisplayState()
                 Task { await viewModel.refresh(force: true) }
             }
         }

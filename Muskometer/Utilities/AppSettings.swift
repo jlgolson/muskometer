@@ -333,6 +333,16 @@ final class AppSettings {
 
         lastHoldingsSyncDate = nil
         holdingsSyncSource = nil
+
+        Self.resetPersistedState(for: selectedPersonID, defaults: defaults)
+    }
+
+    private static func resetPersistedState(for personID: String, defaults: UserDefaults) {
+        GainThresholdNotificationService.resetPersistedState(for: personID, defaults: defaults)
+        NetWorthMilestoneTracker.resetPersistedState(for: personID, defaults: defaults)
+        IntradayGainSampleStore.resetPersistedState(for: personID, defaults: defaults)
+        ComparisonHistoryStore.resetPersistedState(for: personID, defaults: defaults)
+        DailyRecordTracker.resetPersistedState(for: personID, defaults: defaults)
     }
 
     @discardableResult

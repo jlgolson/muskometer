@@ -41,11 +41,11 @@ final class ComparisonLineSelector {
         self.randomizer = randomizer
     }
 
-    func selectLine(for paperGain: Double, on date: Date = .now) -> ComparisonLine? {
+    func selectLine(for paperGain: Double, personID: String, on date: Date = .now) -> ComparisonLine? {
         let magnitude = abs(paperGain)
         guard magnitude > 0 else { return nil }
 
-        let recentlyUsed = historyStore.recentlyUsedEntryIDs(on: date)
+        let recentlyUsed = historyStore.recentlyUsedEntryIDs(personID: personID, on: date)
         var candidates = ComparisonLibrary.candidates(forMagnitude: magnitude)
             .filter { !recentlyUsed.contains($0.id) }
 
@@ -60,7 +60,7 @@ final class ComparisonLineSelector {
         self.randomizer = randomizer
 
         let chosen = candidates[index]
-        historyStore.recordUse(entryID: chosen.id, on: date)
+        historyStore.recordUse(entryID: chosen.id, personID: personID, on: date)
         return chosen.line(forGain: paperGain)
     }
 }

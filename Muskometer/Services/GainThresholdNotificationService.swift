@@ -60,6 +60,11 @@ final class GainThresholdNotificationService {
         defaults.set(Array(ids).sorted(), forKey: Self.enabledThresholdsKey(personID))
     }
 
+    func resetRuntimeState(for personID: String) {
+        let prefix = "\(personID)-"
+        stateByKey = stateByKey.filter { !$0.key.hasPrefix(prefix) }
+    }
+
     @discardableResult
     func processUpdate(
         paperGain: Double,
@@ -186,5 +191,13 @@ final class GainThresholdNotificationService {
 
     private static func persistedStateKey(_ stateKey: String) -> String {
         "gainNotificationThresholdState_\(stateKey)"
+    }
+
+    nonisolated static func resetPersistedState(for personID: String, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: "gainNotificationEnabledThresholds_\(personID)")
+        for threshold in GainNotificationThreshold.presets {
+            let stateKey = "\(personID)-\(threshold.id)"
+            defaults.removeObject(forKey: "gainNotificationThresholdState_\(stateKey)")
+        }
     }
 }

@@ -25,8 +25,10 @@ final class NetWorthMilestoneTracker {
         self.defaults = defaults
     }
 
-    func currentZone() -> NetWorthZone {
-        guard let raw = defaults.string(forKey: Self.zoneKey),
+    func currentZone(for personID: String) -> NetWorthZone {
+        Self.migrateLegacyZoneIfNeeded(defaults: defaults, personID: personID)
+
+        guard let raw = defaults.string(forKey: Self.zoneKey(personID: personID)),
               let zone = NetWorthZone(rawValue: raw) else {
             return .belowOneTrillion
         }
@@ -34,10 +36,10 @@ final class NetWorthMilestoneTracker {
     }
 
     @discardableResult
-    func update(netWorth: Double, at date: Date = .now) -> NetWorthMilestoneEvent? {
-        let previousZone = currentZone()
+    func update(netWorth: Double, personID: String, at date: Date = .now) -> NetWorthMilestoneEvent? {
+        let previousZone = currentZone(for: personID)
         let newZone = resolvedZone(for: netWorth, from: previousZone)
-        defaults.set(newZone.rawValue, forKey: Self.zoneKey)
+        defaults.set(newZone.rawValue, forKey: Self.zoneKey(personID: personID))
 
         switch (previousZone, newZone) {
         case (.belowOneTrillion, .aboveOneTrillion), (.belowOneTrillion, .aboveTwoTrillion):
@@ -90,5 +92,27 @@ final class NetWorthMilestoneTracker {
         }
     }
 
-    private static let zoneKey = "netWorthMilestoneZone"
+    nonisolated static func resetPersistedState(for personID: String, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: "netWorthMilestoneZone_\(personID)")
+        if personID == TrackedPersonProfile.musk.id {
+            defaults.removeObject(forKey: "netWorthMilestoneZone")
+        }
+    }
+
+    private static let legacyZoneKey = "netWorthMilestoneZone"
+
+    private static func zoneKey(personID: String) -> String {
+        "netWorthMilestoneZone_\(personID)"
+    }
+
+    private static func migrateLegacyZoneIfNeeded(defaults: UserDefaults, personID: String) {
+        guard personID == TrackedPersonProfile.musk.id else { return }
+        let key = zoneKey(personID: personID)
+        guard defaults.string(forKey: key) == nil,
+              let legacy = defaults.string(forKey: legacyZoneKey) else {
+            return
+        }
+        defaults.set(legacy, forKey: key)
+        defaults.removeObject(forKey: legacyZoneKey)
+    }
 }

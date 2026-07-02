@@ -61,16 +61,4 @@ struct TradingDayCalendar: Sendable {
         return date >= marketClose && !marketHours.isMarketOpen(at: date)
     }
 
-    /// Returns `true` when `date` falls on a weekend or US market holiday.
-    func isNonTradingDay(at date: Date, marketHours: any MarketHoursServiceProtocol) -> Bool {
-        !marketHours.isMarketOpen(at: date) && !isDuringMarketHours(dayKey: dayKey(for: date), at: date, marketHours: marketHours)
-    }
-
-    private func isDuringMarketHours(dayKey: String, at date: Date, marketHours: any MarketHoursServiceProtocol) -> Bool {
-        guard let open = self.date(on: dayKey, hour: 9, minute: 30),
-              let close = self.date(on: dayKey, hour: 16, minute: 0) else {
-            return false
-        }
-        return date >= open && date < close && marketHours.isMarketOpen(at: date)
-    }
 }

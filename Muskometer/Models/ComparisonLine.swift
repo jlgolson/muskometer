@@ -66,7 +66,7 @@ enum ComparisonLibrary {
         entry("econ-03", "matches the annual budget of the National Science Foundation.", nil, "building.columns.fill", 0, 10, .economics),
         entry("space-01", "could fuel a Falcon 9 launch cadence for a month.", "a month", "airplane.departure", 0, 10, .space),
         entry("space-02", "would cover a Dragon crew mission end to end.", nil, "sparkles", 0, 10, .space),
-        entry("sports-01", "beats the lifetime earnings of 200 Hall of Fame athletes.", "200", "sportscourt.fill", 0, 10, .economics),
+        entry("sports-01", "beats the lifetime earnings of 200 Hall of Fame athletes.", "200", "sportscourt.fill", 0, 10, .sports),
         entry("ent-01", "could bankroll a summer blockbuster marketing blitz.", nil, "film.fill", 0, 10, .entertainment),
         entry("gov-01", "exceeds the annual operating budget of a mid-size US city.", nil, "building.2.fill", 0, 10, .government),
         entry("infra-01", "could repave 1,000 lane-miles of interstate.", "1,000", "road.lanes", 0, 10, .infrastructure),

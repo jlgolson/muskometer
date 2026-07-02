@@ -61,6 +61,13 @@
 		A1000000000000000000003A /* ComparisonHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* ComparisonHistoryStore.swift */; };
 		A1000000000000000000003B /* ComparisonLineSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* ComparisonLineSelector.swift */; };
 		A1000000000000000000003C /* NetWorthMilestoneTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003C /* NetWorthMilestoneTracker.swift */; };
+		A1000000000000000000003D /* MarketStatusFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* MarketStatusFormatter.swift */; };
+		A1000000000000000000003E /* UpdateDeliveryMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003E /* UpdateDeliveryMode.swift */; };
+		A1000000000000000000003F /* UpdateChecking.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003F /* UpdateChecking.swift */; };
+		A10000000000000000000040 /* GitHubReleaseUpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */; };
+		A10000000000000000000041 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* UpdateCoordinator.swift */; };
+		A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* SparkleUpdateDriver.swift */; };
+		A10000000000000000000043 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* SemanticVersion.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -122,6 +129,13 @@
 		A2000000000000000000003A /* ComparisonHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonHistoryStore.swift; sourceTree = "<group>"; };
 		A2000000000000000000003B /* ComparisonLineSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonLineSelector.swift; sourceTree = "<group>"; };
 		A2000000000000000000003C /* NetWorthMilestoneTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthMilestoneTracker.swift; sourceTree = "<group>"; };
+		A2000000000000000000003D /* MarketStatusFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketStatusFormatter.swift; sourceTree = "<group>"; };
+		A2000000000000000000003E /* UpdateDeliveryMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateDeliveryMode.swift; sourceTree = "<group>"; };
+		A2000000000000000000003F /* UpdateChecking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecking.swift; sourceTree = "<group>"; };
+		A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseUpdateChecker.swift; sourceTree = "<group>"; };
+		A20000000000000000000041 /* UpdateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCoordinator.swift; sourceTree = "<group>"; };
+		A20000000000000000000042 /* SparkleUpdateDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateDriver.swift; sourceTree = "<group>"; };
+		A20000000000000000000043 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -228,6 +242,7 @@
 				A2000000000000000000002D /* NetWorthMilestone.swift */,
 				A20000000000000000000031 /* GainSample.swift */,
 				A20000000000000000000038 /* GainNotificationThreshold.swift */,
+				A2000000000000000000003E /* UpdateDeliveryMode.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -247,6 +262,10 @@
 				A2000000000000000000003A /* ComparisonHistoryStore.swift */,
 				A2000000000000000000003B /* ComparisonLineSelector.swift */,
 				A2000000000000000000003C /* NetWorthMilestoneTracker.swift */,
+				A2000000000000000000003F /* UpdateChecking.swift */,
+				A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */,
+				A20000000000000000000041 /* UpdateCoordinator.swift */,
+				A20000000000000000000042 /* SparkleUpdateDriver.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -292,6 +311,8 @@
 				A20000000000000000000025 /* ShareImageExporter.swift */,
 				A20000000000000000000034 /* XShareIntent.swift */,
 				A20000000000000000000036 /* TradingDayCalendar.swift */,
+				A2000000000000000000003D /* MarketStatusFormatter.swift */,
+				A20000000000000000000043 /* SemanticVersion.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -446,6 +467,13 @@
 				A1000000000000000000003A /* ComparisonHistoryStore.swift in Sources */,
 				A1000000000000000000003B /* ComparisonLineSelector.swift in Sources */,
 				A1000000000000000000003C /* NetWorthMilestoneTracker.swift in Sources */,
+				A1000000000000000000003D /* MarketStatusFormatter.swift in Sources */,
+				A1000000000000000000003E /* UpdateDeliveryMode.swift in Sources */,
+				A1000000000000000000003F /* UpdateChecking.swift in Sources */,
+				A10000000000000000000040 /* GitHubReleaseUpdateChecker.swift in Sources */,
+				A10000000000000000000041 /* UpdateCoordinator.swift in Sources */,
+				A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */,
+				A10000000000000000000043 /* SemanticVersion.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -513,7 +541,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 21;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -524,7 +552,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -541,7 +569,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 21;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -552,7 +580,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -566,11 +594,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 21;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -584,11 +612,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 12;
+				CURRENT_PROJECT_VERSION = 21;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

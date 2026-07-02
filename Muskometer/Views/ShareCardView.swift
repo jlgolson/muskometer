@@ -74,7 +74,7 @@ struct ShareCardView: View {
                 Circle()
                     .fill(snapshot.marketIsOpen ? gainPositive : muted)
                     .frame(width: 6, height: 6)
-                Text(snapshot.marketIsOpen ? "Market open" : "Market closed")
+                Text(marketStatusText)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(muted)
             }
@@ -160,7 +160,7 @@ struct ShareCardView: View {
 
             Spacer(minLength: 8)
 
-            Text("As of \(Self.asOfFormatter.string(from: snapshot.lastUpdated))")
+            Text(footerAsOfText)
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(muted)
                 .multilineTextAlignment(.trailing)
@@ -168,13 +168,27 @@ struct ShareCardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private static let asOfFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: "America/New_York") ?? .current
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "MMM d, h:mm a 'ET'"
-        return formatter
-    }()
+    private var marketStatusText: String {
+        if snapshot.marketIsOpen {
+            return "Market open"
+        }
+        return MarketStatusFormatter.asOfCloseLabel(
+            for: snapshot.lastUpdated,
+            marketHours: marketHours
+        ) ?? "Market closed"
+    }
+
+    private var footerAsOfText: String {
+        if snapshot.marketIsOpen {
+            return MarketStatusFormatter.asOfLiveLabel(date: snapshot.lastUpdated)
+        }
+        return MarketStatusFormatter.asOfCloseLabel(
+            for: snapshot.lastUpdated,
+            marketHours: marketHours
+        ) ?? MarketStatusFormatter.asOfLiveLabel(date: snapshot.lastUpdated)
+    }
+
+    private let marketHours: any MarketHoursServiceProtocol = MarketHoursService()
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)

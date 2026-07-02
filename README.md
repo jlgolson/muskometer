@@ -12,7 +12,7 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 
 ### Download
 
-1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.0.dmg` (or the newest release asset)
+1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.1.dmg` (or the newest release asset)
 2. Open the DMG, drag **Muskometer** to **Applications**
 3. **First launch:** right-click **Muskometer** → **Open** → **Open** (unsigned build — macOS will trust it after that once)
 
@@ -57,7 +57,7 @@ No. Muskometer shows illustrative *paper gains* (share count × price change) fo
 **TSLA** and **SPCX** share counts come from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
 
 **When does the number update?**  
-Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the label uses the prior close and refreshes less often.
+Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the app stops auto-refreshing and shows the last fetched prior-close values (use **Refresh** or **⌘R** to update manually).
 
 **What data does the app collect?**  
 Nothing leaves your Mac except HTTPS requests to Yahoo Finance and SEC EDGAR for public market data. Preferences stay in UserDefaults. See **[docs/PRIVACY.md](docs/PRIVACY.md)**.

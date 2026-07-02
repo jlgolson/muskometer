@@ -52,6 +52,38 @@ final class StockQuoteTests: XCTestCase {
     }
 }
 
+final class MarketStatusFormatterTests: XCTestCase {
+    func testAsOfCloseLabelUsesLocalTimeZone() throws {
+        let eastern = TimeZone(identifier: "America/New_York")!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = eastern
+
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 7
+        components.day = 2
+        components.hour = 16
+        components.minute = 0
+        components.timeZone = eastern
+        let closeDate = try XCTUnwrap(calendar.date(from: components))
+
+        let easternLabel = MarketStatusFormatter.asOfCloseLabel(
+            closeDate: closeDate,
+            timeZone: eastern,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        XCTAssertEqual(easternLabel, "As of 4:00 PM EDT on July 2")
+
+        let pacific = TimeZone(identifier: "America/Los_Angeles")!
+        let pacificLabel = MarketStatusFormatter.asOfCloseLabel(
+            closeDate: closeDate,
+            timeZone: pacific,
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        XCTAssertEqual(pacificLabel, "As of 1:00 PM PDT on July 2")
+    }
+}
+
 final class MarketHoursServiceTests: XCTestCase {
     private var calendar: Calendar!
     private var eastern: TimeZone!
@@ -156,6 +188,41 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
         XCTAssertEqual(calendar.component(.month, from: nextOpen), 7)
+    }
+
+    func testLastMarketCloseAfterHoursSameDay() throws {
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+
+        let close = try XCTUnwrap(service.lastMarketClose(from: afterClose))
+
+        XCTAssertEqual(calendar.component(.year, from: close), 2026)
+        XCTAssertEqual(calendar.component(.month, from: close), 6)
+        XCTAssertEqual(calendar.component(.day, from: close), 30)
+        XCTAssertEqual(calendar.component(.hour, from: close), 16)
+        XCTAssertEqual(calendar.component(.minute, from: close), 0)
+    }
+
+    func testLastMarketCloseBeforeOpenUsesPreviousTradingDay() throws {
+        let wednesdayMorning = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 7)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+
+        let close = try XCTUnwrap(service.lastMarketClose(from: wednesdayMorning))
+
+        XCTAssertEqual(calendar.component(.month, from: close), 6)
+        XCTAssertEqual(calendar.component(.day, from: close), 30)
+        XCTAssertEqual(calendar.component(.hour, from: close), 16)
+    }
+
+    func testLastMarketCloseOnHolidayUsesPreviousTradingDay() throws {
+        let holidayMorning = try EasternTestDates.date(year: 2026, month: 7, day: 3, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+
+        let close = try XCTUnwrap(service.lastMarketClose(from: holidayMorning))
+
+        XCTAssertEqual(calendar.component(.month, from: close), 7)
+        XCTAssertEqual(calendar.component(.day, from: close), 2)
+        XCTAssertEqual(calendar.component(.hour, from: close), 16)
     }
 
     func testNextOpenBeforeMarketOpenSameDayIs930() throws {
@@ -725,6 +792,10 @@ private struct FixedMarketHours: MarketHoursServiceProtocol {
     }
 
     func nextOpenDate(from date: Date) -> Date? {
+        nil
+    }
+
+    func lastMarketClose(from date: Date) -> Date? {
         nil
     }
 }
@@ -1534,6 +1605,30 @@ final class GainsViewModelComparisonDebounceTests: XCTestCase {
         XCTAssertNotEqual(viewModel.comparisonLine?.text, firstLine?.text)
     }
 
+    func testComparisonLineUpdatesOnSignChange() async throws {
+        let settings = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: -15_000_000_000))
+        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: stockService,
+            comparisonLineSelector: comparisonSelector
+        )
+
+        await viewModel.refresh(force: true)
+        let lossLine = try XCTUnwrap(viewModel.comparisonLine)
+        XCTAssertTrue(lossLine.text.hasPrefix("Today's loss "))
+
+        stockService.quotes = quotes(producingCombinedGain: 15_000_000_000)
+        await viewModel.refresh(force: true)
+        let gainLine = try XCTUnwrap(viewModel.comparisonLine)
+        XCTAssertTrue(gainLine.text.hasPrefix("Today's gain "))
+        XCTAssertNotEqual(gainLine.text, lossLine.text)
+    }
+
     func testComparisonLineUpdatesOnDayChange() async throws {
         let settings = makeSettings()
         settings.setShareCount(100, for: "TSLA")
@@ -1730,5 +1825,360 @@ private final class MutableMockStockService: StockPriceServiceProtocol {
 
     func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
         quotes
+    }
+}
+
+final class SemanticVersionTests: XCTestCase {
+    func testNewerPatchVersion() {
+        XCTAssertTrue(SemanticVersion.isNewer("0.1.1", than: "0.1.0"))
+    }
+
+    func testNewerMinorVersion() {
+        XCTAssertTrue(SemanticVersion.isNewer("0.2.0", than: "0.1.9"))
+    }
+
+    func testEqualVersions() {
+        XCTAssertFalse(SemanticVersion.isNewer("0.1.0", than: "0.1.0"))
+        XCTAssertEqual(SemanticVersion.compare("1.0", "1.0.0"), 0)
+    }
+
+    func testOlderVersionIsNotNewer() {
+        XCTAssertFalse(SemanticVersion.isNewer("0.1.0", than: "0.2.0"))
+    }
+}
+
+final class GitHubReleaseUpdateCheckerTests: XCTestCase {
+    private var session: URLSession!
+
+    override func setUp() {
+        super.setUp()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        session = URLSession(configuration: config)
+        MockURLProtocol.requestHandler = nil
+    }
+
+    override func tearDown() {
+        MockURLProtocol.requestHandler = nil
+        session = nil
+        super.tearDown()
+    }
+
+    func testReturnsUpdateWhenRemoteVersionIsNewer() async throws {
+        let apiURL = URL(string: "https://api.github.com/repos/jlgolson/muskometer/releases/latest")!
+        let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+
+        MockURLProtocol.requestHandler = { request in
+            XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent")?.hasPrefix("Muskometer/"), true)
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "application/vnd.github+json")
+
+            let body = """
+            {
+              "tag_name": "v0.2.0",
+              "html_url": "\(releaseURL.absoluteString)",
+              "published_at": "2026-07-02T12:00:00Z",
+              "prerelease": false
+            }
+            """.data(using: .utf8)!
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let checker = GitHubReleaseUpdateChecker(session: session, apiURL: apiURL)
+        let result = try await checker.checkForUpdate(currentVersion: "0.1.0")
+
+        XCTAssertEqual(result?.availableVersion, "0.2.0")
+        XCTAssertEqual(result?.releasePageURL, releaseURL)
+        XCTAssertNotNil(result?.publishedAt)
+    }
+
+    func testSkipsPrerelease() async throws {
+        let apiURL = URL(string: "https://api.github.com/repos/jlgolson/muskometer/releases/latest")!
+
+        MockURLProtocol.requestHandler = { request in
+            let body = """
+            {
+              "tag_name": "v0.2.0",
+              "html_url": "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0",
+              "published_at": null,
+              "prerelease": true
+            }
+            """.data(using: .utf8)!
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let checker = GitHubReleaseUpdateChecker(session: session, apiURL: apiURL)
+        let result = try await checker.checkForUpdate(currentVersion: "0.1.0")
+        XCTAssertNil(result)
+    }
+
+    func testReturnsNilWhenCurrentVersionIsUpToDate() async throws {
+        let apiURL = URL(string: "https://api.github.com/repos/jlgolson/muskometer/releases/latest")!
+
+        MockURLProtocol.requestHandler = { request in
+            let body = """
+            {
+              "tag_name": "v0.1.0",
+              "html_url": "https://github.com/jlgolson/muskometer/releases/tag/v0.1.0",
+              "published_at": null,
+              "prerelease": false
+            }
+            """.data(using: .utf8)!
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let checker = GitHubReleaseUpdateChecker(session: session, apiURL: apiURL)
+        let result = try await checker.checkForUpdate(currentVersion: "0.1.0")
+        XCTAssertNil(result)
+    }
+
+    func testThrowsOnNon200Response() async {
+        let apiURL = URL(string: "https://api.github.com/repos/jlgolson/muskometer/releases/latest")!
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 403,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, Data())
+        }
+
+        let checker = GitHubReleaseUpdateChecker(session: session, apiURL: apiURL)
+
+        do {
+            _ = try await checker.checkForUpdate(currentVersion: "0.1.0")
+            XCTFail("Expected UpdateCheckError")
+        } catch let error as UpdateCheckError {
+            XCTAssertEqual(error, .invalidResponse(statusCode: 403))
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+}
+
+@MainActor
+final class UpdateCoordinatorTests: XCTestCase {
+    private func makeCoordinator(
+        defaults: UserDefaults,
+        settings: AppSettings,
+        checkerResult: UpdateCheckResult?,
+        deliverer: MockUpdateNotificationDeliverer = MockUpdateNotificationDeliverer()
+    ) -> UpdateCoordinator {
+        let checker = MockUpdateChecker(result: checkerResult)
+        return UpdateCoordinator(
+            settings: settings,
+            defaults: defaults,
+            notificationDeliverer: deliverer,
+            githubChecker: checker
+        )
+    }
+
+    func testDoesNotNotifyWhenDisabled() async {
+        let suiteName = "MuskometerTests-update-disabled-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.notifyOfAvailableUpdates = false
+
+        let deliverer = MockUpdateNotificationDeliverer()
+        let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+        let coordinator = makeCoordinator(
+            defaults: defaults,
+            settings: settings,
+            checkerResult: UpdateCheckResult(
+                availableVersion: "0.2.0",
+                releasePageURL: releaseURL,
+                publishedAt: nil
+            ),
+            deliverer: deliverer
+        )
+
+        coordinator.checkNow()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(coordinator.availableUpdate?.availableVersion, "0.2.0")
+        XCTAssertTrue(deliverer.addedRequests.isEmpty)
+        XCTAssertEqual(coordinator.manualCheckSummary, "Version 0.2.0 is available.")
+    }
+
+    func testManualCheckReportsUpToDate() async {
+        let suiteName = "MuskometerTests-update-uptodate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        let coordinator = makeCoordinator(
+            defaults: defaults,
+            settings: settings,
+            checkerResult: nil
+        )
+
+        coordinator.checkNow()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertNil(coordinator.availableUpdate)
+        XCTAssertTrue(coordinator.manualCheckSummary?.contains("latest version") ?? false)
+        XCTAssertNotNil(coordinator.lastCheckDate)
+    }
+
+    func testNotifiesWhenEnabledAndNewerVersionFound() async {
+        let suiteName = "MuskometerTests-update-enabled-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.notifyOfAvailableUpdates = true
+        settings.updateDeliveryMode = .notifyOnly
+
+        let deliverer = MockUpdateNotificationDeliverer()
+        let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+        let coordinator = makeCoordinator(
+            defaults: defaults,
+            settings: settings,
+            checkerResult: UpdateCheckResult(
+                availableVersion: "0.2.0",
+                releasePageURL: releaseURL,
+                publishedAt: nil
+            ),
+            deliverer: deliverer
+        )
+
+        coordinator.checkNow()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(coordinator.availableUpdate?.availableVersion, "0.2.0")
+        XCTAssertEqual(deliverer.addedRequests.count, 1)
+        XCTAssertEqual(
+            deliverer.addedRequests.first?.content.userInfo["releaseURL"] as? String,
+            releaseURL.absoluteString
+        )
+    }
+
+    func testManualCheckSurfacesHTTPErrorAndClearsStaleUpdate() async {
+        let suiteName = "MuskometerTests-update-error-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.notifyOfAvailableUpdates = true
+
+        let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+        let checker = MockUpdateChecker()
+        checker.responses = [
+            .success(UpdateCheckResult(
+                availableVersion: "0.2.0",
+                releasePageURL: releaseURL,
+                publishedAt: nil
+            )),
+            .failure(UpdateCheckError.invalidResponse(statusCode: 403))
+        ]
+
+        let coordinator = UpdateCoordinator(
+            settings: settings,
+            defaults: defaults,
+            githubChecker: checker
+        )
+
+        coordinator.checkNow()
+        try? await Task.sleep(for: .milliseconds(200))
+        XCTAssertEqual(coordinator.availableUpdate?.availableVersion, "0.2.0")
+
+        coordinator.checkNow()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertNil(coordinator.availableUpdate)
+        XCTAssertEqual(
+            coordinator.lastCheckError,
+            UpdateCheckError.invalidResponse(statusCode: 403).localizedDescription
+        )
+    }
+}
+
+private final class MockURLProtocol: URLProtocol {
+    nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
+
+    override class func canInit(with request: URLRequest) -> Bool {
+        true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        guard let handler = Self.requestHandler else {
+            client?.urlProtocol(self, didFailWithError: URLError(.badURL))
+            return
+        }
+
+        do {
+            let (response, data) = try handler(request)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        } catch {
+            client?.urlProtocol(self, didFailWithError: error)
+        }
+    }
+
+    override func stopLoading() {}
+}
+
+private final class MockUpdateChecker: UpdateChecking, @unchecked Sendable {
+    var responses: [Result<UpdateCheckResult?, Error>] = []
+    private var callIndex = 0
+
+    convenience init(result: UpdateCheckResult?) {
+        self.init()
+        responses = [.success(result)]
+    }
+
+    func checkForUpdate(currentVersion: String) async throws -> UpdateCheckResult? {
+        guard !responses.isEmpty else { return nil }
+        let index = min(callIndex, responses.count - 1)
+        callIndex += 1
+        switch responses[index] {
+        case .success(let value):
+            return value
+        case .failure(let error):
+            throw error
+        }
+    }
+}
+
+private final class MockUpdateNotificationDeliverer: UpdateNotificationDelivering, @unchecked Sendable {
+    private let lock = NSLock()
+    private var requests: [UNNotificationRequest] = []
+
+    var addedRequests: [UNNotificationRequest] {
+        lock.lock()
+        defer { lock.unlock() }
+        return requests
+    }
+
+    func add(_ request: UNNotificationRequest) async throws {
+        lock.lock()
+        requests.append(request)
+        lock.unlock()
     }
 }

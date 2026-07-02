@@ -5,6 +5,8 @@ struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
     @State private var didCopyShare = false
+    @State private var settingsPanelSize = CGSize(width: 560, height: 420)
+
     var body: some View {
         Group {
             if showingSettings {
@@ -15,8 +17,8 @@ struct PopoverContentView: View {
         }
         .padding(16)
         .frame(
-            width: showingSettings ? 532 : 360,
-            height: showingSettings ? 548 : nil,
+            width: showingSettings ? settingsPanelSize.width + 32 : 360,
+            height: showingSettings ? settingsPanelSize.height + 32 : nil,
             alignment: .topLeading
         )
         .onAppear {
@@ -40,6 +42,11 @@ struct PopoverContentView: View {
     private var settingsPanel: some View {
         SettingsView(settings: viewModel.settings, viewModel: viewModel) {
             showingSettings = false
+        }
+        .onPreferenceChange(SettingsPanelSizeKey.self) { size in
+            if size.width > 0, size.height > 0 {
+                settingsPanelSize = size
+            }
         }
     }
 
@@ -186,7 +193,11 @@ struct PopoverContentView: View {
                     Circle()
                         .fill(snapshot.marketIsOpen ? Color("GainPositive") : .secondary)
                         .frame(width: 6, height: 6)
-                    Text(snapshot.marketIsOpen ? "Market open" : "Market closed")
+                    Text(
+                        snapshot.marketIsOpen
+                            ? "Market open"
+                            : (viewModel.marketCloseStatusLabel ?? "Market closed")
+                    )
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

@@ -24,6 +24,7 @@ final class GainsViewModel {
     private(set) var enabledNotificationThresholdIDs: Set<String>
 
     let settings: AppSettings
+    let updateCoordinator: UpdateCoordinator
 
     private let stockService: any StockPriceServiceProtocol
     private let holdingsSyncServiceFactory: (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol
@@ -38,7 +39,7 @@ final class GainsViewModel {
     private var refreshGeneration = 0
     private var hasStarted = false
     private var lastSideEffectPersonID: String?
-    private var lastComparisonStateByPerson: [String: (dayKey: String, bucket: Int)] = [:]
+    private var lastComparisonStateByPerson: [String: (dayKey: String, bucket: Int, isGain: Bool)] = [:]
     private let dateProvider: () -> Date
 
     init(
@@ -52,9 +53,11 @@ final class GainsViewModel {
         comparisonLineSelector: ComparisonLineSelector? = nil,
         netWorthMilestoneTracker: NetWorthMilestoneTracker? = nil,
         tradingDayCalendar: TradingDayCalendar = TradingDayCalendar(),
-        dateProvider: @escaping () -> Date = { .now }
+        dateProvider: @escaping () -> Date = { .now },
+        updateCoordinator: UpdateCoordinator? = nil
     ) {
         self.settings = settings
+        self.updateCoordinator = updateCoordinator ?? UpdateCoordinator(settings: settings)
         self.stockService = stockService
         self.holdingsSyncServiceFactory = holdingsSyncServiceFactory
         self.marketHours = marketHours
@@ -83,16 +86,14 @@ final class GainsViewModel {
             await self.refresh()
 
             while !Task.isCancelled {
-                let interval = self.settings.refreshIntervalSeconds
-                let sleepSeconds: TimeInterval
-
-                if self.marketHours.isMarketOpen() {
-                    sleepSeconds = interval
-                } else {
-                    sleepSeconds = max(interval, 300)
+                guard self.marketHours.isMarketOpen(at: self.dateProvider()) else {
+                    let sleepSeconds = self.offMarketSleepInterval()
+                    try? await Task.sleep(for: .seconds(sleepSeconds))
+                    continue
                 }
 
-                try? await Task.sleep(for: .seconds(sleepSeconds))
+                let interval = self.settings.refreshIntervalSeconds
+                try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled else { break }
 
                 if self.settings.needsHoldingsSync {
@@ -252,13 +253,18 @@ final class GainsViewModel {
         return .neutral
     }
 
+    var marketCloseStatusLabel: String? {
+        guard let snapshot, !snapshot.marketIsOpen else { return nil }
+        return MarketStatusFormatter.asOfCloseLabel(
+            for: snapshot.lastUpdated,
+            marketHours: marketHours
+        )
+    }
+
     var marketStatusDetail: String? {
         guard let snapshot, !snapshot.marketIsOpen else { return nil }
-
-        if let nextOpen = marketHours.nextOpenDate() {
-            return "Based on prior close · \(formatNextOpen(nextOpen))"
-        }
-        return "Based on prior close"
+        guard let nextOpen = marketHours.nextOpenDate(from: snapshot.lastUpdated) else { return nil }
+        return MarketStatusFormatter.nextOpenLabel(for: nextOpen)
     }
 
     var menuBarTooltip: String {
@@ -277,6 +283,9 @@ final class GainsViewModel {
         }
         lines.append("Combined: \(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))")
         lines.append("Updated \(snapshot.lastUpdated.formatted(date: .omitted, time: .shortened))")
+        if let closeLabel = marketCloseStatusLabel {
+            lines.append(closeLabel)
+        }
         if let detail = marketStatusDetail {
             lines.append(detail)
         }
@@ -403,9 +412,10 @@ final class GainsViewModel {
 
         let dayKey = tradingDayCalendar.dayKey(for: snapshot.lastUpdated)
         let bucket = Int(magnitude / 10_000_000_000)
+        let isGain = snapshot.combinedPaperGain > 0
         let lastState = lastComparisonStateByPerson[personID]
 
-        guard lastState?.dayKey != dayKey || lastState?.bucket != bucket else {
+        guard lastState?.dayKey != dayKey || lastState?.bucket != bucket || lastState?.isGain != isGain else {
             return
         }
 
@@ -414,7 +424,15 @@ final class GainsViewModel {
             personID: personID,
             on: snapshot.lastUpdated
         )
-        lastComparisonStateByPerson[personID] = (dayKey: dayKey, bucket: bucket)
+        lastComparisonStateByPerson[personID] = (dayKey: dayKey, bucket: bucket, isGain: isGain)
+    }
+
+    private func offMarketSleepInterval() -> TimeInterval {
+        let now = dateProvider()
+        if let nextOpen = marketHours.nextOpenDate(from: now) {
+            return max(nextOpen.timeIntervalSince(now), 60)
+        }
+        return 300
     }
 
     enum GainColor {
@@ -428,19 +446,4 @@ final class GainsViewModel {
         return joined.truncatedMiddle(maxLength: maxLength)
     }
 
-    private func formatNextOpen(_ date: Date) -> String {
-        let eastern = TimeZone(identifier: "America/New_York") ?? .current
-
-        let dayFormatter = DateFormatter()
-        dayFormatter.timeZone = eastern
-        dayFormatter.dateFormat = "EEE"
-
-        let timeFormatter = DateFormatter()
-        timeFormatter.timeZone = eastern
-        timeFormatter.dateFormat = "h:mm a"
-
-        let day = dayFormatter.string(from: date)
-        let time = timeFormatter.string(from: date)
-        return "Opens \(day) \(time) ET"
-    }
 }

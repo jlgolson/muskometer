@@ -42,7 +42,7 @@ Muskometer is not directed at children and does not knowingly collect personal i
 
 ## Changes
 
-If this policy changes materially, it will be updated in this repository. The current public release is **0.1.0**.
+If this policy changes materially, it will be updated in this repository. The current public release is **0.1.1**.
 
 ## Contact
 

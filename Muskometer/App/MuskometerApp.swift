@@ -8,10 +8,14 @@ struct MuskometerApp: App {
     init() {
         NSApplication.shared.setActivationPolicy(.accessory)
         LaunchAtLoginManager.reconcile(with: AppSettings.shared)
-        let viewModel = GainsViewModel()
+        let settings = AppSettings.shared
+        let updateCoordinator = UpdateCoordinator(settings: settings)
+        let viewModel = GainsViewModel(settings: settings, updateCoordinator: updateCoordinator)
         self.viewModel = viewModel
+        updateCoordinator.start()
         AppDelegate.onTerminateHandler = { @MainActor in
             viewModel.stop()
+            updateCoordinator.stop()
         }
         AppDelegate.shareShortcutHandler = { @MainActor in
             viewModel.copyShareToPasteboard()
@@ -58,7 +62,6 @@ struct MuskometerApp: App {
 
         Settings {
             SettingsView(settings: viewModel.settings, viewModel: viewModel)
-                .frame(width: 560, height: 480)
         }
 
         Window("About Muskometer", id: "about") {

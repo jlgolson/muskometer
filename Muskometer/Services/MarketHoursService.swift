@@ -3,6 +3,7 @@ import Foundation
 protocol MarketHoursServiceProtocol: Sendable {
     func isMarketOpen(at date: Date) -> Bool
     func nextOpenDate(from date: Date) -> Date?
+    func lastMarketClose(from date: Date) -> Date?
 }
 
 extension MarketHoursServiceProtocol {
@@ -12,6 +13,10 @@ extension MarketHoursServiceProtocol {
 
     func nextOpenDate() -> Date? {
         nextOpenDate(from: .now)
+    }
+
+    func lastMarketClose() -> Date? {
+        lastMarketClose(from: .now)
     }
 }
 
@@ -66,6 +71,39 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         }
 
         return nil
+    }
+
+    func lastMarketClose(from date: Date) -> Date? {
+        var day = calendar.startOfDay(for: date)
+
+        if let close = marketCloseIfTradingDay(on: day), date >= close {
+            return close
+        }
+
+        for _ in 0..<10 {
+            guard let previous = calendar.date(byAdding: .day, value: -1, to: day) else {
+                return nil
+            }
+            day = previous
+            if let close = marketCloseIfTradingDay(on: day) {
+                return close
+            }
+        }
+
+        return nil
+    }
+
+    private func marketCloseIfTradingDay(on day: Date) -> Date? {
+        let weekday = calendar.component(.weekday, from: day)
+        guard weekday != 1, weekday != 7, !isHoliday(day) else { return nil }
+
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        components.hour = 16
+        components.minute = 0
+        components.second = 0
+        components.timeZone = timeZone
+
+        return calendar.date(from: components)
     }
 
     private func marketOpen(on day: Date) -> Date? {

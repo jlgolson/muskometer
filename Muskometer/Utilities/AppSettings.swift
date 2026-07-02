@@ -18,6 +18,8 @@ final class AppSettings {
         static let holdingsSyncSource = "holdingsSyncSource"
         static let launchAtLogin = "launchAtLogin"
         static let shareFormat = "shareFormat"
+        static let notifyOfAvailableUpdates = "notifyOfAvailableUpdates"
+        static let updateDeliveryMode = "updateDeliveryMode"
     }
 
     private static func shareCountKey(for symbol: String) -> String {
@@ -118,6 +120,18 @@ final class AppSettings {
         }
     }
 
+    var notifyOfAvailableUpdates: Bool {
+        didSet {
+            defaults.set(notifyOfAvailableUpdates, forKey: Keys.notifyOfAvailableUpdates)
+        }
+    }
+
+    var updateDeliveryMode: UpdateDeliveryMode {
+        didSet {
+            defaults.set(updateDeliveryMode.rawValue, forKey: Keys.updateDeliveryMode)
+        }
+    }
+
     var holdings: [PortfolioHolding] {
         selectedProfile.holdingSpecs.map { spec in
             PortfolioHolding(
@@ -174,6 +188,18 @@ final class AppSettings {
             self.shareFormat = .image
         }
 
+        if defaults.object(forKey: Keys.notifyOfAvailableUpdates) != nil {
+            self.notifyOfAvailableUpdates = defaults.bool(forKey: Keys.notifyOfAvailableUpdates)
+        } else {
+            self.notifyOfAvailableUpdates = false
+        }
+
+        if let rawMode = defaults.string(forKey: Keys.updateDeliveryMode),
+           let mode = UpdateDeliveryMode(rawValue: rawMode) {
+            self.updateDeliveryMode = mode
+        } else {
+            self.updateDeliveryMode = .notifyOnly
+        }
     }
 
     private static func loadLastHoldingsSyncDate(personID: String, defaults: UserDefaults) -> Date? {
@@ -271,6 +297,8 @@ final class AppSettings {
         menuBarDisplayMode = .combinedDollars
         showMenuBarIcon = true
         shareFormat = .image
+        notifyOfAvailableUpdates = false
+        updateDeliveryMode = .notifyOnly
         selectedPersonID = TrackedPersonProfile.musk.id
 
         for spec in selectedProfile.holdingSpecs {

@@ -4,6 +4,38 @@ All notable changes to Muskometer are documented here.
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [0.1.1] - 2026-07-02
+
+Polish release — smarter off-hours behavior, clearer market-close labels, update notifications, and UI fixes.
+
+### Added
+
+- **Update checker** — optional “Notify of available updates” in Settings → General (default off); manual “Check for Updates Now” with up-to-date / available / error feedback; Sparkle-ready architecture for future one-click installs
+- **Intraday sparkline** — combined gain chart in popover and share image (green above $0, red below)
+- **Comparison captions** — contextual “today’s gain/loss could…” lines beneath combined total
+- **Intraday records** — best/worst paper gain per session (hidden until first completed trading day)
+- **Threshold notifications** — configurable gain/loss alerts during market hours
+- **Post to X** — open tweet composer with pre-filled summary
+- **Share image** — “As of” timestamp in local timezone on exported card
+- **Trillion milestones** — celebration overlay when net worth crosses $1T / $2T
+
+### Changed
+
+- **Off-hours refresh** — auto-refresh only while US market is open; sleeps until next session instead of polling Yahoo overnight
+- **Market closed label** — shows “As of 4:00 PM ET on July 2” (converted to your local timezone) instead of “Based on prior close”
+- **Comparison caption** — gain/loss prefix updates when the day flips from red to green
+- **Settings layout** — tabbed settings with auto-sized window; updates live under General
+- **Daily records** — renamed from “Daily records” to “Intraday records”
+
+### Fixed
+
+- Sparkline color at breakeven crossings
+- Comparison line stuck on “today’s loss” after flipping to a gain
+
+### Notes
+
+- Still unsigned `.dmg` — right-click → Open on first launch. Full auto-update requires a signed build (planned).
+
 ## [0.1.0] - 2026-07-01
 
 First public release of Muskometer for macOS. Unsigned `.dmg` on GitHub Releases — right-click → Open on first launch.

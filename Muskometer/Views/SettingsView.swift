@@ -9,12 +9,10 @@ struct SettingsView: View {
     private let embeddedInPopover: Bool
 
     @State private var selectedTab: SettingsTab = .general
+    @State private var tabContentHeight: CGFloat = 280
     @State private var refreshInterval: Double
     @State private var shareTexts: [String: String] = [:]
     @State private var shareErrors: [String: String] = [:]
-
-    private var panelWidth: CGFloat { embeddedInPopover ? 500 : 560 }
-    private var panelHeight: CGFloat { embeddedInPopover ? 440 : 480 }
 
     init(settings: AppSettings, viewModel: GainsViewModel? = nil, onDone: (() -> Void)? = nil) {
         self.settings = settings
@@ -36,10 +34,22 @@ struct SettingsView: View {
                 tabPage(.holdings) { holdingsTab }
             }
             .tabViewStyle(.automatic)
+            .frame(minHeight: tabContentHeight)
 
             footer
         }
-        .frame(width: panelWidth, height: panelHeight, alignment: .topLeading)
+        .frame(minWidth: 560)
+        .fixedSize(horizontal: false, vertical: true)
+        .background {
+            GeometryReader { geometry in
+                Color.clear.preference(key: SettingsPanelSizeKey.self, value: geometry.size)
+            }
+        }
+        .onPreferenceChange(SettingsContentHeightKey.self) { height in
+            if height > 0 {
+                tabContentHeight = height
+            }
+        }
         .onAppear {
             syncTextFieldsFromSettings()
         }
@@ -49,16 +59,22 @@ struct SettingsView: View {
     }
 
     private func tabPage<Content: View>(_ tab: SettingsTab, @ViewBuilder content: () -> Content) -> some View {
-        ScrollView(.vertical, showsIndicators: true) {
-            content()
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 4)
-                .padding(.bottom, 8)
-        }
-        .tabItem {
-            Label(tab.title, systemImage: tab.systemImage)
-        }
-        .tag(tab)
+        content()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.bottom, 8)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear.preference(
+                        key: SettingsContentHeightKey.self,
+                        value: selectedTab == tab ? geometry.size.height : 0
+                    )
+                }
+            }
+            .tabItem {
+                Label(tab.title, systemImage: tab.systemImage)
+            }
+            .tag(tab)
     }
 
     private var header: some View {
@@ -136,6 +152,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            updatesSection
+
             groupedCard {
                 HStack(spacing: 12) {
                     Link("muskometer.org", destination: AppURLs.website)
@@ -143,6 +161,18 @@ struct SettingsView: View {
                     Link("info@muskometer.org", destination: AppURLs.contact)
                 }
                 .font(.caption)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var updatesSection: some View {
+        if let viewModel {
+            groupedCard {
+                UpdatesSettingsContent(
+                    settings: settings,
+                    coordinator: viewModel.updateCoordinator
+                )
             }
         }
     }
@@ -302,6 +332,8 @@ struct SettingsView: View {
 
             if let viewModel {
                 viewModel.reloadPersistedDisplayState()
+                UpdateCoordinator.resetNotificationDebounce()
+                viewModel.updateCoordinator.stop()
                 Task { await viewModel.refresh(force: true) }
             }
         }
@@ -371,6 +403,74 @@ struct SettingsView: View {
 
         if countsChanged, let viewModel {
             Task { await viewModel.refresh(force: true) }
+        }
+    }
+}
+
+private struct UpdatesSettingsContent: View {
+    @Bindable var settings: AppSettings
+    @Bindable var coordinator: UpdateCoordinator
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Notify of available updates", isOn: $settings.notifyOfAvailableUpdates)
+                .onChange(of: settings.notifyOfAvailableUpdates) { _, enabled in
+                    if enabled {
+                        coordinator.start()
+                    } else {
+                        coordinator.stop()
+                    }
+                }
+
+            Text("Checks GitHub once per day when enabled. Muskometer does not install updates automatically yet.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Picker("Delivery", selection: $settings.updateDeliveryMode) {
+                ForEach(UpdateDeliveryMode.allCases, id: \.self) { mode in
+                    Text(mode.label).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .disabled(true)
+
+            Text("Requires a signed build (coming soon)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button {
+                coordinator.checkNow()
+            } label: {
+                HStack(spacing: 6) {
+                    if coordinator.isChecking {
+                        ProgressView().controlSize(.small)
+                    }
+                    Text(coordinator.isChecking ? "Checking…" : "Check for Updates Now")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(coordinator.isChecking)
+
+            if let summary = coordinator.manualCheckSummary {
+                Text(summary)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if let update = coordinator.availableUpdate {
+                Link("Download update", destination: update.releasePageURL)
+                    .font(.caption)
+            }
+
+            if let error = coordinator.lastCheckError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            } else if let lastCheck = coordinator.lastCheckDate, coordinator.manualCheckSummary != nil {
+                Text("Last checked \(lastCheck.formatted(date: .omitted, time: .shortened))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         }
     }
 }

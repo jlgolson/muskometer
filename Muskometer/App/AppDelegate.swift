@@ -40,4 +40,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     ) async -> UNNotificationPresentationOptions {
         [.banner, .sound]
     }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let userInfo = response.notification.request.content.userInfo
+        guard let urlString = userInfo["releaseURL"] as? String,
+              let url = URL(string: urlString) else {
+            return
+        }
+
+        NSWorkspace.shared.open(url)
+    }
 }

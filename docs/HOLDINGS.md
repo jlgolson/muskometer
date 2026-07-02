@@ -19,7 +19,7 @@ Share counts come from Elon Musk's **SEC Form 4** filings. The app checks EDGAR 
 
 ## Live prices
 
-TSLA and SPCX quotes come from Yahoo Finance (`query1.finance.yahoo.com`). Quotes refresh every 60–120 seconds (default **90s**) while the US equity market is open. Outside market hours the label uses the prior close and refreshes less often.
+TSLA and SPCX quotes come from Yahoo Finance (`query1.finance.yahoo.com`). Quotes refresh every 60–120 seconds (default **90s**) while the US equity market is open. Outside market hours the app does not auto-refresh; the label keeps the last fetched prior-close values until the next session (manual refresh still works).
 
 ## Paper gain math
 

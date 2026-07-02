@@ -15,7 +15,7 @@ struct DailyRecordsCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Daily records", systemImage: "chart.line.uptrend.xyaxis")
+            Label("Intraday records", systemImage: "chart.line.uptrend.xyaxis")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
 

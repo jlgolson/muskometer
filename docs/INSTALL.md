@@ -3,7 +3,7 @@
 ## Download
 
 1. Go to **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)**.
-2. Download the latest **`Muskometer-0.1.0.dmg`** (or the newest `Muskometer-<version>.dmg` on the releases page).
+2. Download the latest **`Muskometer-0.1.1.dmg`** (or the newest `Muskometer-<version>.dmg` on the releases page).
 3. Open the DMG and drag **Muskometer** into **Applications**.
 4. Eject the disk image.
 

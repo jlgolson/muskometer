@@ -144,8 +144,6 @@ struct SettingsView: View {
                 }
                 .font(.caption)
             }
-
-            resetSection
         }
     }
 
@@ -304,6 +302,9 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            resetSection
+                .padding(.top, 4)
         }
     }
 

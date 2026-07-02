@@ -99,19 +99,25 @@ private extension GainSparklineView {
         let augmented = samplesWithZeroCrossings(samples)
         var result: [SparklineSegment] = []
         var currentPoints: [GainSample] = []
-        var currentIsPositive = augmented[0].combinedPaperGain >= 0
+        var currentIsPositive = isPositiveGain(augmented[0].combinedPaperGain, continuing: true)
 
         for sample in augmented {
-            let isPositive = sample.combinedPaperGain >= 0
+            let isPositive = isPositiveGain(sample.combinedPaperGain, continuing: currentIsPositive)
 
             if isPositive != currentIsPositive, !currentPoints.isEmpty {
-                currentPoints.append(sample)
                 result.append(SparklineSegment(points: currentPoints, isPositive: currentIsPositive))
-                currentPoints = [sample]
+
+                if let last = currentPoints.last, last.combinedPaperGain == 0 {
+                    currentPoints = [last, sample]
+                } else {
+                    currentPoints = [sample]
+                }
                 currentIsPositive = isPositive
             } else {
                 currentPoints.append(sample)
-                currentIsPositive = isPositive
+                if sample.combinedPaperGain != 0 {
+                    currentIsPositive = isPositive
+                }
             }
         }
 
@@ -120,6 +126,12 @@ private extension GainSparklineView {
         }
 
         return result
+    }
+
+    static func isPositiveGain(_ gain: Double, continuing prior: Bool) -> Bool {
+        if gain > 0 { return true }
+        if gain < 0 { return false }
+        return prior
     }
 
     static func samplesWithZeroCrossings(_ samples: [GainSample]) -> [GainSample] {

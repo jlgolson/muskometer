@@ -4,6 +4,7 @@ import SwiftUI
 struct ShareCardView: View {
     let snapshot: GainsSnapshot
     let profile: TrackedPersonProfile
+    var intradaySamples: [GainSample] = []
 
     private let background = Color(red: 0.09, green: 0.09, blue: 0.1)
     private let surface = Color(red: 0.14, green: 0.14, blue: 0.16)
@@ -76,6 +77,11 @@ struct ShareCardView: View {
                 Text(snapshot.marketIsOpen ? "Market open" : "Market closed")
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(muted)
+            }
+
+            if !intradaySamples.isEmpty {
+                GainSparklineView(samples: intradaySamples)
+                    .padding(.top, 4)
             }
         }
         .padding(14)

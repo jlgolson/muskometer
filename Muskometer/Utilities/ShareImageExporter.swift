@@ -6,11 +6,16 @@ enum ShareImageExporter {
     static func copyToPasteboard(
         snapshot: GainsSnapshot,
         profile: TrackedPersonProfile,
-        format: ShareFormat
+        format: ShareFormat,
+        intradaySamples: [GainSample] = []
     ) -> Bool {
         switch format {
         case .image:
-            return copyImageToPasteboard(snapshot: snapshot, profile: profile)
+            return copyImageToPasteboard(
+                snapshot: snapshot,
+                profile: profile,
+                intradaySamples: intradaySamples
+            )
         case .text:
             return copyTextToPasteboard(snapshot: snapshot)
         }
@@ -19,9 +24,14 @@ enum ShareImageExporter {
     @MainActor
     private static func copyImageToPasteboard(
         snapshot: GainsSnapshot,
-        profile: TrackedPersonProfile
+        profile: TrackedPersonProfile,
+        intradaySamples: [GainSample]
     ) -> Bool {
-        guard let image = renderImage(snapshot: snapshot, profile: profile) else {
+        guard let image = renderImage(
+            snapshot: snapshot,
+            profile: profile,
+            intradaySamples: intradaySamples
+        ) else {
             return false
         }
 
@@ -38,8 +48,16 @@ enum ShareImageExporter {
     }
 
     @MainActor
-    static func renderPNGData(snapshot: GainsSnapshot, profile: TrackedPersonProfile) -> Data? {
-        guard let image = renderImage(snapshot: snapshot, profile: profile) else {
+    static func renderPNGData(
+        snapshot: GainsSnapshot,
+        profile: TrackedPersonProfile,
+        intradaySamples: [GainSample] = []
+    ) -> Data? {
+        guard let image = renderImage(
+            snapshot: snapshot,
+            profile: profile,
+            intradaySamples: intradaySamples
+        ) else {
             return nil
         }
 
@@ -53,9 +71,17 @@ enum ShareImageExporter {
     }
 
     @MainActor
-    private static func renderImage(snapshot: GainsSnapshot, profile: TrackedPersonProfile) -> NSImage? {
+    private static func renderImage(
+        snapshot: GainsSnapshot,
+        profile: TrackedPersonProfile,
+        intradaySamples: [GainSample]
+    ) -> NSImage? {
         let renderer = ImageRenderer(
-            content: ShareCardView(snapshot: snapshot, profile: profile)
+            content: ShareCardView(
+                snapshot: snapshot,
+                profile: profile,
+                intradaySamples: intradaySamples
+            )
         )
         renderer.scale = 2
         return renderer.nsImage

@@ -295,7 +295,8 @@ final class GainsViewModel {
         return ShareImageExporter.copyToPasteboard(
             snapshot: snapshot,
             profile: settings.selectedProfile,
-            format: settings.shareFormat
+            format: settings.shareFormat,
+            intradaySamples: intradaySamples
         )
     }
 

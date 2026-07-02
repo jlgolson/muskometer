@@ -289,16 +289,6 @@ final class GainsViewModel {
         return !snapshot.marketIsOpen
     }
 
-    var menuBarMoodLevel: MenuBarMoodLevel {
-        MenuBarMoodResolver.resolve(
-            snapshot: snapshot,
-            displayMode: settings.menuBarDisplayMode,
-            moodEnabled: settings.menuBarMoodEnabled,
-            dollarThreshold: settings.menuBarMoodBigDayDollarThreshold,
-            percentThreshold: settings.menuBarMoodBigDayPercentThreshold
-        )
-    }
-
     func copyShareToPasteboard() -> Bool {
         guard let snapshot else { return false }
 

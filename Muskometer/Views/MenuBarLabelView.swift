@@ -53,15 +53,6 @@ struct MenuBarLabelView: View {
     }
 
     private var labelColor: Color {
-        if settings.menuBarMoodEnabled {
-            switch viewModel.menuBarMoodLevel {
-            case .calm:
-                return .primary
-            case .bigDay:
-                return moodDirectionColor
-            }
-        }
-
         switch viewModel.gainColor {
         case .positive:
             return Color("GainPositive")
@@ -70,17 +61,5 @@ struct MenuBarLabelView: View {
         case .neutral:
             return .primary
         }
-    }
-
-    private var moodDirectionColor: Color {
-        guard let snapshot = viewModel.snapshot else { return .primary }
-
-        if snapshot.combinedPaperGain > 0 {
-            return Color("GainPositive")
-        }
-        if snapshot.combinedPaperGain < 0 {
-            return Color("GainNegative")
-        }
-        return .primary
     }
 }

@@ -215,36 +215,6 @@ struct SettingsView: View {
             .pickerStyle(.menu)
 
             Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
-
-            Toggle("Color big days", isOn: $settings.menuBarMoodEnabled)
-
-            Text("Quiet days use the default menu bar color. Big days turn green or red based on today's gain or loss.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if settings.menuBarMoodEnabled {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Big day threshold: \(CurrencyFormatter.formatCurrency(settings.menuBarMoodBigDayDollarThreshold))")
-                        .font(.caption)
-                    Slider(
-                        value: $settings.menuBarMoodBigDayDollarThreshold,
-                        in: 1_000_000_000...50_000_000_000,
-                        step: 1_000_000_000
-                    )
-
-                    Text("Or percent: \(CurrencyFormatter.formatPercent(settings.menuBarMoodBigDayPercentThreshold))")
-                        .font(.caption)
-                    Slider(
-                        value: $settings.menuBarMoodBigDayPercentThreshold,
-                        in: 0.5...10,
-                        step: 0.25
-                    )
-                }
-            }
-
-            Text("Dollar thresholds apply in $ / split-$ / total-worth modes. Percent thresholds apply in % / split-% modes.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 

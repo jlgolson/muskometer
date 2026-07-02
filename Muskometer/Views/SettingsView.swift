@@ -57,6 +57,7 @@ struct SettingsView: View {
         let sections = VStack(alignment: .leading, spacing: 16) {
             generalSection
             sharingSection
+            notificationsSection
             menuBarSection
             priceRefreshSection
             holdingsSection
@@ -155,6 +156,58 @@ struct SettingsView: View {
         .background(sectionBackground)
     }
 
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Notifications")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+
+            if let viewModel {
+                Text("Alert when combined paper gain crosses a threshold during market hours.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Gains")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+
+                    ForEach(GainNotificationThreshold.presets.filter(\.isGainThreshold)) { threshold in
+                        notificationToggle(threshold, viewModel: viewModel)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Losses")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+
+                    ForEach(GainNotificationThreshold.presets.filter { !$0.isGainThreshold }) { threshold in
+                        notificationToggle(threshold, viewModel: viewModel)
+                    }
+                }
+            } else {
+                Text("Open settings from the menu bar popover to configure gain alerts.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(sectionBackground)
+    }
+
+    private func notificationToggle(_ threshold: GainNotificationThreshold, viewModel: GainsViewModel) -> some View {
+        let enabled = viewModel.enabledNotificationThresholdIDs().contains(threshold.id)
+
+        return Toggle(threshold.label, isOn: Binding(
+            get: { viewModel.enabledNotificationThresholdIDs().contains(threshold.id) },
+            set: { viewModel.setNotificationThresholdEnabled(threshold.id, enabled: $0) }
+        ))
+        .font(.body)
+        .accessibilityValue(enabled ? "On" : "Off")
+    }
+
     private var menuBarSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Menu bar")
@@ -170,7 +223,29 @@ struct SettingsView: View {
 
             Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
 
-            Text("Choose gains, percent change, split view, or total worth across tracked holdings. Hide the trend icon for text only.")
+            Toggle("Bold on big days", isOn: $settings.menuBarMoodEnabled)
+
+            if settings.menuBarMoodEnabled {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Big day threshold: \(CurrencyFormatter.formatCurrency(settings.menuBarMoodBigDayDollarThreshold))")
+                        .font(.caption)
+                    Slider(
+                        value: $settings.menuBarMoodBigDayDollarThreshold,
+                        in: 1_000_000_000...50_000_000_000,
+                        step: 1_000_000_000
+                    )
+
+                    Text("Or percent: \(CurrencyFormatter.formatPercent(settings.menuBarMoodBigDayPercentThreshold))")
+                        .font(.caption)
+                    Slider(
+                        value: $settings.menuBarMoodBigDayPercentThreshold,
+                        in: 0.5...10,
+                        step: 0.25
+                    )
+                }
+            }
+
+            Text("Choose gains, percent change, split view, or total worth across tracked holdings. Bold styling kicks in on unusually large moves.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

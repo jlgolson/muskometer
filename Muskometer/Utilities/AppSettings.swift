@@ -18,6 +18,9 @@ final class AppSettings {
         static let holdingsSyncSource = "holdingsSyncSource"
         static let launchAtLogin = "launchAtLogin"
         static let shareFormat = "shareFormat"
+        static let menuBarMoodEnabled = "menuBarMoodEnabled"
+        static let menuBarMoodBigDayDollarThreshold = "menuBarMoodBigDayDollarThreshold"
+        static let menuBarMoodBigDayPercentThreshold = "menuBarMoodBigDayPercentThreshold"
     }
 
     private static func shareCountKey(for symbol: String) -> String {
@@ -38,6 +41,8 @@ final class AppSettings {
     static let maxRefreshInterval: TimeInterval = 120
     static let defaultRefreshInterval: TimeInterval = 90
     static let holdingsSyncInterval: TimeInterval = 86_400
+    static let defaultMenuBarMoodBigDayDollarThreshold: Double = 5_000_000_000
+    static let defaultMenuBarMoodBigDayPercentThreshold: Double = 2.0
 
     var refreshIntervalSeconds: TimeInterval {
         didSet {
@@ -118,6 +123,37 @@ final class AppSettings {
         }
     }
 
+    var menuBarMoodEnabled: Bool {
+        didSet {
+            defaults.set(menuBarMoodEnabled, forKey: Keys.menuBarMoodEnabled)
+            bumpMenuBarLabelEpoch()
+        }
+    }
+
+    var menuBarMoodBigDayDollarThreshold: Double {
+        didSet {
+            let clamped = max(menuBarMoodBigDayDollarThreshold, 0)
+            guard clamped == menuBarMoodBigDayDollarThreshold else {
+                menuBarMoodBigDayDollarThreshold = clamped
+                return
+            }
+            defaults.set(clamped, forKey: Keys.menuBarMoodBigDayDollarThreshold)
+            bumpMenuBarLabelEpoch()
+        }
+    }
+
+    var menuBarMoodBigDayPercentThreshold: Double {
+        didSet {
+            let clamped = max(menuBarMoodBigDayPercentThreshold, 0)
+            guard clamped == menuBarMoodBigDayPercentThreshold else {
+                menuBarMoodBigDayPercentThreshold = clamped
+                return
+            }
+            defaults.set(clamped, forKey: Keys.menuBarMoodBigDayPercentThreshold)
+            bumpMenuBarLabelEpoch()
+        }
+    }
+
     var holdings: [PortfolioHolding] {
         selectedProfile.holdingSpecs.map { spec in
             PortfolioHolding(
@@ -173,6 +209,22 @@ final class AppSettings {
         } else {
             self.shareFormat = .image
         }
+
+        if defaults.object(forKey: Keys.menuBarMoodEnabled) != nil {
+            self.menuBarMoodEnabled = defaults.bool(forKey: Keys.menuBarMoodEnabled)
+        } else {
+            self.menuBarMoodEnabled = true
+        }
+
+        let storedDollarThreshold = defaults.double(forKey: Keys.menuBarMoodBigDayDollarThreshold)
+        self.menuBarMoodBigDayDollarThreshold = storedDollarThreshold > 0
+            ? storedDollarThreshold
+            : Self.defaultMenuBarMoodBigDayDollarThreshold
+
+        let storedPercentThreshold = defaults.double(forKey: Keys.menuBarMoodBigDayPercentThreshold)
+        self.menuBarMoodBigDayPercentThreshold = storedPercentThreshold > 0
+            ? storedPercentThreshold
+            : Self.defaultMenuBarMoodBigDayPercentThreshold
     }
 
     private static func loadLastHoldingsSyncDate(personID: String, defaults: UserDefaults) -> Date? {
@@ -270,6 +322,9 @@ final class AppSettings {
         menuBarDisplayMode = .combinedDollars
         showMenuBarIcon = true
         shareFormat = .image
+        menuBarMoodEnabled = true
+        menuBarMoodBigDayDollarThreshold = Self.defaultMenuBarMoodBigDayDollarThreshold
+        menuBarMoodBigDayPercentThreshold = Self.defaultMenuBarMoodBigDayPercentThreshold
         selectedPersonID = TrackedPersonProfile.musk.id
 
         for spec in selectedProfile.holdingSpecs {

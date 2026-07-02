@@ -12,25 +12,55 @@ final class GainsViewModel {
     private(set) var isSyncingHoldings = false
     private(set) var holdingsSyncMessage: String?
 
+    private(set) var dailyRecordsSnapshot = DailyRecordTracker.Snapshot(
+        bestRecord: nil,
+        worstRecord: nil,
+        hasCompletedFirstTradingDay: false
+    )
+    private(set) var intradaySamples: [GainSample] = []
+    private(set) var comparisonLine: ComparisonLine?
+    private(set) var activeMilestone: NetWorthMilestone?
+    private(set) var trillionEasterEggMessage: String?
+
     let settings: AppSettings
 
     private let stockService: any StockPriceServiceProtocol
     private let holdingsSyncServiceFactory: (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol
     private let marketHours: any MarketHoursServiceProtocol
+    private let dailyRecordTracker: DailyRecordTracker
+    private let gainThresholdNotificationService: GainThresholdNotificationService
+    private let intradayGainSampleStore: IntradayGainSampleStore
+    private let comparisonLineSelector: ComparisonLineSelector
+    private let netWorthMilestoneTracker: NetWorthMilestoneTracker
+    private let tradingDayCalendar: TradingDayCalendar
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
     private var hasStarted = false
+    private var lastComparisonDayKey: String?
+    private var lastComparisonMagnitudeBucket: Int?
 
     init(
         settings: AppSettings = .shared,
         stockService: any StockPriceServiceProtocol = YahooFinanceStockPriceService(),
         holdingsSyncServiceFactory: @escaping (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol = { SECHoldingsSyncService(profile: $0) },
-        marketHours: any MarketHoursServiceProtocol = MarketHoursService()
+        marketHours: any MarketHoursServiceProtocol = MarketHoursService(),
+        dailyRecordTracker: DailyRecordTracker? = nil,
+        gainThresholdNotificationService: GainThresholdNotificationService? = nil,
+        intradayGainSampleStore: IntradayGainSampleStore? = nil,
+        comparisonLineSelector: ComparisonLineSelector? = nil,
+        netWorthMilestoneTracker: NetWorthMilestoneTracker? = nil,
+        tradingDayCalendar: TradingDayCalendar = TradingDayCalendar()
     ) {
         self.settings = settings
         self.stockService = stockService
         self.holdingsSyncServiceFactory = holdingsSyncServiceFactory
         self.marketHours = marketHours
+        self.dailyRecordTracker = dailyRecordTracker ?? DailyRecordTracker()
+        self.gainThresholdNotificationService = gainThresholdNotificationService ?? GainThresholdNotificationService()
+        self.intradayGainSampleStore = intradayGainSampleStore ?? IntradayGainSampleStore()
+        self.comparisonLineSelector = comparisonLineSelector ?? ComparisonLineSelector()
+        self.netWorthMilestoneTracker = netWorthMilestoneTracker ?? NetWorthMilestoneTracker()
+        self.tradingDayCalendar = tradingDayCalendar
     }
 
     func start() {
@@ -116,12 +146,14 @@ final class GainsViewModel {
                 return
             }
 
-            snapshot = GainsSnapshot(
+            let newSnapshot = GainsSnapshot(
                 holdings: holdingGains,
                 lastUpdated: .now,
                 marketIsOpen: marketHours.isMarketOpen()
             )
+            snapshot = newSnapshot
             hasStaleData = false
+            processSnapshotSideEffects(newSnapshot)
         } catch {
             guard generation == refreshGeneration else { return }
 
@@ -248,6 +280,114 @@ final class GainsViewModel {
         guard let snapshot else { return false }
         if settings.menuBarDisplayMode == .totalWorth { return false }
         return !snapshot.marketIsOpen
+    }
+
+    var menuBarMoodLevel: MenuBarMoodLevel {
+        MenuBarMoodResolver.resolve(
+            snapshot: snapshot,
+            displayMode: settings.menuBarDisplayMode,
+            moodEnabled: settings.menuBarMoodEnabled,
+            dollarThreshold: settings.menuBarMoodBigDayDollarThreshold,
+            percentThreshold: settings.menuBarMoodBigDayPercentThreshold
+        )
+    }
+
+    func copyShareToPasteboard() -> Bool {
+        guard let snapshot else { return false }
+
+        return ShareImageExporter.copyToPasteboard(
+            snapshot: snapshot,
+            profile: settings.selectedProfile,
+            format: settings.shareFormat
+        )
+    }
+
+    func postToX() -> Bool {
+        guard let snapshot else { return false }
+        return XShareIntent.openTweetComposer(for: snapshot)
+    }
+
+    func clearActiveMilestone() {
+        activeMilestone = nil
+    }
+
+    func enabledNotificationThresholdIDs() -> Set<String> {
+        gainThresholdNotificationService.enabledThresholdIDs(for: settings.selectedPersonID)
+    }
+
+    func setNotificationThresholdEnabled(_ thresholdID: String, enabled: Bool) {
+        var ids = gainThresholdNotificationService.enabledThresholdIDs(for: settings.selectedPersonID)
+        if enabled {
+            ids.insert(thresholdID)
+        } else {
+            ids.remove(thresholdID)
+        }
+        gainThresholdNotificationService.setEnabledThresholdIDs(ids, for: settings.selectedPersonID)
+    }
+
+    private func processSnapshotSideEffects(_ snapshot: GainsSnapshot) {
+        let personID = settings.selectedPersonID
+        let profile = settings.selectedProfile
+
+        dailyRecordsSnapshot = dailyRecordTracker.update(
+            personID: personID,
+            paperGain: snapshot.combinedPaperGain,
+            at: snapshot.lastUpdated,
+            marketIsOpen: snapshot.marketIsOpen
+        )
+
+        intradayGainSampleStore.append(
+            combinedPaperGain: snapshot.combinedPaperGain,
+            at: snapshot.lastUpdated
+        )
+        intradaySamples = intradayGainSampleStore.samples
+
+        updateComparisonLineIfNeeded(for: snapshot)
+
+        if let event = netWorthMilestoneTracker.update(
+            netWorth: snapshot.combinedMarketValue,
+            at: snapshot.lastUpdated
+        ) {
+            switch event {
+            case .celebration(let milestone):
+                activeMilestone = milestone
+                trillionEasterEggMessage = nil
+            case .fellBelowTrillion(let message):
+                trillionEasterEggMessage = message
+            }
+        }
+
+        Task {
+            await gainThresholdNotificationService.processUpdate(
+                paperGain: snapshot.combinedPaperGain,
+                personID: personID,
+                possessiveName: profile.possessiveName,
+                at: snapshot.lastUpdated,
+                marketIsOpen: snapshot.marketIsOpen
+            )
+        }
+    }
+
+    private func updateComparisonLineIfNeeded(for snapshot: GainsSnapshot) {
+        let magnitude = abs(snapshot.combinedPaperGain)
+        guard magnitude > 0 else {
+            comparisonLine = nil
+            return
+        }
+
+        let dayKey = tradingDayCalendar.dayKey(for: snapshot.lastUpdated)
+        let bucket = Int(magnitude / 10_000_000_000)
+
+        guard dayKey != lastComparisonDayKey || bucket != lastComparisonMagnitudeBucket else {
+            return
+        }
+
+        comparisonLine = comparisonLineSelector.selectLine(
+            for: snapshot.combinedPaperGain,
+            on: snapshot.lastUpdated
+        )
+        lastComparisonDayKey = dayKey
+        lastComparisonMagnitudeBucket = bucket
     }
 
     enum GainColor {

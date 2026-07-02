@@ -1,3 +1,5 @@
+import AppKit
+import UserNotifications
 import XCTest
 @testable import Muskometer
 
@@ -580,6 +582,170 @@ final class GainsSnapshotTests: XCTestCase {
     }
 }
 
+final class MenuBarMoodResolverTests: XCTestCase {
+    private func sampleSnapshot(
+        paperGain: Double,
+        priorCloseValue: Double = 100_000_000_000
+    ) -> GainsSnapshot {
+        let shareCount = Int64(priorCloseValue / 100)
+        let currentPrice = 100 + (paperGain / Double(shareCount))
+        let tsla = HoldingGain(
+            id: "tsla",
+            symbol: "TSLA",
+            displayName: "Tesla",
+            shareCount: shareCount,
+            quote: StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: currentPrice,
+                previousClose: 100,
+                currency: "USD"
+            )
+        )
+        return GainsSnapshot(holdings: [tsla], lastUpdated: .now, marketIsOpen: true)
+    }
+
+    func testReturnsCalmWhenMoodDisabled() {
+        let snapshot = sampleSnapshot(paperGain: 10_000_000_000)
+
+        let mood = MenuBarMoodResolver.resolve(
+            snapshot: snapshot,
+            displayMode: .combinedDollars,
+            moodEnabled: false,
+            dollarThreshold: 5_000_000_000,
+            percentThreshold: 2
+        )
+
+        XCTAssertEqual(mood, .calm)
+    }
+
+    func testBigDayWhenDollarGainExceedsThreshold() {
+        let snapshot = sampleSnapshot(paperGain: 6_000_000_000)
+
+        let mood = MenuBarMoodResolver.resolve(
+            snapshot: snapshot,
+            displayMode: .combinedDollars,
+            moodEnabled: true,
+            dollarThreshold: 5_000_000_000,
+            percentThreshold: 2
+        )
+
+        XCTAssertEqual(mood, .bigDay)
+    }
+
+    func testBigDayWhenPercentGainExceedsThreshold() {
+        let snapshot = sampleSnapshot(paperGain: 3_000_000_000, priorCloseValue: 100_000_000_000)
+
+        let mood = MenuBarMoodResolver.resolve(
+            snapshot: snapshot,
+            displayMode: .combinedPercent,
+            moodEnabled: true,
+            dollarThreshold: 5_000_000_000,
+            percentThreshold: 2
+        )
+
+        XCTAssertEqual(mood, .bigDay)
+    }
+
+    func testTotalWorthUsesDollarBasisForBold() {
+        let snapshot = sampleSnapshot(paperGain: 6_000_000_000)
+
+        let mood = MenuBarMoodResolver.resolve(
+            snapshot: snapshot,
+            displayMode: .totalWorth,
+            moodEnabled: true,
+            dollarThreshold: 5_000_000_000,
+            percentThreshold: 50
+        )
+
+        XCTAssertEqual(mood, .bigDay)
+    }
+
+    func testNegativeGainCountsAsBigDay() {
+        let snapshot = sampleSnapshot(paperGain: -6_000_000_000)
+
+        let mood = MenuBarMoodResolver.resolve(
+            snapshot: snapshot,
+            displayMode: .combinedDollars,
+            moodEnabled: true,
+            dollarThreshold: 5_000_000_000,
+            percentThreshold: 2
+        )
+
+        XCTAssertEqual(mood, .bigDay)
+    }
+}
+
+@MainActor
+final class GainsViewModelCopyShareTests: XCTestCase {
+    private func makeSettings() -> AppSettings {
+        let suiteName = "MuskometerTests-copy-share-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let settings = AppSettings(defaults: defaults)
+        settings.shareFormat = .text
+        return settings
+    }
+
+    func testCopyShareReturnsFalseWithoutSnapshot() {
+        let viewModel = GainsViewModel(
+            settings: makeSettings(),
+            stockService: MockStockService(quotes: [])
+        )
+
+        XCTAssertFalse(viewModel.copyShareToPasteboard())
+    }
+
+    func testCopyShareReturnsTrueAndWritesPasteboard() async {
+        let settings = makeSettings()
+        let quotes = [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 110,
+                previousClose: 100,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 55,
+                previousClose: 50,
+                currency: "USD"
+            ),
+        ]
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes)
+        )
+
+        await viewModel.refresh(force: true)
+
+        guard let snapshot = viewModel.snapshot else {
+            return XCTFail("Expected snapshot after refresh")
+        }
+
+        XCTAssertTrue(viewModel.copyShareToPasteboard())
+        XCTAssertEqual(
+            NSPasteboard.general.string(forType: .string),
+            GainSummaryFormatter.format(snapshot)
+        )
+    }
+}
+
+@MainActor
+private final class MockStockService: StockPriceServiceProtocol {
+    let quotes: [StockQuote]
+
+    init(quotes: [StockQuote]) {
+        self.quotes = quotes
+    }
+
+    func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
+        quotes
+    }
+}
+
 @MainActor
 final class ShareImageExporterTests: XCTestCase {
     private func sampleSnapshot() -> GainsSnapshot {
@@ -642,5 +808,674 @@ final class GainSummaryFormatterTests: XCTestCase {
         XCTAssertFalse(formatted.contains("financial advice"))
         XCTAssertFalse(formatted.contains("Illustrative"))
         XCTAssertTrue(formatted.contains("Muskometer —"))
+    }
+}
+
+private struct FixedMarketHours: MarketHoursServiceProtocol {
+    let isOpen: Bool
+
+    func isMarketOpen(at date: Date) -> Bool {
+        isOpen
+    }
+
+    func nextOpenDate(from date: Date) -> Date? {
+        nil
+    }
+}
+
+final class IntradayGainSampleStoreTests: XCTestCase {
+    private var eastern: TimeZone!
+    private var calendar: Calendar!
+
+    override func setUp() {
+        eastern = TimeZone(identifier: "America/New_York")!
+        calendar = IntradayGainSampleStore.easternCalendar()
+    }
+
+    private func makeStore(
+        isMarketOpen: Bool,
+        suiteName: String = "MuskometerTests-intraday-\(UUID().uuidString)"
+    ) -> (IntradayGainSampleStore, UserDefaults) {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let store = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: isMarketOpen)
+        )
+        return (store, defaults)
+    }
+
+    private func easternDate(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int = 0
+    ) throws -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = hour
+        components.minute = minute
+        components.timeZone = eastern
+        return try XCTUnwrap(calendar.date(from: components))
+    }
+
+    func testAppendWhenMarketOpen() throws {
+        let (store, _) = makeStore(isMarketOpen: true)
+        let date = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+
+        store.append(combinedPaperGain: 1_000_000_000, at: date)
+
+        XCTAssertEqual(store.samples.count, 1)
+        XCTAssertEqual(store.samples.first?.combinedPaperGain, 1_000_000_000)
+        XCTAssertEqual(store.samples.first?.timestamp, date)
+    }
+
+    func testDoesNotAppendWhenMarketClosed() throws {
+        let (store, _) = makeStore(isMarketOpen: false)
+        let date = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+
+        store.append(combinedPaperGain: 1_000_000_000, at: date)
+
+        XCTAssertTrue(store.samples.isEmpty)
+    }
+
+    func testETDayRolloverClearsPriorSamples() throws {
+        let suiteName = "MuskometerTests-intraday-rollover-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let marketHours = FixedMarketHours(isOpen: true)
+        let store = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: marketHours
+        )
+
+        let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesday = try easternDate(year: 2026, month: 7, day: 1, hour: 11)
+
+        store.append(combinedPaperGain: 100, at: monday)
+        store.append(combinedPaperGain: 200, at: tuesday)
+
+        XCTAssertEqual(store.samples.count, 1)
+        XCTAssertEqual(store.samples.first?.combinedPaperGain, 200)
+        XCTAssertEqual(store.samples.first?.timestamp, tuesday)
+    }
+
+    func testCapsAt400Samples() throws {
+        let (store, _) = makeStore(isMarketOpen: true)
+        let start = try easternDate(year: 2026, month: 6, day: 30, hour: 10)
+
+        for index in 0..<450 {
+            let date = start.addingTimeInterval(TimeInterval(index * 60))
+            store.append(combinedPaperGain: Double(index), at: date)
+        }
+
+        XCTAssertEqual(store.samples.count, 400)
+        XCTAssertEqual(store.samples.first?.combinedPaperGain, 50)
+        XCTAssertEqual(store.samples.last?.combinedPaperGain, 449)
+    }
+
+    func testPersistsAcrossReload() throws {
+        let suiteName = "MuskometerTests-intraday-persist-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let date = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let marketHours = FixedMarketHours(isOpen: true)
+
+        let store = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: marketHours
+        )
+        store.append(combinedPaperGain: 42_000_000_000, at: date)
+
+        let reloaded = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: marketHours
+        )
+
+        XCTAssertEqual(reloaded.samples.count, 1)
+        XCTAssertEqual(reloaded.samples.first?.combinedPaperGain, 42_000_000_000)
+        XCTAssertEqual(reloaded.samples.first?.timestamp, date)
+    }
+}
+
+final class XShareIntentTests: XCTestCase {
+    private func sampleSnapshot(paperGain: Double = 1_000_000_000) -> GainsSnapshot {
+        let tsla = HoldingGain(
+            id: "tsla",
+            symbol: "TSLA",
+            displayName: "Tesla",
+            shareCount: 100,
+            quote: StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 110,
+                previousClose: 100,
+                currency: "USD"
+            )
+        )
+        return GainsSnapshot(holdings: [tsla], lastUpdated: .now, marketIsOpen: true)
+    }
+
+    func testTweetURLUsesXIntentEndpoint() throws {
+        let url = try XCTUnwrap(XShareIntent.tweetURL(for: sampleSnapshot()))
+
+        XCTAssertEqual(url.scheme, "https")
+        XCTAssertEqual(url.host, "x.com")
+        XCTAssertEqual(url.path, "/intent/tweet")
+    }
+
+    func testTweetURLUsesURLComponentsEncoding() throws {
+        let snapshot = sampleSnapshot()
+        let expectedText = GainSummaryFormatter.format(snapshot)
+        let url = try XCTUnwrap(XShareIntent.tweetURL(for: snapshot))
+        let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        let textItem = try XCTUnwrap(components.queryItems?.first { $0.name == "text" })
+
+        XCTAssertEqual(textItem.value, expectedText)
+        XCTAssertTrue(expectedText.contains("today's gain"))
+        XCTAssertTrue(url.absoluteString.contains("text="))
+        XCTAssertFalse(url.absoluteString.contains(" — "))
+    }
+
+    func testTweetURLEncodesSpecialCharacters() throws {
+        let snapshot = sampleSnapshot()
+        let text = try XCTUnwrap(GainSummaryFormatter.format(snapshot))
+        let url = try XCTUnwrap(XShareIntent.tweetURL(for: snapshot))
+
+        XCTAssertTrue(text.contains("—"))
+        XCTAssertFalse(url.absoluteString.contains("—"))
+        XCTAssertTrue(url.absoluteString.contains("%E2%80%94") || url.absoluteString.contains("%e2%80%94"))
+    }
+}
+
+// MARK: - Foundation services
+
+private enum EasternTestDates {
+    static let eastern = TimeZone(identifier: "America/New_York")!
+
+    static func calendar() -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = eastern
+        return calendar
+    }
+
+    static func date(
+        year: Int,
+        month: Int,
+        day: Int,
+        hour: Int,
+        minute: Int = 0
+    ) throws -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = hour
+        components.minute = minute
+        components.timeZone = eastern
+        return try XCTUnwrap(calendar().date(from: components))
+    }
+}
+
+final class TradingDayCalendarTests: XCTestCase {
+    private var tradingCalendar: TradingDayCalendar!
+    private var marketHours: MarketHoursService!
+
+    override func setUp() {
+        let eastern = EasternTestDates.eastern
+        let calendar = EasternTestDates.calendar()
+        tradingCalendar = TradingDayCalendar(calendar: calendar, timeZone: eastern)
+        marketHours = MarketHoursService(calendar: calendar, timeZone: eastern)
+    }
+
+    func testDayKeyUsesEasternCalendarDay() throws {
+        let lateEveningUTC = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 23)
+        XCTAssertEqual(tradingCalendar.dayKey(for: lateEveningUTC), "2026-07-01")
+    }
+
+    func testIsSameTradingDayAcrossMidnightEastern() throws {
+        let late = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 23, minute: 30)
+        let early = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 0, minute: 15)
+        XCTAssertFalse(tradingCalendar.isSameTradingDay(late, early))
+    }
+
+    func testHasTradingDayCompletedAfterMarketClose() throws {
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        XCTAssertTrue(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-06-30",
+                at: afterClose,
+                marketHours: marketHours
+            )
+        )
+    }
+
+    func testHasTradingDayNotCompletedDuringSession() throws {
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        XCTAssertFalse(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-06-30",
+                at: midday,
+                marketHours: marketHours
+            )
+        )
+    }
+}
+
+@MainActor
+final class DailyRecordTrackerTests: XCTestCase {
+    private var easternCalendar: TradingDayCalendar!
+    private var marketHours: MarketHoursService!
+
+    override func setUp() {
+        let eastern = EasternTestDates.eastern
+        let calendar = EasternTestDates.calendar()
+        easternCalendar = TradingDayCalendar(calendar: calendar, timeZone: eastern)
+        marketHours = MarketHoursService(calendar: calendar, timeZone: eastern)
+    }
+
+    private func makeTracker(suiteName: String = "MuskometerTests-daily-records-\(UUID().uuidString)") -> DailyRecordTracker {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return DailyRecordTracker(
+            defaults: defaults,
+            calendar: easternCalendar,
+            marketHours: marketHours
+        )
+    }
+
+    func testNoRecordsUntilFirstTradingDayCompletes() throws {
+        let tracker = makeTracker()
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        let snapshot = tracker.update(
+            personID: "musk",
+            paperGain: 12_000_000_000,
+            at: midday,
+            marketIsOpen: true
+        )
+
+        XCTAssertFalse(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertNil(snapshot.bestRecord)
+        XCTAssertNil(snapshot.worstRecord)
+    }
+
+    func testTracksBestAndWorstAfterFirstDayCompletes() throws {
+        let tracker = makeTracker()
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+
+        _ = tracker.update(personID: "musk", paperGain: 12_000_000_000, at: midday, marketIsOpen: true)
+        _ = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: midday.addingTimeInterval(3_600), marketIsOpen: true)
+        let snapshot = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: afterClose, marketIsOpen: false)
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(snapshot.bestRecord?.amount, 12_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, -4_000_000_000)
+    }
+
+    func testRecordsAreScopedPerPersonID() throws {
+        let tracker = makeTracker()
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+
+        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: midday, marketIsOpen: true)
+        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: afterClose, marketIsOpen: false)
+
+        let other = tracker.update(personID: "other", paperGain: 1_000_000_000, at: afterClose, marketIsOpen: false)
+
+        XCTAssertEqual(tracker.snapshot(for: "musk").bestRecord?.amount, 20_000_000_000)
+        XCTAssertFalse(other.hasCompletedFirstTradingDay)
+        XCTAssertNil(other.bestRecord)
+    }
+
+    func testPersistsAcrossReload() throws {
+        let suiteName = "MuskometerTests-daily-records-persist-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+
+        let tracker = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: midday, marketIsOpen: true)
+        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: afterClose, marketIsOpen: false)
+
+        let reloaded = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        let snapshot = reloaded.snapshot(for: "musk")
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(snapshot.bestRecord?.amount, 8_000_000_000)
+    }
+}
+
+final class GainNotificationThresholdTests: XCTestCase {
+    func testPresetsIncludeSignedFiveTenTwentyFiftyBillions() {
+        XCTAssertEqual(GainNotificationThreshold.presets.count, 8)
+
+        let amounts = Set(GainNotificationThreshold.presets.map(\.amount))
+        XCTAssertEqual(
+            amounts,
+            Set([
+                5_000_000_000, 10_000_000_000, 20_000_000_000, 50_000_000_000,
+                -5_000_000_000, -10_000_000_000, -20_000_000_000, -50_000_000_000
+            ])
+        )
+    }
+
+    func testPresetLookupByID() {
+        XCTAssertEqual(GainNotificationThreshold.preset(id: "gain-10b")?.label, "+$10B")
+        XCTAssertEqual(GainNotificationThreshold.preset(id: "loss-20b")?.amount, -20_000_000_000)
+    }
+}
+
+private final class MockGainThresholdNotificationDeliverer: GainThresholdNotificationDelivering, @unchecked Sendable {
+    private(set) var requests: [UNNotificationRequest] = []
+
+    func add(_ request: UNNotificationRequest) async throws {
+        requests.append(request)
+    }
+}
+
+@MainActor
+final class GainThresholdNotificationServiceTests: XCTestCase {
+    private var easternCalendar: TradingDayCalendar!
+
+    override func setUp() {
+        let eastern = EasternTestDates.eastern
+        easternCalendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
+    }
+
+    private func makeService(
+        deliverer: MockGainThresholdNotificationDeliverer = MockGainThresholdNotificationDeliverer(),
+        suiteName: String = "MuskometerTests-gain-notify-\(UUID().uuidString)"
+    ) -> (GainThresholdNotificationService, MockGainThresholdNotificationDeliverer) {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let service = GainThresholdNotificationService(
+            defaults: defaults,
+            calendar: easternCalendar,
+            deliverer: deliverer
+        )
+        return (service, deliverer)
+    }
+
+    func testFiresWhenCrossingEnabledGainThreshold() async throws {
+        let (service, deliverer) = makeService()
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        _ = await service.processUpdate(
+            paperGain: 9_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date,
+            marketIsOpen: true
+        )
+        let events = await service.processUpdate(
+            paperGain: 11_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(60),
+            marketIsOpen: true
+        )
+
+        XCTAssertEqual(events.count, 1)
+        XCTAssertEqual(events.first?.threshold.id, "gain-10b")
+        XCTAssertEqual(deliverer.requests.count, 1)
+        XCTAssertTrue(deliverer.requests.first?.content.title.contains("+$10B") ?? false)
+    }
+
+    func testDoesNotFireWhenMarketClosed() async throws {
+        let (service, deliverer) = makeService()
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+
+        _ = await service.processUpdate(
+            paperGain: 9_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date,
+            marketIsOpen: false
+        )
+        let events = await service.processUpdate(
+            paperGain: 11_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(60),
+            marketIsOpen: false
+        )
+
+        XCTAssertTrue(events.isEmpty)
+        XCTAssertTrue(deliverer.requests.isEmpty)
+    }
+
+    func testRearmsAfterDroppingBelowThreshold() async throws {
+        let (service, deliverer) = makeService()
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        _ = await service.processUpdate(paperGain: 9_000_000_000, personID: "musk", possessiveName: "Elon's", at: date, marketIsOpen: true)
+        _ = await service.processUpdate(paperGain: 11_000_000_000, personID: "musk", possessiveName: "Elon's", at: date.addingTimeInterval(60), marketIsOpen: true)
+        _ = await service.processUpdate(paperGain: 8_000_000_000, personID: "musk", possessiveName: "Elon's", at: date.addingTimeInterval(120), marketIsOpen: true)
+        let secondCross = await service.processUpdate(
+            paperGain: 12_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(180),
+            marketIsOpen: true
+        )
+
+        XCTAssertEqual(secondCross.count, 1)
+        XCTAssertEqual(deliverer.requests.count, 2)
+    }
+
+    func testFiresLossThresholdOnDownwardCross() async throws {
+        let (service, deliverer) = makeService()
+        service.setEnabledThresholdIDs(["loss-10b"], for: "musk")
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        _ = await service.processUpdate(paperGain: -8_000_000_000, personID: "musk", possessiveName: "Elon's", at: date, marketIsOpen: true)
+        let events = await service.processUpdate(
+            paperGain: -12_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(60),
+            marketIsOpen: true
+        )
+
+        XCTAssertEqual(events.first?.threshold.id, "loss-10b")
+        XCTAssertEqual(deliverer.requests.count, 1)
+    }
+}
+
+final class ComparisonLibraryTests: XCTestCase {
+    func testLibraryHasAtLeastSixtyEntries() {
+        XCTAssertGreaterThanOrEqual(ComparisonLibrary.entries.count, 60)
+    }
+
+    func testEntriesUseTenBillionBuckets() {
+        let bucketStarts = Set(ComparisonLibrary.entries.map { Int($0.minMagnitude / 1_000_000_000) })
+        XCTAssertTrue(bucketStarts.contains(0))
+        XCTAssertTrue(bucketStarts.contains(10))
+        XCTAssertTrue(bucketStarts.contains(20))
+        XCTAssertTrue(bucketStarts.contains(30))
+        XCTAssertTrue(bucketStarts.contains(40))
+        XCTAssertTrue(bucketStarts.contains(50))
+        XCTAssertTrue(bucketStarts.contains(60))
+        XCTAssertTrue(bucketStarts.contains(70))
+    }
+
+    func testCandidatesMatchMagnitudeBucket() {
+        let candidates = ComparisonLibrary.candidates(forMagnitude: 15_000_000_000)
+        XCTAssertFalse(candidates.isEmpty)
+        XCTAssertTrue(candidates.allSatisfy { $0.minMagnitude == 10_000_000_000 && $0.maxMagnitude == 20_000_000_000 })
+    }
+
+    func testLinePrefixesGainAndLoss() {
+        let entry = ComparisonLibrary.entries.first!
+        XCTAssertTrue(entry.line(forGain: 5_000_000_000).text.hasPrefix("Today's gain "))
+        XCTAssertTrue(entry.line(forGain: -5_000_000_000).text.hasPrefix("Today's loss "))
+    }
+}
+
+final class ComparisonHistoryStoreTests: XCTestCase {
+    private var easternCalendar: TradingDayCalendar!
+
+    override func setUp() {
+        let eastern = EasternTestDates.eastern
+        easternCalendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
+    }
+
+    func testExcludesEntriesUsedWithinSevenDays() throws {
+        let suiteName = "MuskometerTests-comparison-history-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        var store = ComparisonHistoryStore(defaults: defaults, calendar: easternCalendar)
+        let dayOne = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let dayThree = try EasternTestDates.date(year: 2026, month: 7, day: 2, hour: 11)
+
+        store.recordUse(entryID: "econ-10", on: dayOne)
+
+        XCTAssertTrue(store.recentlyUsedEntryIDs(on: dayThree).contains("econ-10"))
+    }
+
+    func testDropsEntriesOlderThanSevenDays() throws {
+        let suiteName = "MuskometerTests-comparison-history-old-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        var store = ComparisonHistoryStore(defaults: defaults, calendar: easternCalendar)
+        let oldDay = try EasternTestDates.date(year: 2026, month: 6, day: 20, hour: 11)
+        let currentDay = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        store.recordUse(entryID: "econ-10", on: oldDay)
+
+        XCTAssertFalse(store.recentlyUsedEntryIDs(on: currentDay).contains("econ-10"))
+    }
+}
+
+@MainActor
+final class ComparisonLineSelectorTests: XCTestCase {
+    func testReturnsNilForZeroGain() {
+        let selector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 1))
+        XCTAssertNil(selector.selectLine(for: 0))
+    }
+
+    func testSelectsLineFromMatchingBucket() {
+        let suiteName = "MuskometerTests-comparison-select-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let eastern = EasternTestDates.eastern
+        let calendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
+        let store = ComparisonHistoryStore(defaults: defaults, calendar: calendar)
+        let selector = ComparisonLineSelector(
+            historyStore: store,
+            randomizer: SeededComparisonRandomizer(seed: 42)
+        )
+
+        let line = selector.selectLine(for: 15_000_000_000)
+
+        XCTAssertNotNil(line)
+        XCTAssertTrue(line?.text.hasPrefix("Today's gain ") ?? false)
+    }
+
+    func testAvoidsRecentlyUsedEntries() throws {
+        let suiteName = "MuskometerTests-comparison-avoid-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let eastern = EasternTestDates.eastern
+        let calendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
+        var store = ComparisonHistoryStore(defaults: defaults, calendar: calendar)
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        let bucketEntries = ComparisonLibrary.candidates(forMagnitude: 15_000_000_000)
+        for entry in bucketEntries {
+            store.recordUse(entryID: entry.id, on: date)
+        }
+
+        let selector = ComparisonLineSelector(
+            historyStore: store,
+            randomizer: SeededComparisonRandomizer(seed: 7)
+        )
+
+        let line = selector.selectLine(for: 15_000_000_000, on: date)
+        XCTAssertNotNil(line)
+    }
+}
+
+@MainActor
+final class NetWorthMilestoneTrackerTests: XCTestCase {
+    private func makeTracker(suiteName: String = "MuskometerTests-milestone-\(UUID().uuidString)") -> NetWorthMilestoneTracker {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return NetWorthMilestoneTracker(defaults: defaults)
+    }
+
+    func testCelebratesCrossingOneTrillion() {
+        let tracker = makeTracker()
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion)
+
+        guard case .celebration(let milestone) = event else {
+            return XCTFail("Expected celebration")
+        }
+        XCTAssertEqual(milestone.title, "One trillion dollars!")
+        XCTAssertEqual(tracker.currentZone(), .aboveOneTrillion)
+    }
+
+    func testCelebratesCrossingTwoTrillion() {
+        let tracker = makeTracker()
+        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 1)
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.twoTrillion)
+
+        guard case .celebration(let milestone) = event else {
+            return XCTFail("Expected celebration")
+        }
+        XCTAssertEqual(milestone.title, "Two trillion club!")
+        XCTAssertEqual(tracker.currentZone(), .aboveTwoTrillion)
+    }
+
+    func testHysteresisPreventsFlickerAroundOneTrillion() {
+        let tracker = makeTracker()
+        _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 5_000_000_000)
+
+        XCTAssertNil(tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion * 0.995))
+        XCTAssertEqual(tracker.currentZone(), .aboveOneTrillion)
+
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion * 0.98)
+        guard case .fellBelowTrillion(let message) = event else {
+            return XCTFail("Expected fellBelowTrillion")
+        }
+        XCTAssertEqual(message, NetWorthMilestoneTracker.belowTrillionMessage)
+        XCTAssertEqual(tracker.currentZone(), .belowOneTrillion)
+    }
+
+    func testSadMessageUsesLonliestNumberCopy() {
+        let tracker = makeTracker()
+        _ = tracker.update(netWorth: 1_100_000_000_000)
+        let event = tracker.update(netWorth: 900_000_000_000)
+
+        guard case .fellBelowTrillion(let message) = event else {
+            return XCTFail("Expected fellBelowTrillion")
+        }
+        XCTAssertEqual(message, "One Trillion Is the Lonliest Number")
+    }
+
+    func testNoCelebrationWhenAlreadyAboveTrillion() {
+        let tracker = makeTracker()
+        _ = tracker.update(netWorth: 1_100_000_000_000)
+        XCTAssertNil(tracker.update(netWorth: 1_200_000_000_000))
     }
 }

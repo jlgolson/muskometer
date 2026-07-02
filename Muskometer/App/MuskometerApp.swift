@@ -13,6 +13,9 @@ struct MuskometerApp: App {
         AppDelegate.onTerminateHandler = { @MainActor in
             viewModel.stop()
         }
+        AppDelegate.shareShortcutHandler = { @MainActor in
+            viewModel.copyShareToPasteboard()
+        }
     }
 
     var body: some Scene {
@@ -28,6 +31,12 @@ struct MuskometerApp: App {
             }
 
             CommandGroup(after: .toolbar) {
+                Button(viewModel.settings.shareFormat.buttonTitle) {
+                    _ = viewModel.copyShareToPasteboard()
+                }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(viewModel.snapshot == nil)
+
                 Button("Refresh") {
                     Task { await viewModel.refresh(force: true) }
                 }

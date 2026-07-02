@@ -106,6 +106,12 @@ struct PopoverContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             ownershipCard(snapshot)
             combinedCard(snapshot)
+            ComparisonCaptionView(line: viewModel.comparisonLine)
+            DailyRecordsCardView(
+                bestRecord: viewModel.dailyRecordsSnapshot.bestRecord,
+                worstRecord: viewModel.dailyRecordsSnapshot.worstRecord,
+                animateValues: true
+            )
 
             ForEach(snapshot.holdings) { holding in
                 StockRowView(
@@ -124,16 +130,30 @@ struct PopoverContentView: View {
     }
 
     private func ownershipCard(_ snapshot: GainsSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(viewModel.settings.selectedProfile.possessiveName) Ownership")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        ZStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("\(viewModel.settings.selectedProfile.possessiveName) Ownership")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
-            Text(CurrencyFormatter.formatMarketValue(snapshot.combinedMarketValue))
-                .font(.system(size: 22, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(.smooth(duration: 0.25), value: snapshot.combinedMarketValue)
+                Text(CurrencyFormatter.formatMarketValue(snapshot.combinedMarketValue))
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.25), value: snapshot.combinedMarketValue)
+
+                if let message = viewModel.trillionEasterEggMessage {
+                    Text(message)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color("GainNegative"))
+                        .padding(.top, 2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            MilestoneCelebrationOverlay(milestone: viewModel.activeMilestone) {
+                viewModel.clearActiveMilestone()
+            }
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -141,50 +161,51 @@ struct PopoverContentView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
         }
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func combinedCard(_ snapshot: GainsSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Combined today")
-                        .font(.caption)
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Combined today")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(combinedColor(snapshot))
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
+
+                Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
+                    .font(.subheadline.weight(.semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(combinedColor(snapshot))
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
+
+                HStack(spacing: 6) {
+                    Circle()
+                        .fill(snapshot.marketIsOpen ? Color("GainPositive") : .secondary)
+                        .frame(width: 6, height: 6)
+                    Text(snapshot.marketIsOpen ? "Market open" : "Market closed")
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
-
-                    Text(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(combinedColor(snapshot))
-                        .contentTransition(.numericText())
-                        .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
-
-                    Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
-                        .font(.subheadline.weight(.semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(combinedColor(snapshot))
-                        .contentTransition(.numericText())
-                        .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
-
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(snapshot.marketIsOpen ? Color("GainPositive") : .secondary)
-                            .frame(width: 6, height: 6)
-                        Text(snapshot.marketIsOpen ? "Market open" : "Market closed")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if let detail = viewModel.marketStatusDetail {
-                        Text(detail)
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
                 }
 
-                Spacer()
+                if let detail = viewModel.marketStatusDetail {
+                    Text(detail)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
+            GainSparklineView(samples: viewModel.intradaySamples)
+
+            HStack(spacing: 8) {
                 Button {
-                    copyShare(snapshot)
+                    copyShare()
                 } label: {
                     Label(
                         didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
@@ -195,6 +216,15 @@ struct PopoverContentView: View {
                 .controlSize(.small)
                 .disabled(didCopyShare)
                 .help(viewModel.settings.shareFormat.helpText)
+
+                Button {
+                    _ = viewModel.postToX()
+                } label: {
+                    Label("Post to X", systemImage: "arrow.up.right.square")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Open X with a pre-filled summary of today's gains")
             }
         }
         .padding(14)
@@ -273,13 +303,8 @@ struct PopoverContentView: View {
         Task { await viewModel.refresh(force: true) }
     }
 
-    private func copyShare(_ snapshot: GainsSnapshot) {
-        let copied = ShareImageExporter.copyToPasteboard(
-            snapshot: snapshot,
-            profile: viewModel.settings.selectedProfile,
-            format: viewModel.settings.shareFormat
-        )
-        guard copied else { return }
+    private func copyShare() {
+        guard viewModel.copyShareToPasteboard() else { return }
 
         didCopyShare = true
 

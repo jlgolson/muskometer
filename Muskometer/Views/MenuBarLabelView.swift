@@ -73,7 +73,7 @@ struct MenuBarLabelView: View {
     }
 
     private var moodDirectionColor: Color {
-        guard let snapshot else { return .primary }
+        guard let snapshot = viewModel.snapshot else { return .primary }
 
         if snapshot.combinedPaperGain > 0 {
             return Color("GainPositive")

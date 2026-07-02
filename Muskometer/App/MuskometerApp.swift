@@ -58,8 +58,7 @@ struct MuskometerApp: App {
 
         Settings {
             SettingsView(settings: viewModel.settings, viewModel: viewModel)
-                .frame(minWidth: 500)
-                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 560, height: 480)
         }
 
         Window("About Muskometer", id: "about") {

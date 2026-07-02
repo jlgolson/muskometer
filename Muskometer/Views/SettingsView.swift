@@ -8,9 +8,13 @@ struct SettingsView: View {
     private let onDone: (() -> Void)?
     private let embeddedInPopover: Bool
 
+    @State private var selectedTab: SettingsTab = .general
     @State private var refreshInterval: Double
     @State private var shareTexts: [String: String] = [:]
     @State private var shareErrors: [String: String] = [:]
+
+    private var panelWidth: CGFloat { embeddedInPopover ? 500 : 560 }
+    private var panelHeight: CGFloat { embeddedInPopover ? 440 : 480 }
 
     init(settings: AppSettings, viewModel: GainsViewModel? = nil, onDone: (() -> Void)? = nil) {
         self.settings = settings
@@ -21,31 +25,21 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             header
 
-            settingsSections
-
-            VStack(spacing: 4) {
-                Link("Disclaimer", destination: AppURLs.disclaimer)
-                    .font(.caption2)
-
-                Text(AppVersion.displayString)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+            TabView(selection: $selectedTab) {
+                tabPage(.general) { generalTab }
+                tabPage(.sharing) { sharingTab }
+                tabPage(.alerts) { alertsTab }
+                tabPage(.menuBar) { menuBarTab }
+                tabPage(.holdings) { holdingsTab }
             }
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 4)
+            .tabViewStyle(.automatic)
+
+            footer
         }
-        .frame(minWidth: embeddedInPopover ? 448 : 500, alignment: .topLeading)
-        .fixedSize(horizontal: false, vertical: embeddedInPopover ? false : true)
-        .background {
-            if !embeddedInPopover {
-                GeometryReader { geometry in
-                    Color.clear.preference(key: SettingsContentHeightKey.self, value: geometry.size.height)
-                }
-            }
-        }
+        .frame(width: panelWidth, height: panelHeight, alignment: .topLeading)
         .onAppear {
             syncTextFieldsFromSettings()
         }
@@ -54,24 +48,17 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private var settingsSections: some View {
-        let sections = VStack(alignment: .leading, spacing: 16) {
-            generalSection
-            sharingSection
-            notificationsSection
-            menuBarSection
-            priceRefreshSection
-            holdingsSection
-            resetSection
-                .padding(.top, 8)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-
+    private func tabPage<Content: View>(_ tab: SettingsTab, @ViewBuilder content: () -> Content) -> some View {
         ScrollView(.vertical, showsIndicators: true) {
-            sections
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 8)
         }
-        .frame(maxHeight: embeddedInPopover ? 460 : 720)
+        .tabItem {
+            Label(tab.title, systemImage: tab.systemImage)
+        }
+        .tag(tab)
     }
 
     private var header: some View {
@@ -99,6 +86,18 @@ struct SettingsView: View {
         .padding(.bottom, 2)
     }
 
+    private var footer: some View {
+        VStack(spacing: 4) {
+            Link("Disclaimer", destination: AppURLs.disclaimer)
+                .font(.caption2)
+
+            Text(AppVersion.displayString)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+    }
+
     private var backButton: some View {
         Button {
             finish()
@@ -110,35 +109,48 @@ struct SettingsView: View {
         .controlSize(.small)
     }
 
-    private var generalSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("General")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
+    // MARK: - Tabs
 
-            Toggle("Launch at login", isOn: $settings.launchAtLogin)
+    private var generalTab: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            groupedCard {
+                Toggle("Launch at login", isOn: $settings.launchAtLogin)
 
-            Text("Start Muskometer automatically when you sign in to this Mac.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            HStack(spacing: 12) {
-                Link("muskometer.org", destination: AppURLs.website)
-                Link("GitHub", destination: AppURLs.github)
-                Link("info@muskometer.org", destination: AppURLs.contact)
+                Text("Start Muskometer automatically when you sign in to this Mac.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .font(.caption)
+
+            groupedCard {
+                Text("Refresh interval: \(Int(refreshInterval)) seconds")
+                    .font(.body)
+
+                Slider(value: $refreshInterval, in: 60...120, step: 5)
+                    .accessibilityLabel("Refresh interval")
+                    .onChange(of: refreshInterval) { _, newValue in
+                        settings.refreshIntervalSeconds = newValue
+                    }
+
+                Text("Stock prices refresh automatically while the US market is open.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            groupedCard {
+                HStack(spacing: 12) {
+                    Link("muskometer.org", destination: AppURLs.website)
+                    Link("GitHub", destination: AppURLs.github)
+                    Link("info@muskometer.org", destination: AppURLs.contact)
+                }
+                .font(.caption)
+            }
+
+            resetSection
         }
-        .padding(12)
-        .background(sectionBackground)
     }
 
-    private var sharingSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Sharing")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-
+    private var sharingTab: some View {
+        groupedCard {
             Picker("Copy format", selection: $settings.shareFormat) {
                 ForEach(ShareFormat.allCases) { format in
                     Text(format.label).tag(format)
@@ -154,16 +166,10 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(12)
-        .background(sectionBackground)
     }
 
-    private var notificationsSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Notifications")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-
+    private var alertsTab: some View {
+        groupedCard {
             Text("macOS notification permission is required (System Settings → Notifications → Muskometer).")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -199,27 +205,10 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(12)
-        .background(sectionBackground)
     }
 
-    private func notificationToggle(_ threshold: GainNotificationThreshold, viewModel: GainsViewModel) -> some View {
-        let enabled = viewModel.enabledNotificationThresholdIDs.contains(threshold.id)
-
-        return Toggle(threshold.label, isOn: Binding(
-            get: { viewModel.enabledNotificationThresholdIDs.contains(threshold.id) },
-            set: { viewModel.setNotificationThresholdEnabled(threshold.id, enabled: $0) }
-        ))
-        .font(.body)
-        .accessibilityValue(enabled ? "On" : "Off")
-    }
-
-    private var menuBarSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Menu bar")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-
+    private var menuBarTab: some View {
+        groupedCard {
             Picker("Display", selection: $settings.menuBarDisplayMode) {
                 ForEach(MenuBarDisplayMode.allCases) { mode in
                     Text(mode.label).tag(mode)
@@ -255,41 +244,10 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .padding(12)
-        .background(sectionBackground)
     }
 
-    private var priceRefreshSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Price refresh")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Refresh interval: \(Int(refreshInterval)) seconds")
-                    .font(.body)
-
-                Slider(value: $refreshInterval, in: 60...120, step: 5)
-                    .accessibilityLabel("Refresh interval")
-                    .onChange(of: refreshInterval) { _, newValue in
-                        settings.refreshIntervalSeconds = newValue
-                    }
-            }
-
-            Text("Stock prices refresh automatically while the US market is open. Share counts are separate.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .background(sectionBackground)
-    }
-
-    private var holdingsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Share counts (SEC)")
-                .font(.subheadline.weight(.medium))
-                .foregroundStyle(.secondary)
-
+    private var holdingsTab: some View {
+        groupedCard {
             if let lastSync = settings.lastHoldingsSyncDate {
                 Text("Last SEC sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption)
@@ -347,8 +305,17 @@ struct SettingsView: View {
                 }
             }
         }
-        .padding(12)
-        .background(sectionBackground)
+    }
+
+    private func notificationToggle(_ threshold: GainNotificationThreshold, viewModel: GainsViewModel) -> some View {
+        let enabled = viewModel.enabledNotificationThresholdIDs.contains(threshold.id)
+
+        return Toggle(threshold.label, isOn: Binding(
+            get: { viewModel.enabledNotificationThresholdIDs.contains(threshold.id) },
+            set: { viewModel.setNotificationThresholdEnabled(threshold.id, enabled: $0) }
+        ))
+        .font(.body)
+        .accessibilityValue(enabled ? "On" : "Off")
     }
 
     private var resetSection: some View {
@@ -364,6 +331,15 @@ struct SettingsView: View {
             }
         }
         .buttonStyle(.bordered)
+    }
+
+    private func groupedCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            content()
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(sectionBackground)
     }
 
     private var sectionBackground: some View {
@@ -420,6 +396,36 @@ struct SettingsView: View {
 
         if countsChanged, let viewModel {
             Task { await viewModel.refresh(force: true) }
+        }
+    }
+}
+
+private enum SettingsTab: String, CaseIterable, Identifiable {
+    case general
+    case sharing
+    case alerts
+    case menuBar
+    case holdings
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general: return "General"
+        case .sharing: return "Sharing"
+        case .alerts: return "Alerts"
+        case .menuBar: return "Menu Bar"
+        case .holdings: return "Holdings"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .general: return "gearshape"
+        case .sharing: return "square.and.arrow.up"
+        case .alerts: return "bell"
+        case .menuBar: return "menubar.rectangle"
+        case .holdings: return "chart.pie"
         }
     }
 }

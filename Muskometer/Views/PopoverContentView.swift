@@ -15,8 +15,8 @@ struct PopoverContentView: View {
         }
         .padding(16)
         .frame(
-            width: showingSettings ? 480 : 360,
-            height: showingSettings ? 500 : nil,
+            width: showingSettings ? 532 : 360,
+            height: showingSettings ? 548 : nil,
             alignment: .topLeading
         )
         .onAppear {

@@ -1,7 +1,7 @@
-import Charts
 import SwiftUI
 
 /// Compact intraday sparkline for combined paper gain (~36pt tall).
+/// Green above $0 breakeven, red below — drawn with Canvas for reliable per-segment coloring.
 struct GainSparklineView: View {
     let samples: [GainSample]
 
@@ -9,51 +9,20 @@ struct GainSparklineView: View {
     private let gainPositive = Color("GainPositive")
     private let gainNegative = Color("GainNegative")
 
-    private var segments: [SparklineSegment] {
-        Self.segments(from: samples)
-    }
-
     var body: some View {
         Group {
             if samples.isEmpty {
                 Color.clear
             } else {
-                Chart {
-                    RuleMark(y: .value("Breakeven", 0))
-                        .foregroundStyle(Color.secondary.opacity(0.35))
-                        .lineStyle(StrokeStyle(lineWidth: 0.5, dash: [3, 3]))
-
-                    ForEach(segments) { segment in
-                        ForEach(segment.points) { sample in
-                            LineMark(
-                                x: .value("Time", sample.timestamp),
-                                y: .value("Gain", sample.combinedPaperGain)
-                            )
-                            .interpolationMethod(.linear)
-                            .foregroundStyle(segment.color(gainPositive: gainPositive, gainNegative: gainNegative))
-
-                            AreaMark(
-                                x: .value("Time", sample.timestamp),
-                                yStart: .value("Zero", 0),
-                                yEnd: .value("Gain", sample.combinedPaperGain)
-                            )
-                            .interpolationMethod(.linear)
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: segment.gradientColors(
-                                        gainPositive: gainPositive,
-                                        gainNegative: gainNegative
-                                    ),
-                                    startPoint: segment.isPositive ? .top : .bottom,
-                                    endPoint: segment.isPositive ? .bottom : .top
-                                )
-                            )
-                        }
-                    }
+                Canvas { context, size in
+                    Self.draw(
+                        samples: samples,
+                        size: size,
+                        gainPositive: gainPositive,
+                        gainNegative: gainNegative,
+                        in: &context
+                    )
                 }
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-                .chartLegend(.hidden)
             }
         }
         .frame(height: height)
@@ -72,18 +41,58 @@ private struct SparklineSegment: Identifiable {
     let id = UUID()
     let points: [GainSample]
     let isPositive: Bool
-
-    func color(gainPositive: Color, gainNegative: Color) -> Color {
-        isPositive ? gainPositive : gainNegative
-    }
-
-    func gradientColors(gainPositive: Color, gainNegative: Color) -> [Color] {
-        let line = color(gainPositive: gainPositive, gainNegative: gainNegative)
-        return [line.opacity(0.35), line.opacity(0.02)]
-    }
 }
 
 private extension GainSparklineView {
+    static func draw(
+        samples: [GainSample],
+        size: CGSize,
+        gainPositive: Color,
+        gainNegative: Color,
+        in context: inout GraphicsContext
+    ) {
+        guard samples.count >= 1, size.width > 0, size.height > 0 else { return }
+
+        let layout = SparklineLayout(samples: samples, size: size)
+        let segments = segments(from: samples)
+
+        var zeroPath = Path()
+        zeroPath.move(to: CGPoint(x: 0, y: layout.zeroY))
+        zeroPath.addLine(to: CGPoint(x: size.width, y: layout.zeroY))
+        context.stroke(
+            zeroPath,
+            with: .color(.secondary.opacity(0.35)),
+            style: StrokeStyle(lineWidth: 0.5, dash: [3, 3])
+        )
+
+        for segment in segments {
+            let plotPoints = segment.points.map { layout.point(for: $0) }
+            guard plotPoints.count >= 1 else { continue }
+
+            let strokeColor = segment.isPositive ? gainPositive : gainNegative
+
+            var linePath = Path()
+            linePath.move(to: plotPoints[0])
+            for point in plotPoints.dropFirst() {
+                linePath.addLine(to: point)
+            }
+
+            context.stroke(
+                linePath,
+                with: .color(strokeColor),
+                style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
+            )
+
+            guard plotPoints.count >= 2 else { continue }
+
+            var fillPath = linePath
+            fillPath.addLine(to: CGPoint(x: plotPoints.last!.x, y: layout.zeroY))
+            fillPath.addLine(to: CGPoint(x: plotPoints.first!.x, y: layout.zeroY))
+            fillPath.closeSubpath()
+            context.fill(fillPath, with: .color(strokeColor.opacity(0.22)))
+        }
+    }
+
     static func segments(from samples: [GainSample]) -> [SparklineSegment] {
         guard !samples.isEmpty else { return [] }
 
@@ -139,5 +148,50 @@ private extension GainSparklineView {
 
     static func crossesZero(from previous: Double, to current: Double) -> Bool {
         (previous > 0 && current < 0) || (previous < 0 && current > 0)
+    }
+}
+
+private struct SparklineLayout {
+    let minGain: Double
+    let maxGain: Double
+    let minTime: TimeInterval
+    let maxTime: TimeInterval
+    let size: CGSize
+
+    init(samples: [GainSample], size: CGSize) {
+        let gains = samples.map(\.combinedPaperGain)
+        let rawMin = min(gains.min() ?? 0, 0)
+        let rawMax = max(gains.max() ?? 0, 0)
+        let span = max(rawMax - rawMin, 1)
+        let padding = span * 0.08
+
+        self.minGain = rawMin - padding
+        self.maxGain = rawMax + padding
+        self.minTime = samples.first!.timestamp.timeIntervalSince1970
+        self.maxTime = samples.last!.timestamp.timeIntervalSince1970
+        self.size = size
+    }
+
+    var zeroY: CGFloat {
+        y(for: 0)
+    }
+
+    func point(for sample: GainSample) -> CGPoint {
+        CGPoint(
+            x: x(for: sample.timestamp.timeIntervalSince1970),
+            y: y(for: sample.combinedPaperGain)
+        )
+    }
+
+    private func x(for time: TimeInterval) -> CGFloat {
+        let span = max(maxTime - minTime, 1)
+        let t = (time - minTime) / span
+        return CGFloat(t) * size.width
+    }
+
+    private func y(for gain: Double) -> CGFloat {
+        let span = max(maxGain - minGain, 1)
+        let normalized = (gain - minGain) / span
+        return size.height * CGFloat(1 - normalized)
     }
 }

@@ -24,7 +24,7 @@ struct MenuBarLabelView: View {
                     .frame(width: 12, height: 12)
             } else {
                 Text(displayText)
-                    .font(.system(size: labelFontSize, weight: labelFontWeight, design: .rounded))
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(labelColor)
                     .contentTransition(.numericText())
@@ -53,6 +53,15 @@ struct MenuBarLabelView: View {
     }
 
     private var labelColor: Color {
+        if settings.menuBarMoodEnabled {
+            switch viewModel.menuBarMoodLevel {
+            case .calm:
+                return .primary
+            case .bigDay:
+                return moodDirectionColor
+            }
+        }
+
         switch viewModel.gainColor {
         case .positive:
             return Color("GainPositive")
@@ -63,21 +72,15 @@ struct MenuBarLabelView: View {
         }
     }
 
-    private var labelFontSize: CGFloat {
-        guard settings.menuBarMoodEnabled, viewModel.menuBarMoodLevel == .bigDay else {
-            return 12
-        }
-        return 13
-    }
+    private var moodDirectionColor: Color {
+        guard let snapshot else { return .primary }
 
-    private var labelFontWeight: Font.Weight {
-        guard settings.menuBarMoodEnabled else { return .semibold }
-
-        switch viewModel.menuBarMoodLevel {
-        case .calm:
-            return .semibold
-        case .bigDay:
-            return .heavy
+        if snapshot.combinedPaperGain > 0 {
+            return Color("GainPositive")
         }
+        if snapshot.combinedPaperGain < 0 {
+            return Color("GainNegative")
+        }
+        return .primary
     }
 }

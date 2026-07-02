@@ -216,9 +216,9 @@ struct SettingsView: View {
 
             Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
 
-            Toggle("Emphasize big days", isOn: $settings.menuBarMoodEnabled)
+            Toggle("Color big days", isOn: $settings.menuBarMoodEnabled)
 
-            Text("When today's move is unusually large, the menu bar number grows slightly and uses a heavier weight.")
+            Text("Quiet days use the default menu bar color. Big days turn green or red based on today's gain or loss.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

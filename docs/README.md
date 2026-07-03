@@ -94,7 +94,7 @@ DNS propagation can take from a few minutes up to 48 hours.
 
 ## Regenerate screenshots
 
-Edit `screenshots/render-popover.html`, then:
+Edit `screenshots/render-popover.html` (sparkline SVG from `python3 screenshots/generate-sparkline.py`), then:
 
 ```bash
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"

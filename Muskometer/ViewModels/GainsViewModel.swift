@@ -86,13 +86,13 @@ final class GainsViewModel {
             await self.refresh()
 
             while !Task.isCancelled {
-                guard self.marketHours.isMarketOpen(at: self.dateProvider()) else {
+                guard self.marketHours.isQuotable(at: self.dateProvider()) else {
                     let sleepSeconds = self.offMarketSleepInterval()
                     try? await Task.sleep(for: .seconds(sleepSeconds))
                     continue
                 }
 
-                let interval = self.settings.refreshIntervalSeconds
+                let interval = self.refreshSleepInterval()
                 try? await Task.sleep(for: .seconds(interval))
                 guard !Task.isCancelled else { break }
 
@@ -157,7 +157,7 @@ final class GainsViewModel {
             let newSnapshot = GainsSnapshot(
                 holdings: holdingGains,
                 lastUpdated: dateProvider(),
-                marketIsOpen: marketHours.isMarketOpen()
+                tradingSession: marketHours.currentSession(at: dateProvider())
             )
             snapshot = newSnapshot
             hasStaleData = false
@@ -254,15 +254,23 @@ final class GainsViewModel {
     }
 
     var marketCloseStatusLabel: String? {
-        guard let snapshot, !snapshot.marketIsOpen else { return nil }
+        guard let snapshot, snapshot.tradingSession == .closed else { return nil }
         return MarketStatusFormatter.asOfCloseLabel(
             for: snapshot.lastUpdated,
             marketHours: marketHours
         )
     }
 
+    var marketStatusLabel: String? {
+        guard let snapshot else { return nil }
+        if snapshot.tradingSession == .closed {
+            return marketCloseStatusLabel ?? MarketStatusFormatter.sessionStatusLabel(for: .closed)
+        }
+        return MarketStatusFormatter.sessionStatusLabel(for: snapshot.tradingSession)
+    }
+
     var marketStatusDetail: String? {
-        guard let snapshot, !snapshot.marketIsOpen else { return nil }
+        guard let snapshot, snapshot.tradingSession == .closed else { return nil }
         guard let nextOpen = marketHours.nextOpenDate(from: snapshot.lastUpdated) else { return nil }
         return MarketStatusFormatter.nextOpenLabel(for: nextOpen)
     }
@@ -295,7 +303,7 @@ final class GainsViewModel {
     var shouldDimMenuBarLabel: Bool {
         guard let snapshot else { return false }
         if settings.menuBarDisplayMode == .totalWorth { return false }
-        return !snapshot.marketIsOpen
+        return snapshot.tradingSession == .closed
     }
 
     func copyShareToPasteboard() -> Bool {
@@ -356,7 +364,7 @@ final class GainsViewModel {
             personID: personID,
             paperGain: snapshot.combinedPaperGain,
             at: snapshot.lastUpdated,
-            marketIsOpen: snapshot.marketIsOpen
+            isQuotable: snapshot.isQuotable
         )
 
         intradayGainSampleStore.append(
@@ -392,7 +400,7 @@ final class GainsViewModel {
             personID: personID,
             possessiveName: profile.possessiveName,
             at: snapshot.lastUpdated,
-            marketIsOpen: snapshot.marketIsOpen
+            isQuotable: snapshot.isQuotable
         )
     }
 
@@ -433,6 +441,17 @@ final class GainsViewModel {
             return max(nextOpen.timeIntervalSince(now), 60)
         }
         return 300
+    }
+
+    private func refreshSleepInterval() -> TimeInterval {
+        let session = marketHours.currentSession(at: dateProvider())
+        let userInterval = TimeInterval(settings.refreshIntervalSeconds)
+        switch session {
+        case .preMarket, .postMarket:
+            return max(userInterval, 180)
+        case .regular, .closed:
+            return userInterval
+        }
     }
 
     enum GainColor {

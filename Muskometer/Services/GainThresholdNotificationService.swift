@@ -71,9 +71,9 @@ final class GainThresholdNotificationService {
         personID: String,
         possessiveName: String,
         at date: Date = .now,
-        marketIsOpen: Bool
+        isQuotable: Bool
     ) async -> [CrossingEvent] {
-        guard marketIsOpen else { return [] }
+        guard isQuotable else { return [] }
 
         let dayKey = calendar.dayKey(for: date)
         let enabledIDs = enabledThresholdIDs(for: personID)

@@ -53,25 +53,51 @@ echo ""
 echo "=== 5. Live Yahoo API + paper gain math ==="
 python3 <<'PY'
 import json, urllib.request, sys
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-# TSLA uses bundled default (pre-SEC-sync); SPCX uses app default aggregate.
+# Default share counts from bundled holdings (same Yahoo quote path for both).
 SHARES = {"TSLA": 699_580_882, "SPCX": 6_068_734_060}
+ET = ZoneInfo("America/New_York")
+
+def current_session(now):
+    if now.weekday() >= 5:
+        return "closed"
+    minutes = now.hour * 60 + now.minute
+    if 4 * 60 <= minutes < 9 * 60 + 30:
+        return "preMarket"
+    if 9 * 60 + 30 <= minutes < 16 * 60:
+        return "regular"
+    if 16 * 60 <= minutes < 20 * 60:
+        return "postMarket"
+    return "closed"
+
+def current_price(meta, session):
+    if session == "regular":
+        return meta.get("regularMarketPrice")
+    if session == "preMarket":
+        return meta.get("preMarketPrice") or meta.get("regularMarketPrice")
+    if session == "postMarket":
+        return meta.get("postMarketPrice") or meta.get("regularMarketPrice")
+    return meta.get("regularMarketPrice")
+
+session = current_session(datetime.now(tz=ET))
 total = 0.0
 for sym, shares in SHARES.items():
     req = urllib.request.Request(
-        f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1d",
+        f"https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1d&includePrePost=true",
         headers={"User-Agent": "Mozilla/5.0"},
     )
     with urllib.request.urlopen(req, timeout=20) as r:
         meta = json.load(r)["chart"]["result"][0]["meta"]
-    price = meta["regularMarketPrice"]
+    price = current_price(meta, session)
     prev = meta.get("chartPreviousClose") or meta.get("previousClose")
-    if prev is None:
-        print(f"FAIL: missing previous close for {sym}")
+    if price is None or prev is None:
+        print(f"FAIL: missing quote fields for {sym}")
         sys.exit(1)
     gain = shares * (price - prev)
     total += gain
-    print(f"{sym}: ${gain/1e9:.1f}B paper gain")
+    print(f"{sym}: ${gain/1e9:.1f}B paper gain ({session})")
 
 print(f"Combined: ${total/1e9:.1f}B")
 PY

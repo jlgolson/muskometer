@@ -57,7 +57,7 @@ No. Muskometer shows illustrative *paper gains* (share count × price change) fo
 **TSLA** and **SPCX** share counts come from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
 
 **When does the number update?**  
-Quotes refresh every 60–120 seconds while the US equity market is open (9:30 AM–4:00 PM ET, weekdays, excluding holidays). Outside market hours the app stops auto-refreshing and shows the last fetched prior-close values (use **Refresh** or **⌘R** to update manually).
+Quotes refresh every 60–120 seconds during quotable US sessions for both tickers: pre-market (4:00–9:30 AM ET), regular (9:30 AM–4:00 PM ET), and post-market (4:00–8:00 PM ET). Overnight and on weekends the app stops auto-refreshing and shows the last regular close (use **Refresh** or **⌘R** to update manually).
 
 **What data does the app collect?**  
 Nothing leaves your Mac except HTTPS requests to Yahoo Finance and SEC EDGAR for public market data. Preferences stay in UserDefaults. See **[docs/PRIVACY.md](docs/PRIVACY.md)**.

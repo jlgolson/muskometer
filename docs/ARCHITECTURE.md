@@ -22,7 +22,7 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 | `ViewModels/GainsViewModel.swift` | Core state machine + refresh loop |
 | `Services/YahooFinanceStockPriceService.swift` | Chart API → `StockQuote` |
 | `Services/SECHoldingsSyncService.swift` | EDGAR Form 4 → TSLA/SPCX share counts |
-| `Services/MarketHoursService.swift` | 9:30–16:00 ET, weekends, US market holiday set |
+| `Services/MarketHoursService.swift` | Pre/regular/post sessions (4:00–20:00 ET), weekends, US market holiday set |
 | `Utilities/SPCXHoldings.swift` | Default SPCX share count + legacy migration |
 | `Utilities/AppSettings.swift` | Holdings, refresh interval, launch at login |
 
@@ -32,8 +32,9 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 paperGain = shareCount × (currentPrice − previousClose)
 ```
 
-- **TSLA** — share count from SEC Form 4 (direct).
-- **SPCX** — share counts aggregate Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent). Live quotes via Yahoo Finance. See [HOLDINGS.md](HOLDINGS.md).
+- **TSLA** — share count from SEC Form 4 (direct beneficial-ownership row).
+- **SPCX** — share counts aggregate Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent).
+- **Quotes** — TSLA and SPCX use identical Yahoo fetch, session, and price-selection logic. See [HOLDINGS.md](HOLDINGS.md).
 
 Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
 

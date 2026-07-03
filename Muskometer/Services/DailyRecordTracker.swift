@@ -18,7 +18,7 @@ final class DailyRecordTracker {
         var peak: Double
         var trough: Double
         var lastSampleDate: Date
-        var hadOpenMarketSample: Bool
+        var hadQuotableSample: Bool
     }
 
     private let defaults: UserDefaults
@@ -28,7 +28,7 @@ final class DailyRecordTracker {
     private var dayExtremesByPerson: [String: DayExtremes] = [:]
     private var currentDayKeyByPerson: [String: String] = [:]
     private var completedDayKeysByPerson: [String: Set<String>] = [:]
-    private var openMarketSampleDayKeysByPerson: [String: Set<String>] = [:]
+    private var quotableSampleDayKeysByPerson: [String: Set<String>] = [:]
 
     init(
         defaults: UserDefaults = .standard,
@@ -44,7 +44,7 @@ final class DailyRecordTracker {
         dayExtremesByPerson.removeValue(forKey: personID)
         currentDayKeyByPerson.removeValue(forKey: personID)
         completedDayKeysByPerson.removeValue(forKey: personID)
-        openMarketSampleDayKeysByPerson.removeValue(forKey: personID)
+        quotableSampleDayKeysByPerson.removeValue(forKey: personID)
     }
 
     func snapshot(for personID: String) -> Snapshot {
@@ -65,7 +65,7 @@ final class DailyRecordTracker {
         personID: String,
         paperGain: Double,
         at date: Date = .now,
-        marketIsOpen: Bool
+        isQuotable: Bool
     ) -> Snapshot {
         let dayKey = calendar.dayKey(for: date)
 
@@ -75,28 +75,28 @@ final class DailyRecordTracker {
 
         rolloverDayIfNeeded(personID: personID, to: dayKey, at: date)
 
-        if marketIsOpen {
-            var sampledDays = openMarketSampleDayKeysByPerson[personID] ?? []
+        if isQuotable {
+            var sampledDays = quotableSampleDayKeysByPerson[personID] ?? []
             sampledDays.insert(dayKey)
-            openMarketSampleDayKeysByPerson[personID] = sampledDays
+            quotableSampleDayKeysByPerson[personID] = sampledDays
         }
 
         var extremes = dayExtremesByPerson[personID] ?? DayExtremes(
             peak: paperGain,
             trough: paperGain,
             lastSampleDate: date,
-            hadOpenMarketSample: marketIsOpen
+            hadQuotableSample: isQuotable
         )
         extremes.peak = max(extremes.peak, paperGain)
         extremes.trough = min(extremes.trough, paperGain)
         extremes.lastSampleDate = date
-        if marketIsOpen {
-            extremes.hadOpenMarketSample = true
+        if isQuotable {
+            extremes.hadQuotableSample = true
         }
         dayExtremesByPerson[personID] = extremes
         currentDayKeyByPerson[personID] = dayKey
 
-        if extremes.hadOpenMarketSample,
+        if extremes.hadQuotableSample,
            calendar.hasTradingDayCompleted(dayKey: dayKey, at: date, marketHours: marketHours) {
             finalizeTradingDay(personID: personID, dayKey: dayKey, extremes: extremes)
             markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: dayKey, at: date)
@@ -119,7 +119,7 @@ final class DailyRecordTracker {
     }
 
     private func finalizeTradingDay(personID: String, dayKey: String, extremes: DayExtremes) {
-        guard extremes.hadOpenMarketSample else { return }
+        guard extremes.hadQuotableSample else { return }
 
         var completed = completedDayKeysByPerson[personID] ?? []
         guard !completed.contains(dayKey) else { return }
@@ -135,7 +135,7 @@ final class DailyRecordTracker {
         guard calendar.hasTradingDayCompleted(dayKey: completedDayKey, at: date, marketHours: marketHours) else {
             return
         }
-        guard openMarketSampleDayKeysByPerson[personID]?.contains(completedDayKey) == true else {
+        guard quotableSampleDayKeysByPerson[personID]?.contains(completedDayKey) == true else {
             return
         }
         defaults.set(true, forKey: Self.firstDayCompleteKey(personID))

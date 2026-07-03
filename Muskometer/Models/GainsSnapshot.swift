@@ -19,7 +19,15 @@ struct HoldingGain: Identifiable, Equatable, Sendable {
 struct GainsSnapshot: Equatable, Sendable {
     let holdings: [HoldingGain]
     let lastUpdated: Date
-    let marketIsOpen: Bool
+    let tradingSession: TradingSession
+
+    var marketIsOpen: Bool {
+        tradingSession == .regular
+    }
+
+    var isQuotable: Bool {
+        tradingSession.isQuotable
+    }
 
     var combinedPaperGain: Double {
         holdings.reduce(0) { $0 + $1.paperGain }

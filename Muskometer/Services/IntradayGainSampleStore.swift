@@ -33,11 +33,11 @@ final class IntradayGainSampleStore {
         self.currentDayKey = Self.dayKey(for: .now, calendar: calendar)
     }
 
-    /// Records a sample when the US market is open. Clears prior samples on ET day rollover.
+    /// Records a sample during quotable US equity hours. Clears prior samples on ET day rollover.
     func append(personID: String, combinedPaperGain: Double, at date: Date = .now) {
         loadStateIfNeeded(for: personID)
 
-        guard marketHours.isMarketOpen(at: date) else { return }
+        guard marketHours.isQuotable(at: date) else { return }
 
         let dayKey = Self.dayKey(for: date, calendar: calendar)
         if dayKey != currentDayKey {

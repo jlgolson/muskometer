@@ -147,7 +147,7 @@ struct SettingsView: View {
                         settings.refreshIntervalSeconds = newValue
                     }
 
-                Text("Stock prices refresh automatically while the US market is open.")
+                Text("Stock prices refresh automatically during US trading hours (pre-market, regular, and post-market).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

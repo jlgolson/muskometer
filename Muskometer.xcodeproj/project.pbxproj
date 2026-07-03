@@ -68,6 +68,7 @@
 		A10000000000000000000041 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* UpdateCoordinator.swift */; };
 		A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* SparkleUpdateDriver.swift */; };
 		A10000000000000000000043 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* SemanticVersion.swift */; };
+		A10000000000000000000044 /* QuotePriceResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* QuotePriceResolver.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -136,6 +137,7 @@
 		A20000000000000000000041 /* UpdateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCoordinator.swift; sourceTree = "<group>"; };
 		A20000000000000000000042 /* SparkleUpdateDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateDriver.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
+		A20000000000000000000044 /* QuotePriceResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotePriceResolver.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -253,6 +255,7 @@
 				A20000000000000000000005 /* StockPriceServiceProtocol.swift */,
 				A20000000000000000000006 /* YahooFinanceStockPriceService.swift */,
 				A20000000000000000000007 /* MarketHoursService.swift */,
+				A20000000000000000000044 /* QuotePriceResolver.swift */,
 				A20000000000000000000015 /* HoldingsSyncServiceProtocol.swift */,
 				A20000000000000000000016 /* SECHoldingsSyncService.swift */,
 				A20000000000000000000019 /* Form4OwnershipParser.swift */,
@@ -424,6 +427,7 @@
 				A10000000000000000000005 /* StockPriceServiceProtocol.swift in Sources */,
 				A10000000000000000000006 /* YahooFinanceStockPriceService.swift in Sources */,
 				A10000000000000000000007 /* MarketHoursService.swift in Sources */,
+				A10000000000000000000044 /* QuotePriceResolver.swift in Sources */,
 				A10000000000000000000008 /* GainsViewModel.swift in Sources */,
 				A10000000000000000000009 /* PopoverContentView.swift in Sources */,
 				A1000000000000000000000A /* StockRowView.swift in Sources */,
@@ -541,7 +545,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 23;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -552,7 +556,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -569,7 +573,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 23;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -580,7 +584,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -594,11 +598,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 23;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -612,11 +616,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 21;
+				CURRENT_PROJECT_VERSION = 23;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.1;
+				MARKETING_VERSION = 0.1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

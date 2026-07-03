@@ -4,6 +4,23 @@ All notable changes to Muskometer are documented here.
 
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioning follows [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+## [0.1.2] - 2026-07-03
+
+Extended-hours release — live pre/post quotes for TSLA and SPCX on identical code paths.
+
+### Added
+
+- **Extended-hours quotes** — pre-market (4:00–9:30 AM ET) and post-market (4:00–8:00 PM ET) for TSLA and SPCX via the same Yahoo API path and price logic
+- **`QuotePriceResolver`** — shared session-aware price selection from Yahoo chart meta
+
+### Changed
+
+- Auto-refresh, sparkline, intraday records, and threshold alerts run during extended hours
+- UI shows Pre-market / Post-market / Market open instead of freezing at the regular close
+- Docs describe TSLA and SPCX quotes identically (removed misleading “price mark” wording)
+
 ## [0.1.1] - 2026-07-02
 
 Polish release — smarter off-hours behavior, clearer market-close labels, update notifications, and UI fixes.
@@ -50,7 +67,7 @@ First public release of Muskometer for macOS. Unsigned `.dmg` on GitHub Releases
 - **Share** — copy a branded image card to paste in Messages or anywhere
 - **Launch at login** — optional background startup via menu bar utility pattern
 - **SEC holdings sync** — TSLA and SPCX share counts from Form 4 filings (~6B Class A-equivalent SPCX aggregation)
-- **Yahoo Finance integration** — live quotes for TSLA and SPCX (SpaceX price mark)
+- **Yahoo Finance integration** — live Nasdaq quotes for TSLA and SPCX
 - **Market hours awareness** — 9:30 AM–4:00 PM ET with weekend/holiday handling
 - **Settings** — refresh interval, menu bar display mode, trend icon, manual SEC sync
 - **Keyboard shortcuts** — ⌘R refresh, ⌘, settings, Esc closes standalone Settings

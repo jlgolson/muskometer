@@ -72,7 +72,7 @@ struct ShareCardView: View {
 
             HStack(spacing: 6) {
                 Circle()
-                    .fill(snapshot.marketIsOpen ? gainPositive : muted)
+                    .fill(snapshot.isQuotable ? gainPositive : muted)
                     .frame(width: 6, height: 6)
                 Text(marketStatusText)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -169,17 +169,17 @@ struct ShareCardView: View {
     }
 
     private var marketStatusText: String {
-        if snapshot.marketIsOpen {
-            return "Market open"
+        if snapshot.tradingSession == .closed {
+            return MarketStatusFormatter.asOfCloseLabel(
+                for: snapshot.lastUpdated,
+                marketHours: marketHours
+            ) ?? MarketStatusFormatter.sessionStatusLabel(for: .closed)
         }
-        return MarketStatusFormatter.asOfCloseLabel(
-            for: snapshot.lastUpdated,
-            marketHours: marketHours
-        ) ?? "Market closed"
+        return MarketStatusFormatter.sessionStatusLabel(for: snapshot.tradingSession)
     }
 
     private var footerAsOfText: String {
-        if snapshot.marketIsOpen {
+        if snapshot.isQuotable {
             return MarketStatusFormatter.asOfLiveLabel(date: snapshot.lastUpdated)
         }
         return MarketStatusFormatter.asOfCloseLabel(

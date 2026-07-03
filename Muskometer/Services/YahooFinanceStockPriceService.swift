@@ -2,10 +2,18 @@ import Foundation
 
 final class YahooFinanceStockPriceService: StockPriceServiceProtocol, @unchecked Sendable {
     private let session: URLSession
+    private let marketHours: any MarketHoursServiceProtocol
+    private let dateProvider: () -> Date
     private let baseURL = "https://query1.finance.yahoo.com/v8/finance/chart"
 
-    init(session: URLSession = .shared) {
+    init(
+        session: URLSession = .shared,
+        marketHours: any MarketHoursServiceProtocol = MarketHoursService(),
+        dateProvider: @escaping () -> Date = { .now }
+    ) {
         self.session = session
+        self.marketHours = marketHours
+        self.dateProvider = dateProvider
     }
 
     func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
@@ -33,7 +41,8 @@ final class YahooFinanceStockPriceService: StockPriceServiceProtocol, @unchecked
         var components = URLComponents(string: "\(baseURL)/\(symbol)")
         components?.queryItems = [
             URLQueryItem(name: "interval", value: "1d"),
-            URLQueryItem(name: "range", value: "1d")
+            URLQueryItem(name: "range", value: "1d"),
+            URLQueryItem(name: "includePrePost", value: "true")
         ]
 
         guard let url = components?.url else {
@@ -68,9 +77,22 @@ final class YahooFinanceStockPriceService: StockPriceServiceProtocol, @unchecked
         let payload = try decoder.decode(YahooChartResponse.self, from: data)
 
         guard let result = payload.chart.result?.first,
-              let meta = result.meta,
-              let currentPrice = meta.regularMarketPrice,
-              let previousClose = meta.chartPreviousClose ?? meta.previousClose else {
+              let meta = result.meta else {
+            throw StockPriceServiceError.missingSymbol(symbol)
+        }
+
+        let quoteMeta = QuotePriceResolver.Meta(
+            regularMarketPrice: meta.regularMarketPrice,
+            preMarketPrice: meta.preMarketPrice,
+            postMarketPrice: meta.postMarketPrice,
+            chartPreviousClose: meta.chartPreviousClose,
+            previousClose: meta.previousClose
+        )
+
+        let tradingSession = marketHours.currentSession(at: dateProvider())
+
+        guard let currentPrice = QuotePriceResolver.currentPrice(from: quoteMeta, session: tradingSession),
+              let previousClose = QuotePriceResolver.previousClose(from: quoteMeta) else {
             throw StockPriceServiceError.missingSymbol(symbol)
         }
 
@@ -102,6 +124,9 @@ private struct YahooChartMeta: Decodable {
     let shortName: String?
     let currency: String?
     let regularMarketPrice: Double?
+    let preMarketPrice: Double?
+    let postMarketPrice: Double?
+    let marketState: String?
     let chartPreviousClose: Double?
     let previousClose: Double?
 }

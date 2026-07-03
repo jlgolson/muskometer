@@ -170,7 +170,7 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertFalse(service.isMarketOpen(at: holiday))
     }
 
-    func testNextOpenAfterHoursIs930Not945() throws {
+    func testNextOpenAfterHoursIsPreMarketNotRegular() throws {
         var components = DateComponents()
         components.year = 2026
         components.month = 6
@@ -184,8 +184,8 @@ final class MarketHoursServiceTests: XCTestCase {
 
         let nextOpen = try XCTUnwrap(service.nextOpenDate(from: tuesdayEvening))
 
-        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
-        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 4)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 0)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
         XCTAssertEqual(calendar.component(.month, from: nextOpen), 7)
     }
@@ -225,7 +225,7 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertEqual(calendar.component(.hour, from: close), 16)
     }
 
-    func testNextOpenBeforeMarketOpenSameDayIs930() throws {
+    func testPreMarketIsQuotableButNotRegularOpen() throws {
         var components = DateComponents()
         components.year = 2026
         components.month = 7
@@ -237,11 +237,112 @@ final class MarketHoursServiceTests: XCTestCase {
         let wednesdayMorning = try XCTUnwrap(calendar.date(from: components))
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
 
-        let nextOpen = try XCTUnwrap(service.nextOpenDate(from: wednesdayMorning))
+        XCTAssertEqual(service.currentSession(at: wednesdayMorning), .preMarket)
+        XCTAssertTrue(service.isQuotable(at: wednesdayMorning))
+        XCTAssertFalse(service.isMarketOpen(at: wednesdayMorning))
+        XCTAssertNil(service.nextOpenDate(from: wednesdayMorning))
+    }
 
-        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
-        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
+    func testTradingSessionBoundaries() throws {
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        let day = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 0)
+
+        let preMarket = try XCTUnwrap(calendar.date(bySettingHour: 5, minute: 0, second: 0, of: day))
+        let regular = try XCTUnwrap(calendar.date(bySettingHour: 11, minute: 0, second: 0, of: day))
+        let postMarket = try XCTUnwrap(calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day))
+        let overnight = try XCTUnwrap(calendar.date(bySettingHour: 2, minute: 0, second: 0, of: day))
+        let afterPost = try XCTUnwrap(calendar.date(bySettingHour: 21, minute: 0, second: 0, of: day))
+
+        XCTAssertEqual(service.currentSession(at: preMarket), .preMarket)
+        XCTAssertEqual(service.currentSession(at: regular), .regular)
+        XCTAssertEqual(service.currentSession(at: postMarket), .postMarket)
+        XCTAssertEqual(service.currentSession(at: overnight), .closed)
+        XCTAssertEqual(service.currentSession(at: afterPost), .closed)
+
+        XCTAssertTrue(service.isQuotable(at: preMarket))
+        XCTAssertTrue(service.isQuotable(at: regular))
+        XCTAssertTrue(service.isQuotable(at: postMarket))
+        XCTAssertFalse(service.isQuotable(at: overnight))
+        XCTAssertFalse(service.isQuotable(at: afterPost))
+    }
+
+    func testNextOpenBeforePreMarketSameDayIs4AM() throws {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 7
+        components.day = 1
+        components.hour = 3
+        components.minute = 0
+        components.timeZone = eastern
+
+        let earlyMorning = try XCTUnwrap(calendar.date(from: components))
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+
+        let nextOpen = try XCTUnwrap(service.nextOpenDate(from: earlyMorning))
+
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 4)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 0)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
+    }
+}
+
+final class QuotePriceResolverTests: XCTestCase {
+    private let meta = QuotePriceResolver.Meta(
+        regularMarketPrice: 100,
+        preMarketPrice: 101,
+        postMarketPrice: 102,
+        chartPreviousClose: 95,
+        previousClose: 94
+    )
+
+    func testPicksCorrectPricePerSessionForTSLAAndSPCX() {
+        for symbol in ["TSLA", "SPCX"] {
+            XCTAssertEqual(
+                QuotePriceResolver.currentPrice(from: meta, session: .regular),
+                100,
+                "\(symbol) regular"
+            )
+            XCTAssertEqual(
+                QuotePriceResolver.currentPrice(from: meta, session: .preMarket),
+                101,
+                "\(symbol) pre-market"
+            )
+            XCTAssertEqual(
+                QuotePriceResolver.currentPrice(from: meta, session: .postMarket),
+                102,
+                "\(symbol) post-market"
+            )
+            XCTAssertEqual(
+                QuotePriceResolver.currentPrice(from: meta, session: .closed),
+                100,
+                "\(symbol) closed"
+            )
+            XCTAssertEqual(QuotePriceResolver.previousClose(from: meta), 95, "\(symbol) previous close")
+        }
+    }
+
+    func testFallsBackToRegularPriceWhenExtendedPriceMissing() {
+        let sparseMeta = QuotePriceResolver.Meta(
+            regularMarketPrice: 200,
+            preMarketPrice: nil,
+            postMarketPrice: nil,
+            chartPreviousClose: nil,
+            previousClose: 190
+        )
+
+        for symbol in ["TSLA", "SPCX"] {
+            XCTAssertEqual(
+                QuotePriceResolver.currentPrice(from: sparseMeta, session: .preMarket),
+                200,
+                "\(symbol) pre-market fallback"
+            )
+            XCTAssertEqual(
+                QuotePriceResolver.currentPrice(from: sparseMeta, session: .postMarket),
+                200,
+                "\(symbol) post-market fallback"
+            )
+            XCTAssertEqual(QuotePriceResolver.previousClose(from: sparseMeta), 190, "\(symbol) previous close fallback")
+        }
     }
 }
 
@@ -579,6 +680,70 @@ final class StringTruncationTests: XCTestCase {
 }
 
 @MainActor
+final class GainsViewModelExtendedHoursTests: XCTestCase {
+    private func makeSettings() -> AppSettings {
+        let suiteName = "MuskometerTests-extended-hours-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return AppSettings(defaults: defaults)
+    }
+
+    func testSnapshotUsesTradingSessionFromMarketHours() async {
+        let settings = makeSettings()
+        let quotes = [
+            StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD"),
+            StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 55, previousClose: 50, currency: "USD"),
+        ]
+        let marketHours = FixedMarketHours(session: .postMarket)
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes),
+            marketHours: marketHours
+        )
+
+        await viewModel.refresh(force: true)
+
+        XCTAssertEqual(viewModel.snapshot?.tradingSession, .postMarket)
+        XCTAssertFalse(viewModel.snapshot?.marketIsOpen ?? true)
+        XCTAssertTrue(viewModel.snapshot?.isQuotable ?? false)
+        XCTAssertEqual(viewModel.marketStatusLabel, "Post-market")
+        XCTAssertFalse(viewModel.shouldDimMenuBarLabel)
+    }
+
+    func testClosedSessionShowsAsOfCloseLabel() async {
+        let settings = makeSettings()
+        let quotes = [
+            StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD"),
+            StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 55, previousClose: 50, currency: "USD"),
+        ]
+        let eastern = TimeZone(identifier: "America/New_York")!
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = eastern
+        let marketHours = MarketHoursService(calendar: calendar, timeZone: eastern)
+        var closedComponents = DateComponents()
+        closedComponents.timeZone = eastern
+        closedComponents.year = 2026
+        closedComponents.month = 6
+        closedComponents.day = 30
+        closedComponents.hour = 21
+        closedComponents.minute = 0
+        let closedDate = calendar.date(from: closedComponents)!
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes),
+            marketHours: marketHours,
+            dateProvider: { closedDate }
+        )
+
+        await viewModel.refresh(force: true)
+
+        XCTAssertEqual(viewModel.snapshot?.tradingSession, .closed)
+        XCTAssertNotNil(viewModel.marketCloseStatusLabel)
+        XCTAssertTrue(viewModel.shouldDimMenuBarLabel)
+    }
+}
+
+@MainActor
 final class GainsViewModelMenuBarTitleTests: XCTestCase {
     func testSplitMenuBarTitleTruncatesLongValues() {
         let title = GainsViewModel.formatSplitMenuBarTitle(["+$46.605B", "+$12.345B"], maxLength: 16)
@@ -605,7 +770,7 @@ final class GainsSnapshotTests: XCTestCase {
             quote: StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 55, previousClose: 50, currency: "USD")
         )
 
-        let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
+        let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, tradingSession: .regular)
 
         XCTAssertEqual(snapshot.combinedMarketValue, 22_000)
     }
@@ -622,7 +787,7 @@ final class GainsSnapshotTests: XCTestCase {
             shareCount: 100,
             quote: StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD")
         )
-        let snapshot = GainsSnapshot(holdings: [tsla], lastUpdated: .now, marketIsOpen: true)
+        let snapshot = GainsSnapshot(holdings: [tsla], lastUpdated: .now, tradingSession: .regular)
 
         XCTAssertEqual(snapshot.combinedPercentChange, 10.0, accuracy: 0.01)
     }
@@ -643,7 +808,7 @@ final class GainsSnapshotTests: XCTestCase {
             quote: StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 55, previousClose: 50, currency: "USD")
         )
 
-        let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
+        let snapshot = GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, tradingSession: .regular)
 
         XCTAssertEqual(snapshot.combinedPaperGain, 2_000)
     }
@@ -736,7 +901,7 @@ final class ShareImageExporterTests: XCTestCase {
             shareCount: 6_068_734_060,
             quote: StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 28.5, previousClose: 28.4, currency: "USD")
         )
-        return GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, marketIsOpen: true)
+        return GainsSnapshot(holdings: [tsla, spcx], lastUpdated: .now, tradingSession: .regular)
     }
 
     func testRendersNonEmptyPNG() {
@@ -774,7 +939,7 @@ final class GainSummaryFormatterTests: XCTestCase {
             shareCount: 100,
             quote: StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD")
         )
-        let snapshot = GainsSnapshot(holdings: [tsla], lastUpdated: .now, marketIsOpen: true)
+        let snapshot = GainsSnapshot(holdings: [tsla], lastUpdated: .now, tradingSession: .regular)
 
         let formatted = GainSummaryFormatter.format(snapshot)
 
@@ -785,14 +950,30 @@ final class GainSummaryFormatterTests: XCTestCase {
 }
 
 private struct FixedMarketHours: MarketHoursServiceProtocol {
-    let isOpen: Bool
+    let session: TradingSession
+
+    init(isOpen: Bool) {
+        self.session = isOpen ? .regular : .closed
+    }
+
+    init(session: TradingSession) {
+        self.session = session
+    }
+
+    func currentSession(at date: Date) -> TradingSession {
+        session
+    }
+
+    func isQuotable(at date: Date) -> Bool {
+        session.isQuotable
+    }
 
     func isMarketOpen(at date: Date) -> Bool {
-        isOpen
+        session == .regular
     }
 
     func nextOpenDate(from date: Date) -> Date? {
-        nil
+        session.isQuotable ? nil : nil
     }
 
     func lastMarketClose(from date: Date) -> Date? {
@@ -859,6 +1040,22 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: date)
 
         XCTAssertTrue(store.samples.isEmpty)
+    }
+
+    func testAppendsDuringPostMarket() throws {
+        let suiteName = "MuskometerTests-intraday-post-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let store = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(session: .postMarket)
+        )
+        let date = try easternDate(year: 2026, month: 6, day: 30, hour: 17)
+
+        store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: date)
+
+        XCTAssertEqual(store.samples.count, 1)
     }
 
     func testETDayRolloverClearsPriorSamples() throws {
@@ -941,7 +1138,7 @@ final class XShareIntentTests: XCTestCase {
                 currency: "USD"
             )
         )
-        return GainsSnapshot(holdings: [tsla], lastUpdated: .now, marketIsOpen: true)
+        return GainsSnapshot(holdings: [tsla], lastUpdated: .now, tradingSession: .regular)
     }
 
     func testTweetURLUsesXIntentEndpoint() throws {
@@ -1080,7 +1277,7 @@ final class DailyRecordTrackerTests: XCTestCase {
             personID: "musk",
             paperGain: 12_000_000_000,
             at: midday,
-            marketIsOpen: true
+            isQuotable: true
         )
 
         XCTAssertFalse(snapshot.hasCompletedFirstTradingDay)
@@ -1093,9 +1290,9 @@ final class DailyRecordTrackerTests: XCTestCase {
         let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
         let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
 
-        _ = tracker.update(personID: "musk", paperGain: 12_000_000_000, at: midday, marketIsOpen: true)
-        _ = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: midday.addingTimeInterval(3_600), marketIsOpen: true)
-        let snapshot = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: afterClose, marketIsOpen: false)
+        _ = tracker.update(personID: "musk", paperGain: 12_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: midday.addingTimeInterval(3_600), isQuotable: true)
+        let snapshot = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: afterClose, isQuotable: false)
 
         XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
         XCTAssertEqual(snapshot.bestRecord?.amount, 12_000_000_000)
@@ -1107,10 +1304,10 @@ final class DailyRecordTrackerTests: XCTestCase {
         let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
         let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
 
-        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: midday, marketIsOpen: true)
-        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: afterClose, marketIsOpen: false)
+        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: afterClose, isQuotable: false)
 
-        let other = tracker.update(personID: "other", paperGain: 1_000_000_000, at: afterClose, marketIsOpen: false)
+        let other = tracker.update(personID: "other", paperGain: 1_000_000_000, at: afterClose, isQuotable: false)
 
         XCTAssertEqual(tracker.snapshot(for: "musk").bestRecord?.amount, 20_000_000_000)
         XCTAssertFalse(other.hasCompletedFirstTradingDay)
@@ -1126,8 +1323,8 @@ final class DailyRecordTrackerTests: XCTestCase {
         let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
 
         let tracker = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
-        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: midday, marketIsOpen: true)
-        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: afterClose, marketIsOpen: false)
+        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: afterClose, isQuotable: false)
 
         let reloaded = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
         let snapshot = reloaded.snapshot(for: "musk")
@@ -1198,14 +1395,14 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
             personID: "musk",
             possessiveName: "Elon's",
             at: date,
-            marketIsOpen: true
+            isQuotable: true
         )
         let events = await service.processUpdate(
             paperGain: 11_000_000_000,
             personID: "musk",
             possessiveName: "Elon's",
             at: date.addingTimeInterval(60),
-            marketIsOpen: true
+            isQuotable: true
         )
 
         XCTAssertEqual(events.count, 1)
@@ -1224,14 +1421,14 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
             personID: "musk",
             possessiveName: "Elon's",
             at: date,
-            marketIsOpen: false
+            isQuotable: false
         )
         let events = await service.processUpdate(
             paperGain: 11_000_000_000,
             personID: "musk",
             possessiveName: "Elon's",
             at: date.addingTimeInterval(60),
-            marketIsOpen: false
+            isQuotable: false
         )
 
         XCTAssertTrue(events.isEmpty)
@@ -1243,15 +1440,15 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
         service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
         let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
 
-        _ = await service.processUpdate(paperGain: 9_000_000_000, personID: "musk", possessiveName: "Elon's", at: date, marketIsOpen: true)
-        _ = await service.processUpdate(paperGain: 11_000_000_000, personID: "musk", possessiveName: "Elon's", at: date.addingTimeInterval(60), marketIsOpen: true)
-        _ = await service.processUpdate(paperGain: 8_000_000_000, personID: "musk", possessiveName: "Elon's", at: date.addingTimeInterval(120), marketIsOpen: true)
+        _ = await service.processUpdate(paperGain: 9_000_000_000, personID: "musk", possessiveName: "Elon's", at: date, isQuotable: true)
+        _ = await service.processUpdate(paperGain: 11_000_000_000, personID: "musk", possessiveName: "Elon's", at: date.addingTimeInterval(60), isQuotable: true)
+        _ = await service.processUpdate(paperGain: 8_000_000_000, personID: "musk", possessiveName: "Elon's", at: date.addingTimeInterval(120), isQuotable: true)
         let secondCross = await service.processUpdate(
             paperGain: 12_000_000_000,
             personID: "musk",
             possessiveName: "Elon's",
             at: date.addingTimeInterval(180),
-            marketIsOpen: true
+            isQuotable: true
         )
 
         XCTAssertEqual(secondCross.count, 1)
@@ -1263,13 +1460,13 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
         service.setEnabledThresholdIDs(["loss-10b"], for: "musk")
         let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
 
-        _ = await service.processUpdate(paperGain: -8_000_000_000, personID: "musk", possessiveName: "Elon's", at: date, marketIsOpen: true)
+        _ = await service.processUpdate(paperGain: -8_000_000_000, personID: "musk", possessiveName: "Elon's", at: date, isQuotable: true)
         let events = await service.processUpdate(
             paperGain: -12_000_000_000,
             personID: "musk",
             possessiveName: "Elon's",
             at: date.addingTimeInterval(60),
-            marketIsOpen: true
+            isQuotable: true
         )
 
         XCTAssertEqual(events.first?.threshold.id, "loss-10b")
@@ -1294,7 +1491,7 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
             personID: "musk",
             possessiveName: "Elon's",
             at: date,
-            marketIsOpen: true
+            isQuotable: true
         )
 
         let service2 = GainThresholdNotificationService(
@@ -1307,7 +1504,7 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
             personID: "musk",
             possessiveName: "Elon's",
             at: date.addingTimeInterval(60),
-            marketIsOpen: true
+            isQuotable: true
         )
 
         XCTAssertEqual(events.count, 1)

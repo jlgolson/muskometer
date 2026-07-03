@@ -1,6 +1,18 @@
 import Foundation
 
 enum MarketStatusFormatter {
+    static func sessionStatusLabel(for session: TradingSession) -> String {
+        switch session {
+        case .regular:
+            return "Market open"
+        case .preMarket:
+            return "Pre-market"
+        case .postMarket:
+            return "Post-market"
+        case .closed:
+            return "Market closed"
+        }
+    }
     static func asOfCloseLabel(
         for referenceDate: Date,
         marketHours: any MarketHoursServiceProtocol,

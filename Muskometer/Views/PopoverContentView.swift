@@ -191,13 +191,9 @@ struct PopoverContentView: View {
 
                 HStack(spacing: 6) {
                     Circle()
-                        .fill(snapshot.marketIsOpen ? Color("GainPositive") : .secondary)
+                        .fill(snapshot.isQuotable ? Color("GainPositive") : .secondary)
                         .frame(width: 6, height: 6)
-                    Text(
-                        snapshot.marketIsOpen
-                            ? "Market open"
-                            : (viewModel.marketCloseStatusLabel ?? "Market closed")
-                    )
+                    Text(viewModel.marketStatusLabel ?? "Market closed")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

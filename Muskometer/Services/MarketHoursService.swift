@@ -1,12 +1,33 @@
 import Foundation
 
+enum TradingSession: Equatable, Sendable {
+    case preMarket
+    case regular
+    case postMarket
+    case closed
+
+    var isQuotable: Bool {
+        self != .closed
+    }
+}
+
 protocol MarketHoursServiceProtocol: Sendable {
+    func currentSession(at date: Date) -> TradingSession
+    func isQuotable(at date: Date) -> Bool
     func isMarketOpen(at date: Date) -> Bool
     func nextOpenDate(from date: Date) -> Date?
     func lastMarketClose(from date: Date) -> Date?
 }
 
 extension MarketHoursServiceProtocol {
+    func currentSession() -> TradingSession {
+        currentSession(at: .now)
+    }
+
+    func isQuotable() -> Bool {
+        isQuotable(at: .now)
+    }
+
     func isMarketOpen() -> Bool {
         isMarketOpen(at: .now)
     }
@@ -21,6 +42,13 @@ extension MarketHoursServiceProtocol {
 }
 
 struct MarketHoursService: MarketHoursServiceProtocol {
+    private enum SessionMinutes {
+        static let preMarketOpen = 4 * 60
+        static let regularOpen = 9 * 60 + 30
+        static let regularClose = 16 * 60
+        static let postMarketClose = 20 * 60
+    }
+
     private let calendar: Calendar
     private let timeZone: TimeZone
 
@@ -34,27 +62,36 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         self.timeZone = timeZone
     }
 
+    func currentSession(at date: Date = .now) -> TradingSession {
+        guard isTradingDay(date) else { return .closed }
+
+        let minutes = minutesSinceMidnight(on: date)
+
+        if minutes >= SessionMinutes.preMarketOpen, minutes < SessionMinutes.regularOpen {
+            return .preMarket
+        }
+        if minutes >= SessionMinutes.regularOpen, minutes < SessionMinutes.regularClose {
+            return .regular
+        }
+        if minutes >= SessionMinutes.regularClose, minutes < SessionMinutes.postMarketClose {
+            return .postMarket
+        }
+        return .closed
+    }
+
+    func isQuotable(at date: Date = .now) -> Bool {
+        currentSession(at: date).isQuotable
+    }
+
     func isMarketOpen(at date: Date = .now) -> Bool {
-        guard !isHoliday(date) else { return false }
-
-        let weekday = calendar.component(.weekday, from: date)
-        guard weekday != 1, weekday != 7 else { return false }
-
-        let hour = calendar.component(.hour, from: date)
-        let minute = calendar.component(.minute, from: date)
-        let minutes = hour * 60 + minute
-
-        let openMinutes = 9 * 60 + 30
-        let closeMinutes = 16 * 60
-
-        return minutes >= openMinutes && minutes < closeMinutes
+        currentSession(at: date) == .regular
     }
 
     func nextOpenDate(from date: Date = .now) -> Date? {
-        if isMarketOpen(at: date) { return nil }
+        if isQuotable(at: date) { return nil }
 
-        if let todayOpen = marketOpen(on: date), todayOpen > date {
-            return todayOpen
+        if let preMarketOpen = preMarketOpen(on: date), date < preMarketOpen {
+            return preMarketOpen
         }
 
         var day = calendar.startOfDay(for: date)
@@ -65,7 +102,7 @@ struct MarketHoursService: MarketHoursServiceProtocol {
             }
             day = nextDay
 
-            if let open = marketOpen(on: day) {
+            if let open = preMarketOpen(on: day) {
                 return open
             }
         }
@@ -93,12 +130,23 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         return nil
     }
 
-    private func marketCloseIfTradingDay(on day: Date) -> Date? {
-        let weekday = calendar.component(.weekday, from: day)
-        guard weekday != 1, weekday != 7, !isHoliday(day) else { return nil }
+    private func isTradingDay(_ date: Date) -> Bool {
+        let weekday = calendar.component(.weekday, from: date)
+        guard weekday != 1, weekday != 7 else { return false }
+        return !isHoliday(date)
+    }
+
+    private func minutesSinceMidnight(on date: Date) -> Int {
+        let hour = calendar.component(.hour, from: date)
+        let minute = calendar.component(.minute, from: date)
+        return hour * 60 + minute
+    }
+
+    private func preMarketOpen(on day: Date) -> Date? {
+        guard isTradingDay(day) else { return nil }
 
         var components = calendar.dateComponents([.year, .month, .day], from: day)
-        components.hour = 16
+        components.hour = 4
         components.minute = 0
         components.second = 0
         components.timeZone = timeZone
@@ -106,13 +154,12 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         return calendar.date(from: components)
     }
 
-    private func marketOpen(on day: Date) -> Date? {
-        let weekday = calendar.component(.weekday, from: day)
-        guard weekday != 1, weekday != 7, !isHoliday(day) else { return nil }
+    private func marketCloseIfTradingDay(on day: Date) -> Date? {
+        guard isTradingDay(day) else { return nil }
 
         var components = calendar.dateComponents([.year, .month, .day], from: day)
-        components.hour = 9
-        components.minute = 30
+        components.hour = 16
+        components.minute = 0
         components.second = 0
         components.timeZone = timeZone
 

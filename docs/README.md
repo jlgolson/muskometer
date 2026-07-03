@@ -9,7 +9,7 @@ Static landing page for Muskometer, served from this `/docs` folder.
 | `favicon.png` | Favicon |
 | `screenshots/app-preview.png` | Landing page screenshot |
 | `screenshots/og-image.png` | Open Graph / Twitter card image |
-| `screenshots/render-*.html` | Source mocks to regenerate PNGs |
+| `screenshots/render-*.html` | Source mocks to regenerate PNGs (Chrome headless) |
 | `CNAME` | Custom domain (`muskometer.org`) |
 
 ## Prerequisites
@@ -91,6 +91,20 @@ DNS propagation can take from a few minutes up to 48 hours.
 - Site URL: **https://muskometer.org**
 - Default GitHub URL (before DNS): **https://jlgolson.github.io/muskometer/**
 - Edit `index.html` and `styles.css` here; push to `main` to publish.
+
+## Regenerate screenshots
+
+Edit `screenshots/render-popover.html`, then:
+
+```bash
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless=new --hide-scrollbars --window-size=920,1240 \
+  --screenshot=docs/screenshots/app-preview.png \
+  "file://$PWD/docs/screenshots/render-popover.html"
+"$CHROME" --headless=new --hide-scrollbars --window-size=1200,630 \
+  --screenshot=docs/screenshots/og-image.png \
+  "file://$PWD/docs/screenshots/render-og.html"
+```
 
 ## Local preview
 

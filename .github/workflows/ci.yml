@@ -12,4 +12,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run verify script
+        env:
+          # Skip live Yahoo to avoid flaky external network in CI.
+          # Local: scripts/verify.sh runs Yahoo by default; set MUSKOMETER_SKIP_LIVE_YAHOO=1 to skip.
+          MUSKOMETER_SKIP_LIVE_YAHOO: "1"
         run: ./scripts/verify.sh

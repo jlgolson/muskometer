@@ -23,6 +23,24 @@ final class CurrencyFormatterTests: XCTestCase {
     func testFormatPrice() {
         XCTAssertEqual(CurrencyFormatter.formatPrice(420.6), "$420.60")
     }
+
+    func testFormatShareCountUsesUSGrouping() {
+        XCTAssertEqual(CurrencyFormatter.formatShareCount(699_580_882), "699,580,882")
+    }
+
+    func testFormatPercentNegativeKeepsMinusWithPOSIXLocale() {
+        // formatPercent passes the signed value into formatNumber; en_US_POSIX must still emit `-`.
+        XCTAssertEqual(CurrencyFormatter.formatPercent(-3.456), "-3.46%")
+        XCTAssertEqual(CurrencyFormatter.formatPercent(-0.01), "-0.01%")
+    }
+
+    func testFormattersUsePeriodDecimalNotLocaleComma() {
+        // Ensures compact currency / percent never produce ambiguous "1,2B" / "1,234,5B" styles.
+        XCTAssertEqual(CurrencyFormatter.formatCurrency(1_234_500_000), "+$1.2B")
+        XCTAssertEqual(CurrencyFormatter.formatMarketValue(1_234_500_000), "$1.2B")
+        XCTAssertEqual(CurrencyFormatter.formatPercent(12.345), "+12.35%")
+        XCTAssertEqual(CurrencyFormatter.formatPrice(1_234.5), "$1,234.50")
+    }
 }
 
 final class StockQuoteTests: XCTestCase {
@@ -156,10 +174,11 @@ final class MarketHoursServiceTests: XCTestCase {
     }
 
     func test2027GoodFridayIsClosed() throws {
+        // Easter 2027 is March 28 → NYSE Good Friday is March 26
         var components = DateComponents()
         components.year = 2027
-        components.month = 4
-        components.day = 2
+        components.month = 3
+        components.day = 26
         components.hour = 11
         components.minute = 0
         components.timeZone = eastern
@@ -168,9 +187,15 @@ final class MarketHoursServiceTests: XCTestCase {
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
 
         XCTAssertFalse(service.isMarketOpen(at: holiday))
+
+        // Regression: April 2 2027 is a regular Friday, not Good Friday
+        components.month = 4
+        components.day = 2
+        let notHoliday = try XCTUnwrap(calendar.date(from: components))
+        XCTAssertTrue(service.isMarketOpen(at: notHoliday))
     }
 
-    func testNextOpenAfterHoursIsPreMarketNotRegular() throws {
+    func testNextOpenAfterHoursIsRegularOpenNotPreMarket() throws {
         var components = DateComponents()
         components.year = 2026
         components.month = 6
@@ -184,8 +209,8 @@ final class MarketHoursServiceTests: XCTestCase {
 
         let nextOpen = try XCTUnwrap(service.nextOpenDate(from: tuesdayEvening))
 
-        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 4)
-        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 0)
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
         XCTAssertEqual(calendar.component(.month, from: nextOpen), 7)
     }
@@ -225,48 +250,56 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertEqual(calendar.component(.hour, from: close), 16)
     }
 
-    func testPreMarketIsQuotableButNotRegularOpen() throws {
+    func testPreMarketHoursAreClosedAndNotQuotable() throws {
+        // 8:00 AM ET weekday — formerly pre-market; RTH-only treats as closed
         var components = DateComponents()
         components.year = 2026
         components.month = 7
         components.day = 1
-        components.hour = 7
+        components.hour = 8
         components.minute = 0
         components.timeZone = eastern
 
         let wednesdayMorning = try XCTUnwrap(calendar.date(from: components))
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
 
-        XCTAssertEqual(service.currentSession(at: wednesdayMorning), .preMarket)
-        XCTAssertTrue(service.isQuotable(at: wednesdayMorning))
+        XCTAssertEqual(service.currentSession(at: wednesdayMorning), .closed)
+        XCTAssertFalse(service.isQuotable(at: wednesdayMorning))
         XCTAssertFalse(service.isMarketOpen(at: wednesdayMorning))
-        XCTAssertNil(service.nextOpenDate(from: wednesdayMorning))
+
+        let nextOpen = try XCTUnwrap(service.nextOpenDate(from: wednesdayMorning))
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
+        XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
     }
 
-    func testTradingSessionBoundaries() throws {
+    func testTradingSessionBoundariesAreRTHOnly() throws {
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
         let day = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 0)
 
         let preMarket = try XCTUnwrap(calendar.date(bySettingHour: 5, minute: 0, second: 0, of: day))
-        let regular = try XCTUnwrap(calendar.date(bySettingHour: 11, minute: 0, second: 0, of: day))
-        let postMarket = try XCTUnwrap(calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day))
+        let eightAM = try XCTUnwrap(calendar.date(bySettingHour: 8, minute: 0, second: 0, of: day))
+        let regular = try XCTUnwrap(calendar.date(bySettingHour: 10, minute: 0, second: 0, of: day))
+        let fivePM = try XCTUnwrap(calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day))
         let overnight = try XCTUnwrap(calendar.date(bySettingHour: 2, minute: 0, second: 0, of: day))
         let afterPost = try XCTUnwrap(calendar.date(bySettingHour: 21, minute: 0, second: 0, of: day))
 
-        XCTAssertEqual(service.currentSession(at: preMarket), .preMarket)
+        XCTAssertEqual(service.currentSession(at: preMarket), .closed)
+        XCTAssertEqual(service.currentSession(at: eightAM), .closed)
         XCTAssertEqual(service.currentSession(at: regular), .regular)
-        XCTAssertEqual(service.currentSession(at: postMarket), .postMarket)
+        XCTAssertEqual(service.currentSession(at: fivePM), .closed)
         XCTAssertEqual(service.currentSession(at: overnight), .closed)
         XCTAssertEqual(service.currentSession(at: afterPost), .closed)
 
-        XCTAssertTrue(service.isQuotable(at: preMarket))
+        XCTAssertFalse(service.isQuotable(at: preMarket))
+        XCTAssertFalse(service.isQuotable(at: eightAM))
         XCTAssertTrue(service.isQuotable(at: regular))
-        XCTAssertTrue(service.isQuotable(at: postMarket))
+        XCTAssertFalse(service.isQuotable(at: fivePM))
         XCTAssertFalse(service.isQuotable(at: overnight))
         XCTAssertFalse(service.isQuotable(at: afterPost))
     }
 
-    func testNextOpenBeforePreMarketSameDayIs4AM() throws {
+    func testNextOpenBeforeRegularOpenSameDayIs930AM() throws {
         var components = DateComponents()
         components.year = 2026
         components.month = 7
@@ -280,9 +313,75 @@ final class MarketHoursServiceTests: XCTestCase {
 
         let nextOpen = try XCTUnwrap(service.nextOpenDate(from: earlyMorning))
 
-        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 4)
-        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 0)
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
+    }
+
+    /// Day after Thanksgiving 2026 is an NYSE early close at 13:00 ET.
+    func testEarlyCloseAfternoonIsClosed() throws {
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+
+        // 12:30 ET — still regular (before 13:00 early close)
+        let beforeEarlyClose = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 12, minute: 30)
+        XCTAssertEqual(service.currentSession(at: beforeEarlyClose), .regular)
+        XCTAssertTrue(service.isMarketOpen(at: beforeEarlyClose))
+
+        // 14:00 ET — regular already ended; RTH-only treats as closed (not post-market)
+        let afternoon = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 14)
+        XCTAssertEqual(service.currentSession(at: afternoon), .closed)
+        XCTAssertFalse(service.isMarketOpen(at: afternoon))
+        XCTAssertFalse(service.isQuotable(at: afternoon))
+
+        // 21:00 ET — still closed
+        let evening = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 21)
+        XCTAssertEqual(service.currentSession(at: evening), .closed)
+        XCTAssertFalse(service.isQuotable(at: evening))
+    }
+
+    func testEarlyCloseChristmasEve2026() throws {
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        let afternoon = try EasternTestDates.date(year: 2026, month: 12, day: 24, hour: 14)
+
+        XCTAssertEqual(service.currentSession(at: afternoon), .closed)
+        XCTAssertFalse(service.isMarketOpen(at: afternoon))
+        XCTAssertFalse(service.isQuotable(at: afternoon))
+    }
+
+    func testLastMarketCloseOnEarlyCloseDayIs1PM() throws {
+        let afterEarlyClose = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 14)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+
+        let close = try XCTUnwrap(service.lastMarketClose(from: afterEarlyClose))
+
+        XCTAssertEqual(calendar.component(.year, from: close), 2026)
+        XCTAssertEqual(calendar.component(.month, from: close), 11)
+        XCTAssertEqual(calendar.component(.day, from: close), 27)
+        XCTAssertEqual(calendar.component(.hour, from: close), 13)
+        XCTAssertEqual(calendar.component(.minute, from: close), 0)
+    }
+
+    func testEarlyCloseDayAfterThanksgiving2027() throws {
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        let afternoon = try EasternTestDates.date(year: 2027, month: 11, day: 26, hour: 14)
+
+        XCTAssertEqual(service.currentSession(at: afternoon), .closed)
+        XCTAssertFalse(service.isMarketOpen(at: afternoon))
+        XCTAssertFalse(service.isQuotable(at: afternoon))
+    }
+
+    func testRegularCloseDateUsesEarlyCloseWhenApplicable() throws {
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        let earlyCloseDay = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 10)
+        let normalDay = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 10)
+
+        let earlyClose = try XCTUnwrap(service.regularCloseDate(on: earlyCloseDay))
+        XCTAssertEqual(calendar.component(.hour, from: earlyClose), 13)
+        XCTAssertEqual(calendar.component(.minute, from: earlyClose), 0)
+
+        let normalClose = try XCTUnwrap(service.regularCloseDate(on: normalDay))
+        XCTAssertEqual(calendar.component(.hour, from: normalClose), 16)
+        XCTAssertEqual(calendar.component(.minute, from: normalClose), 0)
     }
 }
 
@@ -295,54 +394,337 @@ final class QuotePriceResolverTests: XCTestCase {
         previousClose: 94
     )
 
-    func testPicksCorrectPricePerSessionForTSLAAndSPCX() {
+    func testAlwaysUsesRegularMarketPriceRegardlessOfSession() {
         for symbol in ["TSLA", "SPCX"] {
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .regular),
-                100,
-                "\(symbol) regular"
-            )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .preMarket),
-                101,
-                "\(symbol) pre-market"
-            )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .postMarket),
-                102,
-                "\(symbol) post-market"
-            )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .closed),
-                100,
-                "\(symbol) closed"
-            )
+            for session: TradingSession in [.regular, .preMarket, .postMarket, .closed] {
+                XCTAssertEqual(
+                    QuotePriceResolver.currentPrice(from: meta, session: session),
+                    100,
+                    "\(symbol) \(session) should use regularMarketPrice"
+                )
+            }
             XCTAssertEqual(QuotePriceResolver.previousClose(from: meta), 95, "\(symbol) previous close")
         }
     }
 
-    func testFallsBackToRegularPriceWhenExtendedPriceMissing() {
+    func testReturnsNilWhenRegularPriceMissing() {
         let sparseMeta = QuotePriceResolver.Meta(
-            regularMarketPrice: 200,
-            preMarketPrice: nil,
-            postMarketPrice: nil,
+            regularMarketPrice: nil,
+            preMarketPrice: 101,
+            postMarketPrice: 102,
             chartPreviousClose: nil,
             previousClose: 190
         )
 
-        for symbol in ["TSLA", "SPCX"] {
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: sparseMeta, session: .preMarket),
-                200,
-                "\(symbol) pre-market fallback"
+        for session: TradingSession in [.regular, .preMarket, .postMarket, .closed] {
+            XCTAssertNil(
+                QuotePriceResolver.currentPrice(from: sparseMeta, session: session),
+                "\(session) must not fall back to extended-hours prices"
             )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: sparseMeta, session: .postMarket),
-                200,
-                "\(symbol) post-market fallback"
-            )
-            XCTAssertEqual(QuotePriceResolver.previousClose(from: sparseMeta), 190, "\(symbol) previous close fallback")
         }
+        XCTAssertEqual(QuotePriceResolver.previousClose(from: sparseMeta), 190)
+    }
+}
+
+final class YahooMarketStateMapperTests: XCTestCase {
+    func testMapsKnownMarketStatesRTHOnly() {
+        // Only REGULAR is open; PRE/POST map to closed so extended prices are never selected.
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "PRE"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "REGULAR"), .regular)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "POST"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "CLOSED"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "PREPRE"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "POSTPOST"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "HOLIDAY"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "BREAK"), .closed)
+    }
+
+    func testMappingIsCaseInsensitiveAndTrimsWhitespace() {
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "pre"), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "Regular"), .regular)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: " post "), .closed)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "\tCLOSED\n"), .closed)
+    }
+
+    func testNilEmptyAndUnknownReturnNilForLocalFallback() {
+        XCTAssertNil(YahooMarketStateMapper.tradingSession(from: nil))
+        XCTAssertNil(YahooMarketStateMapper.tradingSession(from: ""))
+        XCTAssertNil(YahooMarketStateMapper.tradingSession(from: "   "))
+        XCTAssertNil(YahooMarketStateMapper.tradingSession(from: "OPEN"))
+        XCTAssertNil(YahooMarketStateMapper.tradingSession(from: "AFTERHOURS"))
+        XCTAssertNil(YahooMarketStateMapper.tradingSession(from: "unknown"))
+    }
+}
+
+final class QuoteBatchMergerTests: XCTestCase {
+    private let tsla = StockQuote(
+        symbol: "TSLA",
+        displayName: "Tesla",
+        currentPrice: 250,
+        previousClose: 245,
+        currency: "USD"
+    )
+    private let spcx = StockQuote(
+        symbol: "SPCX",
+        displayName: "SpaceX",
+        currentPrice: 55,
+        previousClose: 50,
+        currency: "USD"
+    )
+
+    func testPartialSuccessReturnsSuccessfulQuotesInRequestedOrder() throws {
+        let results: [Result<StockQuote, Error>] = [
+            .success(spcx),
+            .failure(StockPriceServiceError.missingSymbol("TSLA")),
+            .success(tsla),
+        ]
+
+        let quotes = try QuoteBatchMerger.merge(
+            results: results,
+            symbolOrder: ["TSLA", "SPCX"]
+        )
+
+        XCTAssertEqual(quotes.map(\.symbol), ["TSLA", "SPCX"])
+    }
+
+    func testOneFailureDoesNotDropPeerSuccess() throws {
+        // Regression: SPCX flake must not wipe TSLA from the batch.
+        let results: [Result<StockQuote, Error>] = [
+            .success(tsla),
+            .failure(StockPriceServiceError.invalidResponse),
+        ]
+
+        let quotes = try QuoteBatchMerger.merge(
+            results: results,
+            symbolOrder: ["TSLA", "SPCX"]
+        )
+
+        XCTAssertEqual(quotes, [tsla])
+    }
+
+    func testAllFailuresThrow() {
+        let results: [Result<StockQuote, Error>] = [
+            .failure(StockPriceServiceError.missingSymbol("TSLA")),
+            .failure(StockPriceServiceError.invalidResponse),
+        ]
+
+        XCTAssertThrowsError(
+            try QuoteBatchMerger.merge(results: results, symbolOrder: ["TSLA", "SPCX"])
+        ) { error in
+            guard case StockPriceServiceError.missingSymbol("TSLA") = error else {
+                return XCTFail("Expected first non-network error, got \(error)")
+            }
+        }
+    }
+
+    func testAllFailuresPreferNetworkError() {
+        let network = StockPriceServiceError.networkError(underlying: URLError(.timedOut))
+        let results: [Result<StockQuote, Error>] = [
+            .failure(StockPriceServiceError.missingSymbol("TSLA")),
+            .failure(network),
+        ]
+
+        XCTAssertThrowsError(
+            try QuoteBatchMerger.merge(results: results, symbolOrder: ["TSLA", "SPCX"])
+        ) { error in
+            guard let serviceError = error as? StockPriceServiceError,
+                  case .networkError = serviceError else {
+                return XCTFail("Expected network error preference, got \(error)")
+            }
+        }
+    }
+
+    func testEmptyRequestReturnsEmptyWithoutThrowing() throws {
+        let quotes = try QuoteBatchMerger.merge(results: [], symbolOrder: [])
+        XCTAssertTrue(quotes.isEmpty)
+    }
+}
+
+final class YahooFinanceStockPriceServiceTests: XCTestCase {
+    private var session: URLSession!
+
+    override func setUp() {
+        super.setUp()
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        session = URLSession(configuration: config)
+        MockURLProtocol.requestHandler = nil
+    }
+
+    override func tearDown() {
+        MockURLProtocol.requestHandler = nil
+        session = nil
+        super.tearDown()
+    }
+
+    func testPartialSymbolFailureReturnsSuccessfulQuotes() async throws {
+        MockURLProtocol.requestHandler = { request in
+            let symbol = request.url?.pathComponents.last ?? ""
+            if symbol == "SPCX" {
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 500,
+                    httpVersion: nil,
+                    headerFields: nil
+                )!
+                return (response, Data())
+            }
+
+            let body = Self.chartJSON(
+                shortName: "Tesla, Inc.",
+                regularMarketPrice: 250,
+                chartPreviousClose: 245
+            )
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let service = YahooFinanceStockPriceService(
+            session: session,
+            marketHours: FixedMarketHours(session: .regular)
+        )
+        let quotes = try await service.fetchQuotes(for: ["TSLA", "SPCX"])
+
+        XCTAssertEqual(quotes.map(\.symbol), ["TSLA"])
+        XCTAssertEqual(quotes.first?.currentPrice, 250)
+        XCTAssertEqual(quotes.first?.previousClose, 245)
+    }
+
+    func testAllSymbolFailuresThrow() async {
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 503,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, Data())
+        }
+
+        let service = YahooFinanceStockPriceService(
+            session: session,
+            marketHours: FixedMarketHours(session: .regular)
+        )
+
+        do {
+            _ = try await service.fetchQuotes(for: ["TSLA", "SPCX"])
+            XCTFail("Expected fetchQuotes to throw when every symbol fails")
+        } catch let error as StockPriceServiceError {
+            guard case .invalidResponse = error else {
+                return XCTFail("Expected invalidResponse, got \(error)")
+            }
+        } catch {
+            XCTFail("Unexpected error: \(error)")
+        }
+    }
+
+    func testEmptySymbolsReturnsEmpty() async throws {
+        let service = YahooFinanceStockPriceService(
+            session: session,
+            marketHours: FixedMarketHours(session: .regular)
+        )
+        let quotes = try await service.fetchQuotes(for: [])
+        XCTAssertTrue(quotes.isEmpty)
+    }
+
+    func testYahooPostStateStillUsesRegularMarketPrice() async throws {
+        // RTH-only: Yahoo POST maps to closed; extended postMarketPrice is never selected.
+        MockURLProtocol.requestHandler = { request in
+            let body = Self.chartJSON(
+                shortName: "Tesla, Inc.",
+                regularMarketPrice: 250,
+                preMarketPrice: 248,
+                postMarketPrice: 252,
+                chartPreviousClose: 245,
+                marketState: "POST"
+            )
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let service = YahooFinanceStockPriceService(
+            session: session,
+            marketHours: FixedMarketHours(session: .regular)
+        )
+        let quotes = try await service.fetchQuotes(for: ["TSLA"])
+
+        XCTAssertEqual(quotes.first?.currentPrice, 250)
+    }
+
+    func testFallsBackToLocalSessionWhenMarketStateMissing() async throws {
+        // Missing marketState → local session; RTH-only still uses regularMarketPrice.
+        MockURLProtocol.requestHandler = { request in
+            let body = Self.chartJSON(
+                shortName: "Tesla, Inc.",
+                regularMarketPrice: 250,
+                preMarketPrice: 248,
+                postMarketPrice: 252,
+                chartPreviousClose: 245,
+                marketState: nil
+            )
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: nil
+            )!
+            return (response, body)
+        }
+
+        let service = YahooFinanceStockPriceService(
+            session: session,
+            marketHours: FixedMarketHours(session: .closed)
+        )
+        let quotes = try await service.fetchQuotes(for: ["TSLA"])
+
+        XCTAssertEqual(quotes.first?.currentPrice, 250)
+    }
+
+    private static func chartJSON(
+        shortName: String,
+        regularMarketPrice: Double,
+        preMarketPrice: Double? = nil,
+        postMarketPrice: Double? = nil,
+        chartPreviousClose: Double,
+        marketState: String? = nil
+    ) -> Data {
+        var metaFields = [
+            "\"shortName\": \"\(shortName)\"",
+            "\"currency\": \"USD\"",
+            "\"regularMarketPrice\": \(regularMarketPrice)",
+            "\"chartPreviousClose\": \(chartPreviousClose)"
+        ]
+        if let preMarketPrice {
+            metaFields.append("\"preMarketPrice\": \(preMarketPrice)")
+        }
+        if let postMarketPrice {
+            metaFields.append("\"postMarketPrice\": \(postMarketPrice)")
+        }
+        if let marketState {
+            metaFields.append("\"marketState\": \"\(marketState)\"")
+        }
+
+        return """
+        {
+          "chart": {
+            "result": [{
+              "meta": {
+                \(metaFields.joined(separator: ",\n                "))
+              }
+            }]
+          }
+        }
+        """.data(using: .utf8)!
     }
 }
 
@@ -369,11 +751,15 @@ final class AppSettingsHoldingsSyncTests: XCTestCase {
         XCTAssertFalse(complete)
         XCTAssertNil(settings.lastHoldingsSyncDate)
         XCTAssertNil(settings.holdingsSyncSource)
+        // Attempt is still recorded so auto-retry backs off.
+        XCTAssertEqual(settings.lastHoldingsSyncAttemptAt, syncedAt)
     }
 
     func testPartialResultDoesNotSetLastHoldingsSyncDate() {
         let settings = makeSettings()
         let syncedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let priorTSLA = settings.shareCount(for: "TSLA")
+        let priorSPCX = settings.shareCount(for: "SPCX")
 
         let complete = settings.applyHoldingsSync(
             HoldingsSyncResult(
@@ -384,9 +770,43 @@ final class AppSettingsHoldingsSyncTests: XCTestCase {
         )
 
         XCTAssertFalse(complete)
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 123)
+        // Partial sync must not overwrite any share counts — keep prior values.
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), priorTSLA)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), priorSPCX)
         XCTAssertNil(settings.lastHoldingsSyncDate)
         XCTAssertNil(settings.holdingsSyncSource)
+        XCTAssertEqual(settings.lastHoldingsSyncAttemptAt, syncedAt)
+    }
+
+    func testPartialApplySuppressesNeedsHoldingsSyncUntilIntervalElapses() {
+        let settings = makeSettings()
+        XCTAssertTrue(settings.needsHoldingsSync)
+
+        // Whole-second Date avoids flaky equality after UserDefaults Double round-trip.
+        let recentAttempt = Date(timeIntervalSince1970: floor(Date.now.timeIntervalSince1970) - 60)
+        let complete = settings.applyHoldingsSync(
+            HoldingsSyncResult(
+                sharesBySymbol: ["TSLA": 123],
+                syncedAt: recentAttempt,
+                sourceDescription: "SEC EDGAR Form 4"
+            )
+        )
+
+        XCTAssertFalse(complete)
+        XCTAssertNil(settings.lastHoldingsSyncDate)
+        XCTAssertEqual(
+            settings.lastHoldingsSyncAttemptAt?.timeIntervalSince1970 ?? 0,
+            recentAttempt.timeIntervalSince1970,
+            accuracy: 0.001
+        )
+        // Partial apply must not re-trigger auto-sync on the next quote cycle.
+        XCTAssertFalse(settings.needsHoldingsSync)
+
+        // Once the daily interval elapses, auto-sync is allowed again.
+        settings.recordHoldingsSyncAttempt(
+            at: Date(timeIntervalSince1970: floor(Date.now.timeIntervalSince1970) - (AppSettings.holdingsSyncInterval + 1))
+        )
+        XCTAssertTrue(settings.needsHoldingsSync)
     }
 
     func testFullResultSetsLastHoldingsSyncDate() {
@@ -405,7 +825,57 @@ final class AppSettingsHoldingsSyncTests: XCTestCase {
         XCTAssertEqual(settings.shareCount(for: "TSLA"), 123)
         XCTAssertEqual(settings.shareCount(for: "SPCX"), 456)
         XCTAssertEqual(settings.lastHoldingsSyncDate, syncedAt)
+        XCTAssertEqual(settings.lastHoldingsSyncAttemptAt, syncedAt)
         XCTAssertEqual(settings.holdingsSyncSource, "SEC EDGAR Form 4")
+        // Successful complete within the interval also suppresses auto-sync.
+        settings.recordHoldingsSyncAttempt(at: Date.now)
+        XCTAssertFalse(settings.needsHoldingsSync)
+    }
+
+    func testCompleteResultWithZeroSharesAppliesFullDisposal() {
+        let settings = makeSettings()
+        let syncedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        // Establish non-zero prior so we can prove zero is applied (not left as default/prior).
+        settings.setShareCount(999_999, for: "TSLA")
+        settings.setShareCount(888_888, for: "SPCX")
+
+        let complete = settings.applyHoldingsSync(
+            HoldingsSyncResult(
+                sharesBySymbol: ["TSLA": 0, "SPCX": 456],
+                syncedAt: syncedAt,
+                sourceDescription: "SEC EDGAR Form 4"
+            )
+        )
+
+        XCTAssertTrue(complete)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 0)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 456)
+        XCTAssertEqual(settings.lastHoldingsSyncDate, syncedAt)
+        XCTAssertEqual(settings.holdingsSyncSource, "SEC EDGAR Form 4")
+    }
+
+    func testPartialResultWithOnlyZeroForOneSymbolRemainsIncomplete() {
+        let settings = makeSettings()
+        let syncedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        let priorTSLA = settings.shareCount(for: "TSLA")
+        let priorSPCX = settings.shareCount(for: "SPCX")
+
+        // Only one expected symbol present (as zero). Missing SPCX means incomplete —
+        // zero alone must not be treated as a complete sync that clears prior counts.
+        let complete = settings.applyHoldingsSync(
+            HoldingsSyncResult(
+                sharesBySymbol: ["TSLA": 0],
+                syncedAt: syncedAt,
+                sourceDescription: "SEC EDGAR Form 4"
+            )
+        )
+
+        XCTAssertFalse(complete)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), priorTSLA)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), priorSPCX)
+        XCTAssertNil(settings.lastHoldingsSyncDate)
+        XCTAssertNil(settings.holdingsSyncSource)
+        XCTAssertEqual(settings.lastHoldingsSyncAttemptAt, syncedAt)
     }
 
     func testUnknownPersonIDFallsBackToMusk() {
@@ -417,6 +887,89 @@ final class AppSettingsHoldingsSyncTests: XCTestCase {
         XCTAssertEqual(settings.selectedProfile.expectedSymbols, Set(["TSLA", "SPCX"]))
     }
 
+}
+
+@MainActor
+final class GainsViewModelHoldingsSyncBackoffTests: XCTestCase {
+    private func makeSettings() -> AppSettings {
+        let suiteName = "MuskometerTests-holdings-backoff-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return AppSettings(defaults: defaults)
+    }
+
+    func testFailedSyncRecordsAttemptAndSuppressesAutoRetry() async {
+        let settings = makeSettings()
+        XCTAssertTrue(settings.needsHoldingsSync)
+
+        let mock = MockHoldingsSyncService(
+            result: .failure(HoldingsSyncError.invalidResponse)
+        )
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: []),
+            holdingsSyncServiceFactory: { _ in mock }
+        )
+
+        await viewModel.syncHoldingsFromSEC()
+
+        XCTAssertEqual(mock.callCount, 1)
+        XCTAssertNotNil(settings.lastHoldingsSyncAttemptAt)
+        XCTAssertNil(settings.lastHoldingsSyncDate)
+        XCTAssertFalse(settings.needsHoldingsSync)
+        XCTAssertTrue(viewModel.holdingsSyncMessage?.contains("SEC sync failed") == true)
+
+        // Auto path must not re-crawl while within the interval.
+        await viewModel.syncHoldingsIfNeeded()
+        XCTAssertEqual(mock.callCount, 1)
+    }
+
+    func testForceSyncRunsWhenWithinInterval() async {
+        let settings = makeSettings()
+        settings.recordHoldingsSyncAttempt(at: Date.now)
+        XCTAssertFalse(settings.needsHoldingsSync)
+
+        let syncedAt = Date(timeIntervalSince1970: 1_700_000_100)
+        let mock = MockHoldingsSyncService(
+            result: .success(
+                HoldingsSyncResult(
+                    sharesBySymbol: ["TSLA": 111, "SPCX": 222],
+                    syncedAt: syncedAt,
+                    sourceDescription: "SEC EDGAR Form 4"
+                )
+            )
+        )
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: []),
+            holdingsSyncServiceFactory: { _ in mock }
+        )
+
+        // Non-force respects backoff.
+        await viewModel.syncHoldingsIfNeeded(force: false)
+        XCTAssertEqual(mock.callCount, 0)
+
+        // Force (and manual Sync from SEC) bypasses backoff.
+        await viewModel.syncHoldingsIfNeeded(force: true)
+        XCTAssertEqual(mock.callCount, 1)
+        XCTAssertEqual(settings.lastHoldingsSyncDate, syncedAt)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 111)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 222)
+    }
+}
+
+private final class MockHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Sendable {
+    private(set) var callCount = 0
+    private let result: Result<HoldingsSyncResult, Error>
+
+    init(result: Result<HoldingsSyncResult, Error>) {
+        self.result = result
+    }
+
+    func syncHoldings() async throws -> HoldingsSyncResult {
+        callCount += 1
+        return try result.get()
+    }
 }
 
 final class AppSettingsTests: XCTestCase {
@@ -467,6 +1020,329 @@ final class AppSettingsTests: XCTestCase {
     }
 }
 
+final class AppSettingsLaunchAtLoginTests: XCTestCase {
+    private func makeDefaults(suiteName: String = "MuskometerTests-launch-\(UUID().uuidString)") -> UserDefaults {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
+    private func makeSettings(
+        defaults: UserDefaults? = nil,
+        manager: MockLaunchAtLoginManager = MockLaunchAtLoginManager()
+    ) -> (AppSettings, MockLaunchAtLoginManager, UserDefaults) {
+        let defaults = defaults ?? makeDefaults()
+        let settings = AppSettings(defaults: defaults, launchAtLoginManager: manager)
+        return (settings, manager, defaults)
+    }
+
+    func testEnableSuccessClearsErrorAndPersistsTrue() {
+        let (settings, manager, defaults) = makeSettings()
+
+        settings.launchAtLogin = true
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+        XCTAssertTrue(manager.isEnabled)
+    }
+
+    func testEnableFailureRevertsToggleAndSurfacesError() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            throw NSError(
+                domain: "MuskometerTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "registration failed"]
+            )
+        }
+        let (settings, _, defaults) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertEqual(
+            settings.launchAtLoginError,
+            "Couldn't enable launch at login: registration failed"
+        )
+        XCTAssertFalse(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+        XCTAssertFalse(manager.isEnabled)
+    }
+
+    func testDisableFailureRevertsToggleAndSurfacesError() {
+        let manager = MockLaunchAtLoginManager(isEnabled: true)
+        manager.setEnabledHandler = { _ in
+            throw NSError(
+                domain: "MuskometerTests",
+                code: 2,
+                userInfo: [NSLocalizedDescriptionKey: "unregister failed"]
+            )
+        }
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: "launchAtLogin")
+        let (settings, _, _) = makeSettings(defaults: defaults, manager: manager)
+
+        settings.launchAtLogin = false
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertEqual(
+            settings.launchAtLoginError,
+            "Couldn't disable launch at login: unregister failed"
+        )
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [false])
+    }
+
+    func testSuccessfulToggleClearsPreviousError() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        var shouldFail = true
+        manager.setEnabledHandler = { enabled in
+            if shouldFail {
+                throw NSError(
+                    domain: "MuskometerTests",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "registration failed"]
+                )
+            }
+            manager.isEnabled = enabled
+        }
+        let (settings, _, _) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+        XCTAssertNotNil(settings.launchAtLoginError)
+
+        shouldFail = false
+        settings.launchAtLogin = true
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertTrue(manager.isEnabled)
+    }
+
+    func testSyncAppliesDesiredAndResolvesFromServiceOnFailure() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            throw NSError(
+                domain: "MuskometerTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "registration failed"]
+            )
+        }
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: "launchAtLogin")
+        let (settings, _, _) = makeSettings(defaults: defaults, manager: manager)
+
+        settings.syncLaunchAtLoginFromService()
+
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertEqual(
+            settings.launchAtLoginError,
+            "Couldn't enable launch at login: registration failed"
+        )
+        XCTAssertFalse(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+    }
+
+    func testSyncSucceedsWhenServiceAcceptsDesiredState() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: "launchAtLogin")
+        let (settings, _, _) = makeSettings(defaults: defaults, manager: manager)
+
+        settings.syncLaunchAtLoginFromService()
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+        XCTAssertTrue(manager.isEnabled)
+    }
+
+    func testSyncWhenAlreadyMatchedClearsErrorWithoutCallingSet() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            throw NSError(
+                domain: "MuskometerTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "registration failed"]
+            )
+        }
+        let (settings, _, _) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+        XCTAssertNotNil(settings.launchAtLoginError)
+        XCTAssertFalse(settings.launchAtLogin)
+        let callsAfterFailure = manager.setEnabledCalls.count
+
+        // Preference and service already agree (both off); sync should clear the stale error.
+        settings.syncLaunchAtLoginFromService()
+
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertEqual(manager.setEnabledCalls.count, callsAfterFailure)
+    }
+
+    func testSoftEnableKeepsDesiredTrueAndSurfacesPendingApproval() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            // Pretend registration "succeeds" without flipping isEnabled
+            // (SMAppService often stays .requiresApproval after register()).
+        }
+        let (settings, _, defaults) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertEqual(
+            settings.launchAtLoginError,
+            "Launch at login is waiting for approval in System Settings → General → Login Items."
+        )
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+        XCTAssertFalse(manager.isEnabled)
+    }
+
+    func testSoftEnableSyncReattemptsWithoutWipingDesiredTrue() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            // Soft: no throw, still disabled.
+        }
+        let (settings, _, defaults) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertNotNil(settings.launchAtLoginError)
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+
+        settings.syncLaunchAtLoginFromService()
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertEqual(
+            settings.launchAtLoginError,
+            "Launch at login is waiting for approval in System Settings → General → Login Items."
+        )
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true, true])
+        XCTAssertFalse(manager.isEnabled)
+    }
+
+    func testSoftEnableSyncClearsErrorWhenServiceBecomesEnabled() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            // Soft: no throw, still disabled until approval.
+        }
+        let (settings, _, defaults) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+        XCTAssertNotNil(settings.launchAtLoginError)
+
+        // User approved in System Settings; service is now enabled.
+        manager.isEnabled = true
+        manager.setEnabledHandler = { enabled in
+            manager.isEnabled = enabled
+        }
+
+        settings.syncLaunchAtLoginFromService()
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        // Matched path: no setEnabled call needed once service is already enabled.
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+    }
+
+    func testSoftDisableMismatchAdoptsServiceReality() {
+        let manager = MockLaunchAtLoginManager(isEnabled: true)
+        manager.setEnabledHandler = { _ in
+            // Unregister "succeeds" but service remains enabled.
+        }
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: "launchAtLogin")
+        let (settings, _, _) = makeSettings(defaults: defaults, manager: manager)
+
+        settings.launchAtLogin = false
+
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertEqual(
+            settings.launchAtLoginError,
+            "Couldn't disable launch at login. Check System Settings → General → Login Items."
+        )
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [false])
+        XCTAssertTrue(manager.isEnabled)
+    }
+
+    func testResetToDefaultsDisablesLaunchAtLoginAndClearsError() {
+        let (settings, manager, defaults) = makeSettings()
+
+        settings.launchAtLogin = true
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertTrue(manager.isEnabled)
+        XCTAssertEqual(manager.setEnabledCalls, [true])
+
+        settings.resetToDefaults()
+
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertFalse(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls, [true, false])
+        XCTAssertFalse(manager.isEnabled)
+    }
+
+    func testResetToDefaultsClearsStaleLaunchAtLoginErrorWhenAlreadyOff() {
+        let manager = MockLaunchAtLoginManager(isEnabled: false)
+        manager.setEnabledHandler = { _ in
+            throw NSError(
+                domain: "MuskometerTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "registration failed"]
+            )
+        }
+        let (settings, _, defaults) = makeSettings(manager: manager)
+
+        settings.launchAtLogin = true
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertNotNil(settings.launchAtLoginError)
+        let callsAfterFailure = manager.setEnabledCalls.count
+
+        // Successful re-apply on reset should clear the stale error even though
+        // the toggle was already false (didSet would not fire).
+        manager.setEnabledHandler = { enabled in
+            manager.isEnabled = enabled
+        }
+
+        settings.resetToDefaults()
+
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertNil(settings.launchAtLoginError)
+        XCTAssertFalse(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.setEnabledCalls.count, callsAfterFailure + 1)
+        XCTAssertEqual(manager.setEnabledCalls.last, false)
+        XCTAssertFalse(manager.isEnabled)
+    }
+}
+
+private final class MockLaunchAtLoginManager: LaunchAtLoginManaging {
+    var isEnabled: Bool
+    var setEnabledHandler: ((Bool) throws -> Void)?
+    private(set) var setEnabledCalls: [Bool] = []
+
+    init(isEnabled: Bool = false) {
+        self.isEnabled = isEnabled
+    }
+
+    func setEnabled(_ enabled: Bool) throws {
+        setEnabledCalls.append(enabled)
+        if let setEnabledHandler {
+            try setEnabledHandler(enabled)
+        } else {
+            isEnabled = enabled
+        }
+    }
+}
+
 final class MenuBarDisplayModeTests: XCTestCase {
     func testTotalWorthLabel() {
         XCTAssertEqual(MenuBarDisplayMode.totalWorth.label, "Total worth")
@@ -489,6 +1365,38 @@ final class SPCXHoldingsTests: XCTestCase {
     func testLeavesAggregatedShareCountUntouched() {
         XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), 6_068_734_060)
         XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_514), 6_068_547_514)
+    }
+
+    /// Legacy fingerprints already under `shareCount_SPCX` must be rewritten on load.
+    func testAppSettingsRewritesLegacyFingerprintUnderNewKey() {
+        let suiteName = "MuskometerTests-spcx-newkey-legacy-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        // Partial aggregate already stored under the new key (never re-migrated before this fix).
+        defaults.set(String(6_068_547_515), forKey: "shareCount_SPCX")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), SPCXHoldings.defaultShareCount)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_SPCX"), String(SPCXHoldings.defaultShareCount))
+    }
+
+    /// Non-fingerprint values under the new key must not be rewritten.
+    func testAppSettingsLeavesUnknownSPCXShareCountUnderNewKey() {
+        let suiteName = "MuskometerTests-spcx-newkey-unknown-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let customCount: Int64 = 6_068_547_514
+        defaults.set(String(customCount), forKey: "shareCount_SPCX")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), customCount)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_SPCX"), String(customCount))
     }
 }
 
@@ -536,6 +1444,111 @@ final class SPCXOwnershipCalculatorTests: XCTestCase {
         """
 
         XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 6_068_734_060)
+    }
+
+    func testUsesLatestRowNotMaxWhenLaterRowHasLowerShares() {
+        // Same (title, nature) appears twice; later post-transaction amount is lower (sale).
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <nonDerivativeTable>
+                <nonDerivativeTransaction>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>1000000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeTransaction>
+                <nonDerivativeTransaction>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>400000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeTransaction>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>100000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Other Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+            </nonDerivativeTable>
+        </ownershipDocument>
+        """
+
+        // Latest for Revocable Trust is 400_000 (not max 1_000_000) + 100_000 other = 500_000
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 500_000)
+    }
+
+    func testUsesLatestZeroRowWhenTrustFullyDisposed() {
+        // Full disposal: same (title, nature) goes 1_000_000 → 0; disposed line must not contribute.
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <nonDerivativeTable>
+                <nonDerivativeTransaction>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>1000000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeTransaction>
+                <nonDerivativeTransaction>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>0</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeTransaction>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>100000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Other Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+            </nonDerivativeTable>
+        </ownershipDocument>
+        """
+
+        // Latest for Revocable Trust is 0 (not 1_000_000) + 100_000 other = 100_000
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 100_000)
+    }
+
+    func testConvertsSeriesAPreferredToClassAEquivalentTimes50() {
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <derivativeTable>
+                <derivativeHolding>
+                    <securityTitle><value>Series A Preferred Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>1000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Elon Musk Revocable Trust</value></natureOfOwnership></ownershipNature>
+                </derivativeHolding>
+                <derivativeHolding>
+                    <securityTitle><value>Series B Preferred Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>200</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Mission Trust</value></natureOfOwnership></ownershipNature>
+                </derivativeHolding>
+            </derivativeTable>
+        </ownershipDocument>
+        """
+
+        // 1000 × 50 + 200 × 50 = 60_000 Class A-equivalent
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 60_000)
+    }
+}
+
+final class SECHoldingsSyncServiceFormTypeTests: XCTestCase {
+    func testAcceptsForm4AndAmendment() {
+        XCTAssertTrue(SECHoldingsSyncService.isForm4Filing("4"))
+        XCTAssertTrue(SECHoldingsSyncService.isForm4Filing("4/A"))
+    }
+
+    func testRejectsOtherFormTypes() {
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("3"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("3/A"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("5"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("5/A"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("8-K"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("13F-HR"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing(""))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("4A"))
+        XCTAssertFalse(SECHoldingsSyncService.isForm4Filing("4 /A"))
+    }
+
+    /// Guard against regressing to a short scan window that misses rarer issuers (e.g. SPCX under a TSLA-heavy stream).
+    func testMaxForm4AccessionsToScanIsDeepEnoughForMultiIssuerProfiles() {
+        XCTAssertGreaterThanOrEqual(SECHoldingsSyncService.maxForm4AccessionsToScan, 100)
     }
 }
 
@@ -679,6 +1692,55 @@ final class StringTruncationTests: XCTestCase {
     }
 }
 
+final class ShareCountTextInputTests: XCTestCase {
+    private let stored: Int64 = 699_580_882
+
+    func testEmptyFieldRestoresStoredCountWithoutError() {
+        let result = ShareCountTextInput.resolve(rawText: "", storedCount: stored)
+        XCTAssertEqual(result, .restore(storedCount: stored, errorMessage: nil))
+    }
+
+    func testValidPositiveCountIsAccepted() {
+        let result = ShareCountTextInput.resolve(rawText: "12345", storedCount: stored)
+        XCTAssertEqual(result, .accepted(12_345))
+    }
+
+    func testCommasAreStrippedBeforeParsing() {
+        let result = ShareCountTextInput.resolve(rawText: "1,000,000", storedCount: stored)
+        XCTAssertEqual(result, .accepted(1_000_000))
+    }
+
+    func testInvalidNonEmptyRestoresStoredCountWithError() {
+        let result = ShareCountTextInput.resolve(rawText: "abc", storedCount: stored)
+        XCTAssertEqual(
+            result,
+            .restore(storedCount: stored, errorMessage: ShareCountTextInput.invalidInputMessage)
+        )
+    }
+
+    func testZeroAndNegativeAreRejected() {
+        XCTAssertEqual(
+            ShareCountTextInput.resolve(rawText: "0", storedCount: stored),
+            .restore(storedCount: stored, errorMessage: ShareCountTextInput.invalidInputMessage)
+        )
+        XCTAssertEqual(
+            ShareCountTextInput.resolve(rawText: "-5", storedCount: stored),
+            .restore(storedCount: stored, errorMessage: ShareCountTextInput.invalidInputMessage)
+        )
+    }
+
+    func testEmptyDoesNotOverwriteStoredCountIdentity() {
+        // Clearing a field must never be treated as an apply of zero/nil holdings.
+        switch ShareCountTextInput.resolve(rawText: "", storedCount: stored) {
+        case .accepted:
+            XCTFail("Empty input must not be accepted as a new share count")
+        case .restore(let restored, let error):
+            XCTAssertEqual(restored, stored)
+            XCTAssertNil(error)
+        }
+    }
+}
+
 @MainActor
 final class GainsViewModelExtendedHoursTests: XCTestCase {
     private func makeSettings() -> AppSettings {
@@ -694,7 +1756,8 @@ final class GainsViewModelExtendedHoursTests: XCTestCase {
             StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD"),
             StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 55, previousClose: 50, currency: "USD"),
         ]
-        let marketHours = FixedMarketHours(session: .postMarket)
+        // RTH-only: non-regular sessions are not quotable (treated like closed).
+        let marketHours = FixedMarketHours(session: .closed)
         let viewModel = GainsViewModel(
             settings: settings,
             stockService: MockStockService(quotes: quotes),
@@ -703,11 +1766,11 @@ final class GainsViewModelExtendedHoursTests: XCTestCase {
 
         await viewModel.refresh(force: true)
 
-        XCTAssertEqual(viewModel.snapshot?.tradingSession, .postMarket)
+        XCTAssertEqual(viewModel.snapshot?.tradingSession, .closed)
         XCTAssertFalse(viewModel.snapshot?.marketIsOpen ?? true)
-        XCTAssertTrue(viewModel.snapshot?.isQuotable ?? false)
-        XCTAssertEqual(viewModel.marketStatusLabel, "Post-market")
-        XCTAssertFalse(viewModel.shouldDimMenuBarLabel)
+        XCTAssertFalse(viewModel.snapshot?.isQuotable ?? true)
+        XCTAssertEqual(viewModel.marketStatusLabel, "Market closed")
+        XCTAssertTrue(viewModel.shouldDimMenuBarLabel)
     }
 
     func testClosedSessionShowsAsOfCloseLabel() async {
@@ -750,6 +1813,68 @@ final class GainsViewModelMenuBarTitleTests: XCTestCase {
 
         XCTAssertEqual(title.count, 16)
         XCTAssertTrue(title.contains("…"))
+    }
+}
+
+final class GainsViewModelOpenSessionRefreshTimingTests: XCTestCase {
+    func testOffMarketAlwaysWaits() {
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: false, wasQuotable: false),
+            .waitOffMarket
+        )
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: false, wasQuotable: true),
+            .waitOffMarket
+        )
+    }
+
+    func testFirstQuotableCycleRefreshesImmediately() {
+        // After off-market sleep ends into regular open, or always-open overnight wake at open.
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: true, wasQuotable: false),
+            .refreshImmediately
+        )
+    }
+
+    func testSubsequentOpenSessionCyclesSleepThenRefresh() {
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: true, wasQuotable: true),
+            .sleepThenRefresh
+        )
+    }
+
+    func testSessionTransitionSequence() {
+        // Simulate: closed → open first cycle → open subsequent → closed again → re-open
+        var wasQuotable = false
+
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: false, wasQuotable: wasQuotable),
+            .waitOffMarket
+        )
+        wasQuotable = false
+
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: true, wasQuotable: wasQuotable),
+            .refreshImmediately
+        )
+        wasQuotable = true
+
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: true, wasQuotable: wasQuotable),
+            .sleepThenRefresh
+        )
+        wasQuotable = true
+
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: false, wasQuotable: wasQuotable),
+            .waitOffMarket
+        )
+        wasQuotable = false
+
+        XCTAssertEqual(
+            GainsViewModel.openSessionRefreshTiming(isQuotable: true, wasQuotable: wasQuotable),
+            .refreshImmediately
+        )
     }
 }
 
@@ -993,14 +2118,16 @@ final class IntradayGainSampleStoreTests: XCTestCase {
 
     private func makeStore(
         isMarketOpen: Bool,
-        suiteName: String = "MuskometerTests-intraday-\(UUID().uuidString)"
+        suiteName: String = "MuskometerTests-intraday-\(UUID().uuidString)",
+        now: @escaping () -> Date = { .now }
     ) -> (IntradayGainSampleStore, UserDefaults) {
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let store = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
-            marketHours: FixedMarketHours(isOpen: isMarketOpen)
+            marketHours: FixedMarketHours(isOpen: isMarketOpen),
+            now: now
         )
         return (store, defaults)
     }
@@ -1042,20 +2169,21 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         XCTAssertTrue(store.samples.isEmpty)
     }
 
-    func testAppendsDuringPostMarket() throws {
+    func testDoesNotAppendDuringPostMarketHours() throws {
+        // RTH-only: post-market is not quotable, so sparkline samples are not taken.
         let suiteName = "MuskometerTests-intraday-post-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let store = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
-            marketHours: FixedMarketHours(session: .postMarket)
+            marketHours: FixedMarketHours(session: .closed)
         )
         let date = try easternDate(year: 2026, month: 6, day: 30, hour: 17)
 
         store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: date)
 
-        XCTAssertEqual(store.samples.count, 1)
+        XCTAssertTrue(store.samples.isEmpty)
     }
 
     func testETDayRolloverClearsPriorSamples() throws {
@@ -1102,18 +2230,21 @@ final class IntradayGainSampleStoreTests: XCTestCase {
 
         let date = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
         let marketHours = FixedMarketHours(isOpen: true)
+        let now = { date }
 
         let store = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
-            marketHours: marketHours
+            marketHours: marketHours,
+            now: now
         )
         store.append(personID: "musk", combinedPaperGain: 42_000_000_000, at: date)
 
         let reloaded = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
-            marketHours: marketHours
+            marketHours: marketHours,
+            now: now
         )
         let samples = reloaded.loadSamples(for: "musk")
 
@@ -1121,55 +2252,205 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         XCTAssertEqual(samples.first?.combinedPaperGain, 42_000_000_000)
         XCTAssertEqual(samples.first?.timestamp, date)
     }
-}
 
-final class XShareIntentTests: XCTestCase {
-    private func sampleSnapshot(paperGain: Double = 1_000_000_000) -> GainsSnapshot {
-        let tsla = HoldingGain(
-            id: "tsla",
-            symbol: "TSLA",
-            displayName: "Tesla",
-            shareCount: 100,
-            quote: StockQuote(
-                symbol: "TSLA",
-                displayName: "Tesla",
-                currentPrice: 110,
-                previousClose: 100,
-                currency: "USD"
-            )
+    func testLoadYesterdaysSamplesDuringClosedSessionKeepsPriorRTHSamples() throws {
+        let suiteName = "MuskometerTests-intraday-stale-load-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesdayClosed = try easternDate(year: 2026, month: 7, day: 1, hour: 3)
+
+        let openStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { monday }
         )
-        return GainsSnapshot(holdings: [tsla], lastUpdated: .now, tradingSession: .regular)
+        openStore.append(personID: "musk", combinedPaperGain: 99_000_000_000, at: monday)
+        XCTAssertEqual(openStore.samples.count, 1)
+
+        // Mid-closed session next ET day: keep Monday's sparkline for overnight share/display.
+        let closedStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: false),
+            now: { tuesdayClosed }
+        )
+        let samples = closedStore.loadSamples(for: "musk")
+
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.combinedPaperGain, 99_000_000_000)
+        XCTAssertEqual(samples.first?.timestamp, monday)
+
+        // Later same-day closed reload still shows the prior RTH session.
+        let reloaded = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: false),
+            now: { tuesdayClosed }
+        )
+        let reloadedSamples = reloaded.loadSamples(for: "musk")
+        XCTAssertEqual(reloadedSamples.count, 1)
+        XCTAssertEqual(reloadedSamples.first?.combinedPaperGain, 99_000_000_000)
     }
 
-    func testTweetURLUsesXIntentEndpoint() throws {
-        let url = try XCTUnwrap(XShareIntent.tweetURL(for: sampleSnapshot()))
+    func testOvernightLoadKeepsPriorRTHSamples() throws {
+        let suiteName = "MuskometerTests-intraday-overnight-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
 
-        XCTAssertEqual(url.scheme, "https")
-        XCTAssertEqual(url.host, "x.com")
-        XCTAssertEqual(url.path, "/intent/tweet")
+        let mondayClose = try easternDate(year: 2026, month: 6, day: 30, hour: 15, minute: 45)
+        let tuesdayPreOpen = try easternDate(year: 2026, month: 7, day: 1, hour: 8)
+
+        let openStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { mondayClose }
+        )
+        openStore.append(personID: "musk", combinedPaperGain: 12_000_000_000, at: mondayClose)
+        openStore.append(
+            personID: "musk",
+            combinedPaperGain: 15_000_000_000,
+            at: mondayClose.addingTimeInterval(60)
+        )
+
+        let overnightStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: false),
+            now: { tuesdayPreOpen }
+        )
+        let samples = overnightStore.loadSamples(for: "musk")
+
+        XCTAssertEqual(samples.count, 2)
+        XCTAssertEqual(samples.map(\.combinedPaperGain), [12_000_000_000, 15_000_000_000])
     }
 
-    func testTweetURLUsesURLComponentsEncoding() throws {
-        let snapshot = sampleSnapshot()
-        let expectedText = GainSummaryFormatter.format(snapshot)
-        let url = try XCTUnwrap(XShareIntent.tweetURL(for: snapshot))
-        let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        let textItem = try XCTUnwrap(components.queryItems?.first { $0.name == "text" })
+    func testFirstRTHAppendNextDayClearsPriorSessionSamples() throws {
+        let suiteName = "MuskometerTests-intraday-next-rth-clear-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
 
-        XCTAssertEqual(textItem.value, expectedText)
-        XCTAssertTrue(expectedText.contains("today's gain"))
-        XCTAssertTrue(url.absoluteString.contains("text="))
-        XCTAssertFalse(url.absoluteString.contains(" — "))
+        let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesdayOvernight = try easternDate(year: 2026, month: 7, day: 1, hour: 2)
+        let tuesdayOpen = try easternDate(year: 2026, month: 7, day: 1, hour: 10)
+
+        let openStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { monday }
+        )
+        openStore.append(personID: "musk", combinedPaperGain: 100, at: monday)
+
+        // Overnight load keeps Monday.
+        let overnightStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: false),
+            now: { tuesdayOvernight }
+        )
+        XCTAssertEqual(overnightStore.loadSamples(for: "musk").count, 1)
+
+        // First quotable append on the new RTH day replaces the prior session.
+        let nextSessionStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { tuesdayOpen }
+        )
+        nextSessionStore.append(personID: "musk", combinedPaperGain: 250, at: tuesdayOpen)
+
+        XCTAssertEqual(nextSessionStore.samples.count, 1)
+        XCTAssertEqual(nextSessionStore.samples.first?.combinedPaperGain, 250)
+        XCTAssertEqual(nextSessionStore.samples.first?.timestamp, tuesdayOpen)
+        XCTAssertEqual(nextSessionStore.loadSamples(for: "musk").count, 1)
     }
 
-    func testTweetURLEncodesSpecialCharacters() throws {
-        let snapshot = sampleSnapshot()
-        let text = try XCTUnwrap(GainSummaryFormatter.format(snapshot))
-        let url = try XCTUnwrap(XShareIntent.tweetURL(for: snapshot))
+    func testDayRolloverOnQuotableAppendStillWorks() throws {
+        let suiteName = "MuskometerTests-intraday-quotable-rollover-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
 
-        XCTAssertTrue(text.contains("—"))
-        XCTAssertFalse(url.absoluteString.contains("—"))
-        XCTAssertTrue(url.absoluteString.contains("%E2%80%94") || url.absoluteString.contains("%e2%80%94"))
+        let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesday = try easternDate(year: 2026, month: 7, day: 1, hour: 11)
+        let store = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { monday }
+        )
+
+        store.append(personID: "musk", combinedPaperGain: 100, at: monday)
+        store.append(personID: "musk", combinedPaperGain: 200, at: tuesday)
+
+        XCTAssertEqual(store.samples.count, 1)
+        XCTAssertEqual(store.samples.first?.combinedPaperGain, 200)
+        XCTAssertEqual(store.samples.first?.timestamp, tuesday)
+    }
+
+    func testSameDayLoadPreservesSamples() throws {
+        let suiteName = "MuskometerTests-intraday-same-day-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let morning = try easternDate(year: 2026, month: 6, day: 30, hour: 10)
+        let afternoon = try easternDate(year: 2026, month: 6, day: 30, hour: 15)
+        let marketHours = FixedMarketHours(isOpen: true)
+
+        let store = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: marketHours,
+            now: { morning }
+        )
+        store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: morning)
+        store.append(personID: "musk", combinedPaperGain: 2_000_000_000, at: afternoon)
+
+        let reloaded = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: marketHours,
+            now: { afternoon }
+        )
+        let samples = reloaded.loadSamples(for: "musk")
+
+        XCTAssertEqual(samples.count, 2)
+        XCTAssertEqual(samples.map(\.combinedPaperGain), [1_000_000_000, 2_000_000_000])
+    }
+
+    func testNonQuotableAppendAfterMidnightKeepsYesterdaysSamples() throws {
+        let suiteName = "MuskometerTests-intraday-closed-rollover-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesdayOvernight = try easternDate(year: 2026, month: 7, day: 1, hour: 2)
+
+        let openStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { monday }
+        )
+        openStore.append(personID: "musk", combinedPaperGain: 50_000_000_000, at: monday)
+
+        // Closed refresh after ET midnight must not append and must not wipe prior RTH samples.
+        let closedHours = FixedMarketHours(isOpen: false)
+        let closedStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: closedHours,
+            now: { tuesdayOvernight }
+        )
+        closedStore.append(personID: "musk", combinedPaperGain: 50_000_000_000, at: tuesdayOvernight)
+
+        let samples = closedStore.loadSamples(for: "musk")
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.combinedPaperGain, 50_000_000_000)
+        XCTAssertEqual(samples.first?.timestamp, monday)
     }
 }
 
@@ -1213,6 +2494,13 @@ final class TradingDayCalendarTests: XCTestCase {
         marketHours = MarketHoursService(calendar: calendar, timeZone: eastern)
     }
 
+    func testDefaultCalendarIsGregorianEastern() {
+        let defaults = TradingDayCalendar()
+        XCTAssertEqual(defaults.calendar.identifier, .gregorian)
+        XCTAssertEqual(defaults.timeZone.identifier, "America/New_York")
+        XCTAssertEqual(defaults.calendar.timeZone.identifier, "America/New_York")
+    }
+
     func testDayKeyUsesEasternCalendarDay() throws {
         let lateEveningUTC = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 23)
         XCTAssertEqual(tradingCalendar.dayKey(for: lateEveningUTC), "2026-07-01")
@@ -1224,12 +2512,33 @@ final class TradingDayCalendarTests: XCTestCase {
         XCTAssertFalse(tradingCalendar.isSameTradingDay(late, early))
     }
 
-    func testHasTradingDayCompletedAfterMarketClose() throws {
-        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+    func testHasTradingDayCompletedAfterRegularClose() throws {
+        // RTH ends at 16:00 ET; day is complete once regular close has passed.
+        let afterRegularClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 16)
         XCTAssertTrue(
             tradingCalendar.hasTradingDayCompleted(
                 dayKey: "2026-06-30",
-                at: afterClose,
+                at: afterRegularClose,
+                marketHours: marketHours
+            )
+        )
+
+        let fivePM = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        XCTAssertTrue(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-06-30",
+                at: fivePM,
+                marketHours: marketHours
+            )
+        )
+    }
+
+    func testHasTradingDayNotCompletedBeforeRegularClose() throws {
+        let beforeClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 15, minute: 59)
+        XCTAssertFalse(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-06-30",
+                at: beforeClose,
                 marketHours: marketHours
             )
         )
@@ -1241,6 +2550,27 @@ final class TradingDayCalendarTests: XCTestCase {
             tradingCalendar.hasTradingDayCompleted(
                 dayKey: "2026-06-30",
                 at: midday,
+                marketHours: marketHours
+            )
+        )
+    }
+
+    func testHasTradingDayCompletedAfterEarlyClose() throws {
+        // Day after Thanksgiving 2026 early-closes at 13:00 ET.
+        let afterEarlyClose = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 13)
+        XCTAssertTrue(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-11-27",
+                at: afterEarlyClose,
+                marketHours: marketHours
+            )
+        )
+
+        let beforeEarlyClose = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 12, minute: 30)
+        XCTAssertFalse(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-11-27",
+                at: beforeEarlyClose,
                 marketHours: marketHours
             )
         )
@@ -1288,11 +2618,11 @@ final class DailyRecordTrackerTests: XCTestCase {
     func testTracksBestAndWorstAfterFirstDayCompletes() throws {
         let tracker = makeTracker()
         let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
 
         _ = tracker.update(personID: "musk", paperGain: 12_000_000_000, at: midday, isQuotable: true)
         _ = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: midday.addingTimeInterval(3_600), isQuotable: true)
-        let snapshot = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: afterClose, isQuotable: false)
+        let snapshot = tracker.update(personID: "musk", paperGain: -4_000_000_000, at: afterPostMarketClose, isQuotable: false)
 
         XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
         XCTAssertEqual(snapshot.bestRecord?.amount, 12_000_000_000)
@@ -1302,12 +2632,12 @@ final class DailyRecordTrackerTests: XCTestCase {
     func testRecordsAreScopedPerPersonID() throws {
         let tracker = makeTracker()
         let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
 
         _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: midday, isQuotable: true)
-        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: afterClose, isQuotable: false)
+        _ = tracker.update(personID: "musk", paperGain: 20_000_000_000, at: afterPostMarketClose, isQuotable: false)
 
-        let other = tracker.update(personID: "other", paperGain: 1_000_000_000, at: afterClose, isQuotable: false)
+        let other = tracker.update(personID: "other", paperGain: 1_000_000_000, at: afterPostMarketClose, isQuotable: false)
 
         XCTAssertEqual(tracker.snapshot(for: "musk").bestRecord?.amount, 20_000_000_000)
         XCTAssertFalse(other.hasCompletedFirstTradingDay)
@@ -1320,17 +2650,238 @@ final class DailyRecordTrackerTests: XCTestCase {
         defaults.removePersistentDomain(forName: suiteName)
 
         let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
 
         let tracker = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
         _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: midday, isQuotable: true)
-        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: afterClose, isQuotable: false)
+        _ = tracker.update(personID: "musk", paperGain: 8_000_000_000, at: afterPostMarketClose, isQuotable: false)
 
         let reloaded = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
         let snapshot = reloaded.snapshot(for: "musk")
 
         XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
         XCTAssertEqual(snapshot.bestRecord?.amount, 8_000_000_000)
+    }
+
+    func testNonQuotableSampleDoesNotSeedPeakOrTroughForNewDay() throws {
+        let tracker = makeTracker()
+        // Overnight / closed-session paper gain from the prior session magnitude.
+        let overnight = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 2)
+        let midday = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 11)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 20)
+
+        _ = tracker.update(personID: "musk", paperGain: 50_000_000_000, at: overnight, isQuotable: false)
+        _ = tracker.update(personID: "musk", paperGain: 3_000_000_000, at: midday, isQuotable: true)
+        let snapshot = tracker.update(personID: "musk", paperGain: 50_000_000_000, at: afterPostMarketClose, isQuotable: false)
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(snapshot.bestRecord?.amount, 3_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, 3_000_000_000)
+    }
+
+    func testNonQuotableAfterCloseDoesNotUpdatePeakOrTrough() throws {
+        let tracker = makeTracker()
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+
+        _ = tracker.update(personID: "musk", paperGain: 5_000_000_000, at: midday, isQuotable: true)
+        // Stale/closed-session magnitude must not inflate best after the quotable sample.
+        let snapshot = tracker.update(personID: "musk", paperGain: 40_000_000_000, at: afterPostMarketClose, isQuotable: false)
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(snapshot.bestRecord?.amount, 5_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, 5_000_000_000)
+    }
+
+    func testQuotableSamplesStillUpdatePeakAndTrough() throws {
+        let tracker = makeTracker()
+        let morning = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 10)
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 12)
+        let afternoon = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 14)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+
+        _ = tracker.update(personID: "musk", paperGain: 2_000_000_000, at: morning, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 15_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: -6_000_000_000, at: afternoon, isQuotable: true)
+        let snapshot = tracker.update(personID: "musk", paperGain: -1_000_000_000, at: afterPostMarketClose, isQuotable: false)
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(snapshot.bestRecord?.amount, 15_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, -6_000_000_000)
+    }
+
+    func testPostMarketSamplesDoNotUpdateExtremesAfterRTHFinalize() throws {
+        // RTH-only: day finalizes at regular close (16:00); post-market isQuotable:false samples are ignored.
+        let tracker = makeTracker()
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let lateRTH = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 15, minute: 30)
+        let afterRegularClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 16)
+        let postMarket = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+
+        _ = tracker.update(personID: "musk", paperGain: 5_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 12_000_000_000, at: lateRTH, isQuotable: true)
+
+        // Still during RTH — not finalized yet.
+        let duringRTH = tracker.update(
+            personID: "musk",
+            paperGain: -3_000_000_000,
+            at: lateRTH.addingTimeInterval(60),
+            isQuotable: true
+        )
+        XCTAssertFalse(duringRTH.hasCompletedFirstTradingDay)
+        XCTAssertNil(duringRTH.bestRecord)
+
+        // After regular close, day finalizes with RTH extremes only.
+        let finalized = tracker.update(
+            personID: "musk",
+            paperGain: 99_000_000_000,
+            at: afterRegularClose,
+            isQuotable: false
+        )
+        XCTAssertTrue(finalized.hasCompletedFirstTradingDay)
+        XCTAssertEqual(finalized.bestRecord?.amount, 12_000_000_000)
+        XCTAssertEqual(finalized.worstRecord?.amount, -3_000_000_000)
+
+        // Post-market sample with isQuotable:false must not rewrite records.
+        let afterPost = tracker.update(
+            personID: "musk",
+            paperGain: 99_000_000_000,
+            at: postMarket,
+            isQuotable: false
+        )
+        XCTAssertEqual(afterPost.bestRecord?.amount, 12_000_000_000)
+        XCTAssertEqual(afterPost.worstRecord?.amount, -3_000_000_000)
+    }
+
+    func testNonQuotableOvernightDoesNotPolluteNextDayAfterRollover() throws {
+        let tracker = makeTracker()
+        let day1Midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let day1AfterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        let day2Overnight = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 1)
+        let day2Midday = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 11)
+        let day2AfterPostMarketClose = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 20)
+
+        _ = tracker.update(personID: "musk", paperGain: 10_000_000_000, at: day1Midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 10_000_000_000, at: day1AfterPostMarketClose, isQuotable: false)
+
+        // Prior-session magnitude on a new ET day must not seed that day's extremes.
+        _ = tracker.update(personID: "musk", paperGain: 10_000_000_000, at: day2Overnight, isQuotable: false)
+        _ = tracker.update(personID: "musk", paperGain: 1_000_000_000, at: day2Midday, isQuotable: true)
+        let snapshot = tracker.update(personID: "musk", paperGain: 1_000_000_000, at: day2AfterPostMarketClose, isQuotable: false)
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        // Day 1 peak remains the all-time best; day 2 trough is the milder +1B, not overnight seed.
+        XCTAssertEqual(snapshot.bestRecord?.amount, 10_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, 1_000_000_000)
+    }
+
+    func testUnfinishedDayExtremesPersistAcrossRestartAndFinalizeOnNextDay() throws {
+        let suiteName = "MuskometerTests-daily-records-unfinished-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let day1Morning = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 10)
+        let day1Midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 13)
+        let day2Midday = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 11)
+
+        // Day 1: sample mid-session then "quit" before post-market close (no finalize).
+        let tracker1 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        _ = tracker1.update(personID: "musk", paperGain: 12_000_000_000, at: day1Morning, isQuotable: true)
+        _ = tracker1.update(personID: "musk", paperGain: -4_000_000_000, at: day1Midday, isQuotable: true)
+
+        let midDaySnapshot = tracker1.snapshot(for: "musk")
+        XCTAssertFalse(midDaySnapshot.hasCompletedFirstTradingDay)
+        XCTAssertNil(midDaySnapshot.bestRecord)
+
+        // New process: same UserDefaults, no in-memory extremes.
+        let tracker2 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        let nextDaySnapshot = tracker2.update(
+            personID: "musk",
+            paperGain: 1_000_000_000,
+            at: day2Midday,
+            isQuotable: true
+        )
+
+        // Prior unfinished day should finalize into best/worst from persisted peak/trough.
+        XCTAssertTrue(nextDaySnapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(nextDaySnapshot.bestRecord?.amount, 12_000_000_000)
+        XCTAssertEqual(nextDaySnapshot.worstRecord?.amount, -4_000_000_000)
+    }
+
+    func testMidDayRestartContinuesPeakAndTroughFromPersistedExtremes() throws {
+        let suiteName = "MuskometerTests-daily-records-midday-restart-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let morning = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 10)
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 12)
+        let afternoon = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 14)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+
+        let tracker1 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        _ = tracker1.update(personID: "musk", paperGain: 5_000_000_000, at: morning, isQuotable: true)
+        _ = tracker1.update(personID: "musk", paperGain: 18_000_000_000, at: midday, isQuotable: true)
+
+        // Restart same ET day before post-market close — must continue prior peak/trough.
+        let tracker2 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        _ = tracker2.update(personID: "musk", paperGain: -7_000_000_000, at: afternoon, isQuotable: true)
+        let snapshot = tracker2.update(
+            personID: "musk",
+            paperGain: -1_000_000_000,
+            at: afterPostMarketClose,
+            isQuotable: false
+        )
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        // Peak from pre-restart midday (+18B) and trough from post-restart afternoon (-7B).
+        XCTAssertEqual(snapshot.bestRecord?.amount, 18_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, -7_000_000_000)
+    }
+
+    func testUnfinishedDayExtremesFinalizeAfterRestartPastPostMarketClose() throws {
+        let suiteName = "MuskometerTests-daily-records-unfinished-close-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+
+        let tracker1 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        _ = tracker1.update(personID: "musk", paperGain: 9_000_000_000, at: midday, isQuotable: true)
+
+        let tracker2 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        let snapshot = tracker2.update(
+            personID: "musk",
+            paperGain: 9_000_000_000,
+            at: afterPostMarketClose,
+            isQuotable: false
+        )
+
+        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(snapshot.bestRecord?.amount, 9_000_000_000)
+        XCTAssertEqual(snapshot.worstRecord?.amount, 9_000_000_000)
+    }
+
+    func testResetPersistedStateClearsUnfinishedDayExtremes() throws {
+        let suiteName = "MuskometerTests-daily-records-reset-unfinished-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let day2 = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 11)
+
+        let tracker1 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        _ = tracker1.update(personID: "musk", paperGain: 15_000_000_000, at: midday, isQuotable: true)
+
+        DailyRecordTracker.resetPersistedState(for: "musk", defaults: defaults)
+
+        let tracker2 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        let snapshot = tracker2.update(personID: "musk", paperGain: 1_000_000_000, at: day2, isQuotable: true)
+
+        // Cleared unfinished state must not resurrect day-1 peak as best/worst.
+        XCTAssertFalse(snapshot.hasCompletedFirstTradingDay)
+        XCTAssertNil(snapshot.bestRecord)
+        XCTAssertNil(snapshot.worstRecord)
     }
 }
 
@@ -1671,6 +3222,19 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.currentZone(for: personID), .aboveTwoTrillion)
     }
 
+    func testJumpFromBelowOneTrillionToAboveTwoTrillionCelebratesTwoTrillion() {
+        let tracker = makeTracker()
+        XCTAssertEqual(tracker.currentZone(for: personID), .belowOneTrillion)
+
+        let event = tracker.update(netWorth: NetWorthMilestoneTracker.twoTrillion, personID: personID)
+
+        guard case .celebration(let milestone) = event else {
+            return XCTFail("Expected celebration")
+        }
+        XCTAssertEqual(milestone.title, "Two trillion club!")
+        XCTAssertEqual(tracker.currentZone(for: personID), .aboveTwoTrillion)
+    }
+
     func testHysteresisPreventsFlickerAroundOneTrillion() {
         let tracker = makeTracker()
         _ = tracker.update(netWorth: NetWorthMilestoneTracker.oneTrillion + 5_000_000_000, personID: personID)
@@ -1740,6 +3304,12 @@ final class ShareShortcutMatcherTests: XCTestCase {
                 charactersIgnoringModifiers: "V"
             )
         )
+    }
+
+    func testShouldConsumeEventOnSucceededAndDebounced() {
+        XCTAssertTrue(ShareShortcutController.shouldConsumeEvent(.succeeded))
+        XCTAssertTrue(ShareShortcutController.shouldConsumeEvent(.debounced))
+        XCTAssertFalse(ShareShortcutController.shouldConsumeEvent(.failed))
     }
 }
 
@@ -1927,7 +3497,8 @@ final class GainsViewModelResetTests: XCTestCase {
         let intradayStore = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
-            marketHours: FixedMarketHours(isOpen: true)
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { date }
         )
 
         let viewModel = GainsViewModel(
@@ -1944,6 +3515,118 @@ final class GainsViewModelResetTests: XCTestCase {
         viewModel.reloadPersistedDisplayState()
 
         XCTAssertTrue(viewModel.intradaySamples.isEmpty)
+    }
+}
+
+@MainActor
+final class GainsViewModelOffMarketSparklineTests: XCTestCase {
+    private func makeSettings(suiteName: String = "MuskometerTests-offmarket-spark-\(UUID().uuidString)") -> (AppSettings, UserDefaults) {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return (AppSettings(defaults: defaults), defaults)
+    }
+
+    private func quotes(producingCombinedGain gain: Double) -> [StockQuote] {
+        let tslaShares = 100.0
+        let tslaDelta = gain / tslaShares
+        return [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 100 + tslaDelta,
+                previousClose: 100,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 50,
+                previousClose: 50,
+                currency: "USD"
+            ),
+        ]
+    }
+
+    /// Off-market overnight: store sync keeps last RTH session sparkline after ET day rollover
+    /// (share card still shows yesterday's session curve until the next RTH append).
+    func testSyncIntradaySamplesFromStoreKeepsPriorRTHAfterETDayRollover() async throws {
+        let (settings, defaults) = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let monday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesdayOvernight = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 2)
+        let calendar = EasternTestDates.calendar()
+
+        var now = monday
+        let intradayStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { now }
+        )
+
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MutableMockStockService(quotes: quotes(producingCombinedGain: 1_000_000_000)),
+            marketHours: FixedMarketHours(isOpen: true),
+            intradayGainSampleStore: intradayStore,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        let samplesAfterOpen = viewModel.intradaySamples
+        XCTAssertFalse(samplesAfterOpen.isEmpty, "expected samples after open-session refresh")
+
+        // Wall clock advances past ET midnight; off-market sync must retain prior RTH samples.
+        now = tuesdayOvernight
+        viewModel.syncIntradaySamplesFromStore()
+
+        XCTAssertEqual(viewModel.intradaySamples.count, samplesAfterOpen.count)
+        XCTAssertEqual(
+            viewModel.intradaySamples.map(\.combinedPaperGain),
+            samplesAfterOpen.map(\.combinedPaperGain)
+        )
+    }
+
+    func testSyncIntradaySamplesFromStorePreservesSameDaySamples() async throws {
+        let (settings, defaults) = makeSettings()
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+
+        let morning = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let evening = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 21)
+        let calendar = EasternTestDates.calendar()
+
+        var now = morning
+        let intradayStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { now }
+        )
+
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MutableMockStockService(quotes: quotes(producingCombinedGain: 2_000_000_000)),
+            marketHours: FixedMarketHours(isOpen: true),
+            intradayGainSampleStore: intradayStore,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        let samplesAfterOpen = viewModel.intradaySamples
+        XCTAssertFalse(samplesAfterOpen.isEmpty)
+
+        // Same ET day after close: sparkline should remain (user still wants today's curve).
+        now = evening
+        viewModel.syncIntradaySamplesFromStore()
+
+        XCTAssertEqual(viewModel.intradaySamples.count, samplesAfterOpen.count)
+        XCTAssertEqual(
+            viewModel.intradaySamples.map(\.combinedPaperGain),
+            samplesAfterOpen.map(\.combinedPaperGain)
+        )
     }
 }
 
@@ -2308,6 +3991,47 @@ final class UpdateCoordinatorTests: XCTestCase {
             coordinator.lastCheckError,
             UpdateCheckError.invalidResponse(statusCode: 403).localizedDescription
         )
+    }
+
+    /// Automatic delivery must not use the Sparkle no-op stub (always nil),
+    /// which would falsely report "you're on the latest."
+    func testAutomaticModeFallsBackToGitHubChecker() async {
+        let suiteName = "MuskometerTests-update-automatic-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.notifyOfAvailableUpdates = true
+        settings.updateDeliveryMode = .automatic
+
+        let deliverer = MockUpdateNotificationDeliverer()
+        let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+        let githubChecker = MockUpdateChecker(result: UpdateCheckResult(
+            availableVersion: "0.2.0",
+            releasePageURL: releaseURL,
+            publishedAt: nil
+        ))
+        // Sparkle stub / empty checker would return nil and lie about "latest".
+        let sparkleDriver = MockUpdateChecker(result: nil)
+
+        let coordinator = UpdateCoordinator(
+            settings: settings,
+            defaults: defaults,
+            notificationDeliverer: deliverer,
+            githubChecker: githubChecker,
+            sparkleDriver: sparkleDriver
+        )
+
+        coordinator.checkNow()
+        try? await Task.sleep(for: .milliseconds(200))
+
+        XCTAssertEqual(coordinator.availableUpdate?.availableVersion, "0.2.0")
+        XCTAssertEqual(coordinator.manualCheckSummary, "Version 0.2.0 is available.")
+        XCTAssertFalse(
+            coordinator.manualCheckSummary?.contains("latest version") ?? true,
+            "Automatic mode must not report up-to-date when GitHub has a newer release"
+        )
+        XCTAssertEqual(deliverer.addedRequests.count, 1)
     }
 }
 

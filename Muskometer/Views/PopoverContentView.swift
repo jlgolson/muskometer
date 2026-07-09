@@ -5,6 +5,7 @@ struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
     @State private var didCopyShare = false
+    @State private var copyFeedbackTask: Task<Void, Never>?
     @State private var settingsPanelSize = CGSize(width: 560, height: 420)
 
     var body: some View {
@@ -25,7 +26,12 @@ struct PopoverContentView: View {
             PopoverVisibility.isVisible = true
             showingSettings = false
         }
-        .onDisappear { PopoverVisibility.isVisible = false }
+        .onDisappear {
+            PopoverVisibility.isVisible = false
+            copyFeedbackTask?.cancel()
+            copyFeedbackTask = nil
+            didCopyShare = false
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openMuskometerSettings)) { _ in
             showingSettings = true
         }
@@ -207,29 +213,18 @@ struct PopoverContentView: View {
 
             GainSparklineView(samples: viewModel.intradaySamples)
 
-            HStack(spacing: 8) {
-                Button {
-                    copyShare()
-                } label: {
-                    Label(
-                        didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
-                        systemImage: viewModel.settings.shareFormat.buttonIcon
-                    )
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(didCopyShare)
-                .help(viewModel.settings.shareFormat.helpText)
-
-                Button {
-                    _ = viewModel.postToX()
-                } label: {
-                    Label("Post to X", systemImage: "arrow.up.right.square")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("Open X with a pre-filled summary of today's gains")
+            Button {
+                copyShare()
+            } label: {
+                Label(
+                    didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
+                    systemImage: viewModel.settings.shareFormat.buttonIcon
+                )
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(didCopyShare)
+            .help(viewModel.settings.shareFormat.helpText)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -310,11 +305,14 @@ struct PopoverContentView: View {
     private func copyShare() {
         guard viewModel.copyShareToPasteboard() else { return }
 
+        copyFeedbackTask?.cancel()
         didCopyShare = true
 
-        Task {
+        copyFeedbackTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
             didCopyShare = false
+            copyFeedbackTask = nil
         }
     }
 

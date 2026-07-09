@@ -36,9 +36,9 @@ enum ShareFormat: String, CaseIterable, Identifiable, Sendable {
     var helpText: String {
         switch self {
         case .image:
-            return "Copy a shareable image card to paste in Messages"
+            return "Copy a shareable image card to the clipboard"
         case .text:
-            return "Copy a text summary to paste on X or anywhere"
+            return "Copy a text summary to the clipboard"
         }
     }
 }

@@ -12,7 +12,7 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 
 ### Download
 
-1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.1.dmg` (or the newest release asset)
+1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.3.dmg` (or the newest release asset)
 2. Open the DMG, drag **Muskometer** to **Applications**
 3. **First launch:** right-click **Muskometer** → **Open** → **Open** (unsigned build — macOS will trust it after that once)
 
@@ -35,7 +35,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 - **Menu bar label** — combined daily paper gain, percent change, split view, or **total worth** across TSLA and SPCX
 - **Trend icon toggle** — optional chart icon beside the label; hide it for text only
 - **Popover** — **Elon's Ownership** total, per-stock price, **Today's Gain/Loss** labels, combined total, market status
-- **Auto-refresh** — every 60–120 seconds while the US market is open
+- **Auto-refresh** — during regular US trading hours (9:30 AM–4:00 PM ET)
 - **Share** — copy an image card or text summary (configurable in Settings)
 - **Launch at login** — always-on menu bar utility
 - **SEC holdings sync** — TSLA/SPCX share counts from Form 4 filings
@@ -57,7 +57,7 @@ No. Muskometer shows illustrative *paper gains* (share count × price change) fo
 **TSLA** and **SPCX** share counts come from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
 
 **When does the number update?**  
-Quotes refresh every 60–120 seconds during quotable US sessions for both tickers: pre-market (4:00–9:30 AM ET), regular (9:30 AM–4:00 PM ET), and post-market (4:00–8:00 PM ET). Overnight and on weekends the app stops auto-refreshing and shows the last regular close (use **Refresh** or **⌘R** to update manually).
+Quotes auto-refresh only during the **regular US session** (9:30 AM–4:00 PM ET, or early close) using your Settings interval (60–120s, default 90s). Pre-market and post-market are treated as closed. Overnight and on weekends the app sleeps until the next regular open (minimum 60s), then refreshes immediately when the session starts; the label shows the last regular close until then (use **Refresh** or **⌘R** to update manually).
 
 **What data does the app collect?**  
 Nothing leaves your Mac except HTTPS requests to Yahoo Finance and SEC EDGAR for public market data. Preferences stay in UserDefaults. See **[docs/PRIVACY.md](docs/PRIVACY.md)**.

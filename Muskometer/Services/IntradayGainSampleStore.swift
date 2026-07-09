@@ -1,6 +1,10 @@
 import Foundation
 
-/// Persists intraday combined paper-gain samples for the current US/Eastern trading day.
+/// Persists intraday combined paper-gain samples for the most recent US/Eastern RTH session.
+///
+/// Samples are recorded only while the market is quotable (regular session). After the session
+/// ends — including overnight past ET midnight — the last completed session's samples remain
+/// available for display/share until the next RTH day appends its first sample.
 @MainActor
 final class IntradayGainSampleStore {
     static let maxSampleCount = 400
@@ -16,7 +20,9 @@ final class IntradayGainSampleStore {
     private let defaults: UserDefaults
     private let calendar: Calendar
     private let marketHours: any MarketHoursServiceProtocol
+    private let now: () -> Date
     private var activePersonID: String?
+    /// ET calendar day key of the RTH session that produced `samples`.
     private var currentDayKey: String
 
     init(
@@ -25,24 +31,29 @@ final class IntradayGainSampleStore {
         marketHours: any MarketHoursServiceProtocol = MarketHoursService(
             calendar: easternTradingCalendar(),
             timeZone: TimeZone(identifier: "America/New_York") ?? .current
-        )
+        ),
+        now: @escaping () -> Date = { .now }
     ) {
         self.defaults = defaults
         self.calendar = calendar
         self.marketHours = marketHours
-        self.currentDayKey = Self.dayKey(for: .now, calendar: calendar)
+        self.now = now
+        self.currentDayKey = Self.dayKey(for: now(), calendar: calendar)
     }
 
-    /// Records a sample during quotable US equity hours. Clears prior samples on ET day rollover.
+    /// Records a sample during quotable US equity hours.
+    ///
+    /// On the first sample of a new RTH trading day (ET day key), clears prior-session samples
+    /// and starts a fresh series. Non-quotable times never append and never wipe stored samples.
     func append(personID: String, combinedPaperGain: Double, at date: Date = .now) {
         loadStateIfNeeded(for: personID)
 
         guard marketHours.isQuotable(at: date) else { return }
 
-        let dayKey = Self.dayKey(for: date, calendar: calendar)
-        if dayKey != currentDayKey {
+        let sampleDayKey = Self.dayKey(for: date, calendar: calendar)
+        if sampleDayKey != currentDayKey {
             samples = []
-            currentDayKey = dayKey
+            currentDayKey = sampleDayKey
         }
 
         samples.append(GainSample(timestamp: date, combinedPaperGain: combinedPaperGain))
@@ -54,6 +65,9 @@ final class IntradayGainSampleStore {
         persist(for: personID)
     }
 
+    /// Returns stored samples for display, including the last completed RTH session overnight.
+    ///
+    /// Does **not** clear samples when the ET calendar day advances while the market is closed.
     func loadSamples(for personID: String) -> [GainSample] {
         loadStateIfNeeded(for: personID)
         return samples
@@ -73,7 +87,7 @@ final class IntradayGainSampleStore {
     }
 
     private func loadStateIfNeeded(for personID: String) {
-        if activePersonID == personID { return }
+        guard activePersonID != personID else { return }
 
         Self.migrateLegacyIfNeeded(defaults: defaults, personID: personID)
 
@@ -82,7 +96,7 @@ final class IntradayGainSampleStore {
             currentDayKey = stored.dayKey
         } else {
             samples = []
-            currentDayKey = Self.dayKey(for: .now, calendar: calendar)
+            currentDayKey = Self.dayKey(for: now(), calendar: calendar)
         }
 
         activePersonID = personID

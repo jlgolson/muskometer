@@ -36,22 +36,36 @@ echo "PASS: release build"
 
 echo ""
 echo "=== 4. Entitlements on built app ==="
+# Checks the Debug test product (Xcode-signed with entitlements). package-dmg.sh
+# is a separate unsigned path (CODE_SIGNING_ALLOWED=NO) and does not embed
+# sandbox entitlements — see SECURITY.md / docs/RELEASE.md.
 APP=$(find "$TEST_DERIVED/Build/Products/Debug" -name "Muskometer.app" 2>/dev/null | head -1)
 if [[ -z "$APP" ]]; then
   APP=$(find ~/Library/Developer/Xcode/DerivedData/Muskometer-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
 fi
-if [[ -n "$APP" ]]; then
-  codesign -d --entitlements :- "$APP" 2>/dev/null | grep -E "app-sandbox|network.client" || {
-    echo "WARN: could not verify entitlements"
-  }
-  echo "PASS: app bundle at $APP"
-else
-  echo "WARN: built app not found for entitlements check"
+if [[ -z "$APP" ]]; then
+  echo "FAIL: built app not found for entitlements check"
+  exit 1
 fi
+ENTITLEMENTS=$(codesign -d --entitlements :- "$APP" 2>/dev/null || true)
+if ! echo "$ENTITLEMENTS" | grep -q "app-sandbox"; then
+  echo "FAIL: missing com.apple.security.app-sandbox entitlement"
+  exit 1
+fi
+if ! echo "$ENTITLEMENTS" | grep -q "network.client"; then
+  echo "FAIL: missing com.apple.security.network.client entitlement"
+  exit 1
+fi
+echo "PASS: app-sandbox + network.client on $APP"
 
 echo ""
 echo "=== 5. Live Yahoo API + paper gain math ==="
-python3 <<'PY'
+# Optional in CI: set MUSKOMETER_SKIP_LIVE_YAHOO=1 to avoid flaky external network calls.
+# Local verify runs this step by default (fail on error).
+if [[ "${MUSKOMETER_SKIP_LIVE_YAHOO:-0}" == "1" ]]; then
+  echo "SKIP: live Yahoo API (MUSKOMETER_SKIP_LIVE_YAHOO=1)"
+else
+  python3 <<'PY'
 import json, urllib.request, sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -61,24 +75,16 @@ SHARES = {"TSLA": 699_580_882, "SPCX": 6_068_734_060}
 ET = ZoneInfo("America/New_York")
 
 def current_session(now):
+    # RTH-only product: regular session only; pre/post treated as closed.
     if now.weekday() >= 5:
         return "closed"
     minutes = now.hour * 60 + now.minute
-    if 4 * 60 <= minutes < 9 * 60 + 30:
-        return "preMarket"
     if 9 * 60 + 30 <= minutes < 16 * 60:
         return "regular"
-    if 16 * 60 <= minutes < 20 * 60:
-        return "postMarket"
     return "closed"
 
 def current_price(meta, session):
-    if session == "regular":
-        return meta.get("regularMarketPrice")
-    if session == "preMarket":
-        return meta.get("preMarketPrice") or meta.get("regularMarketPrice")
-    if session == "postMarket":
-        return meta.get("postMarketPrice") or meta.get("regularMarketPrice")
+    # Always regularMarketPrice (RTH-only); extended-hours fields are never selected.
     return meta.get("regularMarketPrice")
 
 session = current_session(datetime.now(tz=ET))
@@ -101,7 +107,8 @@ for sym, shares in SHARES.items():
 
 print(f"Combined: ${total/1e9:.1f}B")
 PY
-echo "PASS: live API"
+  echo "PASS: live API"
+fi
 
 echo ""
 echo "=== All automated checks passed ==="

@@ -5,11 +5,8 @@ enum MarketStatusFormatter {
         switch session {
         case .regular:
             return "Market open"
-        case .preMarket:
-            return "Pre-market"
-        case .postMarket:
-            return "Post-market"
-        case .closed:
+        // pre/post are API-compat only; product is RTH-only and never emits them as live trading.
+        case .preMarket, .postMarket, .closed:
             return "Market closed"
         }
     }

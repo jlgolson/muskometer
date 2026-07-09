@@ -4,6 +4,12 @@
 # No Apple Developer Program ($99) required.
 # Recipients must right-click → Open on first launch (Gatekeeper).
 #
+# Sandbox: this path uses CODE_SIGNING_ALLOWED=NO, so the entitlements file is
+# NOT embedded. The shipped .app is NOT App Sandboxed. That is an intentional
+# tradeoff for open-source distribution without a paid Apple account.
+# Xcode Debug/Release runs and signed Developer ID builds (scripts/release.sh)
+# do use App Sandbox + network.client — see SECURITY.md and docs/RELEASE.md.
+#
 # Output:
 #   dist/Muskometer-<version>.dmg
 #   dist/Muskometer-<version>.zip

@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -52,9 +53,24 @@ struct SettingsView: View {
         }
         .onAppear {
             syncTextFieldsFromSettings()
+            // Re-check Login Items after user may have approved in System Settings
+            // (launch reconcile only runs at app start, so pending can otherwise stick).
+            settings.syncLaunchAtLoginFromService()
         }
         .onDisappear {
             applyShareCounts()
+        }
+        // After approving Login Items in System Settings, returning to the app
+        // should clear "pending approval" without reopening Settings.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            settings.syncLaunchAtLoginFromService()
+        }
+        // Background SEC sync while Settings is open can update AppSettings without
+        // touching local shareTexts; keep fields in sync when a sync finishes.
+        .onChange(of: viewModel?.isSyncingHoldings ?? false) { wasSyncing, isSyncing in
+            if wasSyncing && !isSyncing {
+                syncTextFieldsFromSettings()
+            }
         }
     }
 
@@ -135,6 +151,12 @@ struct SettingsView: View {
                 Text("Start Muskometer automatically when you sign in to this Mac.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                if let error = settings.launchAtLoginError {
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             }
 
             groupedCard {
@@ -147,7 +169,7 @@ struct SettingsView: View {
                         settings.refreshIntervalSeconds = newValue
                     }
 
-                Text("Stock prices refresh automatically during US trading hours (pre-market, regular, and post-market).")
+                Text("Stock prices refresh automatically during regular US trading hours (9:30 AM–4:00 PM ET).")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -186,7 +208,7 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
 
-            Text("Choose what the Copy button puts on your clipboard — a branded image card for Messages, or a text summary for X.")
+            Text("Choose what the Copy button puts on your clipboard — a branded image card, or a plain text summary.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -227,11 +249,21 @@ struct SettingsView: View {
                         notificationToggle(threshold, viewModel: viewModel)
                     }
                 }
+
+                if let message = viewModel.notificationAuthorizationMessage {
+                    Text(message)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
             } else {
                 Text("Open settings from the menu bar popover to configure gain alerts.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+        }
+        .onAppear {
+            // Re-show denied hint when opening Alerts with thresholds already enabled.
+            viewModel?.refreshNotificationAuthorizationMessageIfNeeded()
         }
     }
 
@@ -268,7 +300,12 @@ struct SettingsView: View {
 
             if let viewModel {
                 Button {
-                    Task { await viewModel.syncHoldingsFromSEC() }
+                    Task {
+                        await viewModel.syncHoldingsFromSEC()
+                        // SEC updates AppSettings share counts, not local @State.
+                        // Refresh fields so finish/disappear cannot rewrite pre-sync values.
+                        syncTextFieldsFromSettings()
+                    }
                 } label: {
                     HStack(spacing: 6) {
                         if viewModel.isSyncingHoldings {
@@ -384,18 +421,28 @@ struct SettingsView: View {
 
         for spec in settings.selectedProfile.holdingSpecs {
             let symbol = spec.symbol
-            let rawText = shareTexts[symbol] ?? String(settings.shareCount(for: symbol))
-            let cleaned = rawText.replacingOccurrences(of: ",", with: "")
+            let stored = settings.shareCount(for: symbol)
+            let rawText = shareTexts[symbol] ?? String(stored)
 
-            if let count = Int64(cleaned), count > 0 {
-                if settings.shareCount(for: symbol) != count {
+            // Field already shows the stored value — no write (avoids clobbering a
+            // concurrent SEC update when text was refreshed to match).
+            if rawText == String(stored) {
+                continue
+            }
+
+            switch ShareCountTextInput.resolve(rawText: rawText, storedCount: stored) {
+            case .accepted(let count):
+                if stored != count {
+                    settings.setShareCount(count, for: symbol)
                     countsChanged = true
                 }
-                settings.setShareCount(count, for: symbol)
                 shareTexts[symbol] = String(count)
-            } else if !cleaned.isEmpty {
-                errors[symbol] = "Enter a positive whole number."
-                shareTexts[symbol] = String(settings.shareCount(for: symbol))
+            case .restore(let storedCount, let errorMessage):
+                // Empty or invalid: keep stored holdings and force field text to match.
+                shareTexts[symbol] = String(storedCount)
+                if let errorMessage {
+                    errors[symbol] = errorMessage
+                }
             }
         }
 
@@ -422,19 +469,21 @@ private struct UpdatesSettingsContent: View {
                     }
                 }
 
-            Text("Checks GitHub once per day when enabled. Muskometer does not install updates automatically yet.")
+            if let message = coordinator.notificationAuthorizationMessage {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+
+            Text("Checks GitHub once per day when enabled. When an update is available, you get a notification and a link to download from the release page.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Picker("Delivery", selection: $settings.updateDeliveryMode) {
-                ForEach(UpdateDeliveryMode.allCases, id: \.self) { mode in
-                    Text(mode.label).tag(mode)
-                }
-            }
-            .pickerStyle(.segmented)
-            .disabled(true)
-
-            Text("Requires a signed build (coming soon)")
+            // Automatic install (Sparkle) is not wired yet. Hide the delivery
+            // mode control so users cannot select a path that cannot install.
+            // Keep UpdateDeliveryMode.automatic in the model for future use;
+            // checks fall back to the GitHub notify path if that value is stored.
+            Text("Automatic install requires a signed build (coming soon). Download stays manual for now.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -502,5 +551,23 @@ private enum SettingsTab: String, CaseIterable, Identifiable {
         case .menuBar: return "menubar.rectangle"
         case .holdings: return "chart.pie"
         }
+    }
+}
+
+/// Command/menu button that opens Settings via the public `openSettings` environment action
+/// (works for `.accessory` / MenuBarExtra apps where private `showSettingsWindow:` can fail).
+struct OpenSettingsButton: View {
+    @Environment(\.openSettings) private var openSettings
+
+    var body: some View {
+        Button("Settings…") {
+            NSApp.activate(ignoringOtherApps: true)
+            if PopoverVisibility.isVisible {
+                NotificationCenter.default.post(name: .openMuskometerSettings, object: nil)
+            } else {
+                openSettings()
+            }
+        }
+        .keyboardShortcut(",", modifiers: .command)
     }
 }

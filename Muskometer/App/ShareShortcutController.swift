@@ -13,11 +13,29 @@ enum ShareShortcutMatcher {
 
 @MainActor
 final class ShareShortcutController {
+    /// Outcome of attempting to fire the share shortcut handler.
+    enum FireResult: Equatable {
+        case succeeded
+        case failed
+        case debounced
+    }
+
     private var globalMonitor: Any?
     private var localMonitor: Any?
     private let handler: () -> Bool
     private var lastTriggerDate: Date?
     private let debounceInterval: TimeInterval
+
+    /// Local monitors may swallow the event. Consume on success and debounce so
+    /// SwiftUI `keyboardShortcut` does not re-fire; only pass through on failure.
+    static func shouldConsumeEvent(_ result: FireResult) -> Bool {
+        switch result {
+        case .succeeded, .debounced:
+            return true
+        case .failed:
+            return false
+        }
+    }
 
     init(
         debounceInterval: TimeInterval = 0.5,
@@ -30,16 +48,23 @@ final class ShareShortcutController {
     func start() {
         stop()
 
+        // Global monitors cannot consume events; they only observe.
+        // Snapshot key fields before the Task hop so NSEvent is not retained past the callback.
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let modifierFlags = event.modifierFlags
+            let charactersIgnoringModifiers = event.charactersIgnoringModifiers
             Task { @MainActor in
-                self?.handle(event)
+                self?.handle(
+                    modifierFlags: modifierFlags,
+                    charactersIgnoringModifiers: charactersIgnoringModifiers
+                )
             }
         }
 
         localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.matchesShortcut(event) else { return event }
-            self.fire()
-            return nil
+            let result = self.fire()
+            return Self.shouldConsumeEvent(result) ? nil : event
         }
     }
 
@@ -55,9 +80,15 @@ final class ShareShortcutController {
         }
     }
 
-    private func handle(_ event: NSEvent) {
-        guard matchesShortcut(event) else { return }
-        fire()
+    private func handle(
+        modifierFlags: NSEvent.ModifierFlags,
+        charactersIgnoringModifiers: String?
+    ) {
+        guard ShareShortcutMatcher.matches(
+            modifierFlags: modifierFlags,
+            charactersIgnoringModifiers: charactersIgnoringModifiers
+        ) else { return }
+        _ = fire()
     }
 
     private func matchesShortcut(_ event: NSEvent) -> Bool {
@@ -67,13 +98,20 @@ final class ShareShortcutController {
         )
     }
 
-    private func fire() {
+    /// Invokes the share handler, respecting debounce.
+    /// Debounce starts only after a successful handler so failures can retry immediately
+    /// and `shouldConsumeEvent(.failed)` continues to pass the key event through.
+    @discardableResult
+    private func fire() -> FireResult {
         let now = Date()
         if let lastTriggerDate,
            now.timeIntervalSince(lastTriggerDate) < debounceInterval {
-            return
+            return .debounced
+        }
+        guard handler() else {
+            return .failed
         }
         lastTriggerDate = now
-        _ = handler()
+        return .succeeded
     }
 }

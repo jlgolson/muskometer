@@ -13,13 +13,13 @@ Share counts come from Elon Musk's **SEC Form 4** filings. The app checks EDGAR 
 
 **SPCX aggregation** — SpaceX filings split holdings across Class A, Class B, preferred series, and trusts. Muskometer sums the latest per-trust rows, converts preferred series to Class A-equivalent (series A/B preferred × 50 per filing footnotes), and adds restricted Class B cited in filing remarks.
 
-**Partial sync** — If only one ticker is found in the filings checked, the app keeps prior counts and retries on the next daily sync. You can also tap **Sync holdings from SEC** in Settings.
+**Partial sync** — If only one ticker is found in the filings checked, the app keeps prior counts and records the attempt so auto-retry waits ~24h (not every quote refresh). Network failures use the same backoff. You can also tap **Sync holdings from SEC** in Settings to force a retry immediately.
 
 **Overrides** — TSLA and SPCX share counts can be edited manually in Settings; overrides persist until the next successful SEC sync updates them.
 
 ## Live prices
 
-TSLA and SPCX quotes come from Yahoo Finance (`query1.finance.yahoo.com`) using the same API and price logic for both tickers. Quotes refresh every 60–120 seconds (default **90s**) during quotable US sessions: pre-market (4:00–9:30 AM ET), regular (9:30 AM–4:00 PM ET), and post-market (4:00–8:00 PM ET). Overnight and on weekends the app does not auto-refresh; the label shows the last regular close until the next session (manual refresh still works).
+TSLA and SPCX quotes come from Yahoo Finance (`query1.finance.yahoo.com`) using the same API and price logic for both tickers. Quotes auto-refresh only during the **regular US session** (9:30 AM–4:00 PM ET, or early close). The Settings interval (60–120s, default **90s**) applies throughout RTH. Pre-market and post-market are treated as closed. Overnight and on weekends the app sleeps until the next regular open (minimum 60s) and refreshes immediately when the session starts; the label shows the last regular close until then (manual refresh still works).
 
 ## Paper gain math
 

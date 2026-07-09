@@ -6,6 +6,7 @@ final class AppSettings {
     static let shared = AppSettings()
 
     private let defaults: UserDefaults
+    private let launchAtLoginManager: any LaunchAtLoginManaging
 
     private enum Keys {
         static let refreshInterval = "refreshIntervalSeconds"
@@ -30,10 +31,15 @@ final class AppSettings {
         "lastHoldingsSyncDate_\(personID)"
     }
 
+    private static func lastHoldingsSyncAttemptKey(for personID: String) -> String {
+        "lastHoldingsSyncAttemptAt_\(personID)"
+    }
+
     private static func holdingsSyncSourceKey(for personID: String) -> String {
         "holdingsSyncSource_\(personID)"
     }
 
+    /// Guards against re-entrant `launchAtLogin` didSet while adopting resolved service state.
     private var isSyncingLaunchAtLogin = false
 
     static let minRefreshInterval: TimeInterval = 60
@@ -101,6 +107,13 @@ final class AppSettings {
         set { Self.storeLastHoldingsSyncDate(newValue, personID: selectedPersonID, defaults: defaults) }
     }
 
+    /// Last time a holdings sync was *attempted* (complete, partial, or failed).
+    /// Used for daily backoff so partial/network failures do not re-crawl every quote cycle.
+    var lastHoldingsSyncAttemptAt: Date? {
+        get { Self.loadLastHoldingsSyncAttemptAt(personID: selectedPersonID, defaults: defaults) }
+        set { Self.storeLastHoldingsSyncAttemptAt(newValue, personID: selectedPersonID, defaults: defaults) }
+    }
+
     var holdingsSyncSource: String? {
         get { Self.loadHoldingsSyncSource(personID: selectedPersonID, defaults: defaults) }
         set { Self.storeHoldingsSyncSource(newValue, personID: selectedPersonID, defaults: defaults) }
@@ -108,11 +121,17 @@ final class AppSettings {
 
     var launchAtLogin: Bool {
         didSet {
-            defaults.set(launchAtLogin, forKey: Keys.launchAtLogin)
-            guard !isSyncingLaunchAtLogin else { return }
-            try? LaunchAtLoginManager.setEnabled(launchAtLogin)
+            guard !isSyncingLaunchAtLogin else {
+                defaults.set(launchAtLogin, forKey: Keys.launchAtLogin)
+                return
+            }
+            applyLaunchAtLoginPreference(desired: launchAtLogin)
         }
     }
+
+    /// User-visible message when enabling/disabling launch-at-login fails.
+    /// Cleared on a successful apply that matches the system service.
+    private(set) var launchAtLoginError: String?
 
     var shareFormat: ShareFormat {
         didSet {
@@ -143,13 +162,25 @@ final class AppSettings {
         }
     }
 
+    /// True when auto-sync should run. Backs off for `holdingsSyncInterval` after any attempt
+    /// (complete, partial, or failure). Falls back to last successful complete for upgrades.
     var needsHoldingsSync: Bool {
-        guard let lastHoldingsSyncDate else { return true }
-        return Date.now.timeIntervalSince(lastHoldingsSyncDate) >= Self.holdingsSyncInterval
+        let reference = lastHoldingsSyncAttemptAt ?? lastHoldingsSyncDate
+        guard let reference else { return true }
+        return Date.now.timeIntervalSince(reference) >= Self.holdingsSyncInterval
     }
 
-    init(defaults: UserDefaults = .standard) {
+    /// Records that a holdings sync attempt finished (success, partial, or failure).
+    func recordHoldingsSyncAttempt(at date: Date = .now) {
+        lastHoldingsSyncAttemptAt = date
+    }
+
+    init(
+        defaults: UserDefaults = .standard,
+        launchAtLoginManager: any LaunchAtLoginManaging = LaunchAtLoginManager.shared
+    ) {
         self.defaults = defaults
+        self.launchAtLoginManager = launchAtLoginManager
 
         let storedInterval = defaults.double(forKey: Keys.refreshInterval)
         let initialInterval = storedInterval > 0 ? storedInterval : Self.defaultRefreshInterval
@@ -217,6 +248,21 @@ final class AppSettings {
         }
     }
 
+    private static func loadLastHoldingsSyncAttemptAt(personID: String, defaults: UserDefaults) -> Date? {
+        let key = lastHoldingsSyncAttemptKey(for: personID)
+        let interval = defaults.double(forKey: key)
+        return interval > 0 ? Date(timeIntervalSince1970: interval) : nil
+    }
+
+    private static func storeLastHoldingsSyncAttemptAt(_ date: Date?, personID: String, defaults: UserDefaults) {
+        let key = lastHoldingsSyncAttemptKey(for: personID)
+        if let date {
+            defaults.set(date.timeIntervalSince1970, forKey: key)
+        } else {
+            defaults.removeObject(forKey: key)
+        }
+    }
+
     private static func loadHoldingsSyncSource(personID: String, defaults: UserDefaults) -> String? {
         defaults.string(forKey: holdingsSyncSourceKey(for: personID))
     }
@@ -266,7 +312,17 @@ final class AppSettings {
             for spec in profile.holdingSpecs {
                 let key = shareCountKey(for: spec.symbol)
                 if let stored = defaults.string(forKey: key), let value = Int64(stored) {
-                    counts[spec.symbol] = value
+                    if spec.symbol == "SPCX" {
+                        // Re-migrate legacy fingerprints already under shareCount_SPCX
+                        // (migrateLegacyShareCounts only runs when the new key is missing).
+                        let migrated = SPCXHoldings.migrateStoredShareCount(value)
+                        if migrated != value {
+                            defaults.set(String(migrated), forKey: key)
+                        }
+                        counts[spec.symbol] = migrated
+                    } else {
+                        counts[spec.symbol] = value
+                    }
                 }
             }
         }
@@ -275,22 +331,88 @@ final class AppSettings {
     }
 
     func syncLaunchAtLoginFromService() {
-        isSyncingLaunchAtLogin = true
-        defer { isSyncingLaunchAtLogin = false }
-
         let desired = launchAtLogin
-        let actual = LaunchAtLoginManager.isEnabled
+        let actual = launchAtLoginManager.isEnabled
 
         if desired != actual {
-            try? LaunchAtLoginManager.setEnabled(desired)
+            // Re-apply desired preference. Soft enable (pending Login Items approval)
+            // keeps desired=true rather than adopting the still-disabled service state.
+            applyLaunchAtLoginPreference(desired: desired)
+        } else {
+            launchAtLoginError = nil
+            persistLaunchAtLoginPreference(desired)
         }
-
-        let resolved = LaunchAtLoginManager.isEnabled
-        if launchAtLogin != resolved {
-            launchAtLogin = resolved
-        }
-        defaults.set(resolved, forKey: Keys.launchAtLogin)
     }
+
+    /// Registers/unregisters with the system service, then reconciles local state.
+    ///
+    /// - Thrown failures: surface error and adopt service reality.
+    /// - Non-throwing enable that leaves the service disabled (common when
+    ///   `SMAppService` is `.requiresApproval`): keep desired `true`, persist it,
+    ///   and show a pending-approval message — do not adopt false.
+    /// - Non-throwing disable that leaves the service enabled: surface mismatch
+    ///   and adopt service reality.
+    /// - Full match: clear error and persist desired.
+    private func applyLaunchAtLoginPreference(desired: Bool) {
+        do {
+            try launchAtLoginManager.setEnabled(desired)
+            let actual = launchAtLoginManager.isEnabled
+
+            if actual == desired {
+                launchAtLoginError = nil
+                persistLaunchAtLoginPreference(desired)
+                return
+            }
+
+            if desired {
+                // Soft enable: registration did not throw but the service is not yet
+                // enabled (typically awaiting Login Items approval). Preserve intent.
+                launchAtLoginError = Self.launchAtLoginPendingApprovalMessage
+                persistLaunchAtLoginPreference(true)
+                ensureLaunchAtLoginToggle(true)
+                return
+            }
+
+            // Soft disable mismatch: service still enabled — adopt reality.
+            launchAtLoginError = Self.launchAtLoginMismatchMessage(desired: false)
+            adoptResolvedLaunchAtLoginState()
+        } catch {
+            launchAtLoginError = Self.launchAtLoginFailureMessage(desired: desired, error: error)
+            adoptResolvedLaunchAtLoginState()
+        }
+    }
+
+    private func persistLaunchAtLoginPreference(_ value: Bool) {
+        defaults.set(value, forKey: Keys.launchAtLogin)
+    }
+
+    /// Updates the in-memory toggle without re-entering `applyLaunchAtLoginPreference`.
+    private func ensureLaunchAtLoginToggle(_ value: Bool) {
+        guard launchAtLogin != value else { return }
+        isSyncingLaunchAtLogin = true
+        launchAtLogin = value
+        isSyncingLaunchAtLogin = false
+    }
+
+    /// Reads `isEnabled` and forces `launchAtLogin` + UserDefaults to match, without re-applying.
+    private func adoptResolvedLaunchAtLoginState() {
+        let resolved = launchAtLoginManager.isEnabled
+        persistLaunchAtLoginPreference(resolved)
+        ensureLaunchAtLoginToggle(resolved)
+    }
+
+    private static func launchAtLoginFailureMessage(desired: Bool, error: Error) -> String {
+        let action = desired ? "enable" : "disable"
+        return "Couldn't \(action) launch at login: \(error.localizedDescription)"
+    }
+
+    private static func launchAtLoginMismatchMessage(desired: Bool) -> String {
+        let action = desired ? "enable" : "disable"
+        return "Couldn't \(action) launch at login. Check System Settings → General → Login Items."
+    }
+
+    private static let launchAtLoginPendingApprovalMessage =
+        "Launch at login is waiting for approval in System Settings → General → Login Items."
 
     func resetToDefaults() {
         refreshIntervalSeconds = Self.defaultRefreshInterval
@@ -306,7 +428,17 @@ final class AppSettings {
         }
 
         lastHoldingsSyncDate = nil
+        lastHoldingsSyncAttemptAt = nil
         holdingsSyncSource = nil
+
+        // Product default: launch at login is off. Prefer the property path so
+        // didSet routes through LaunchAtLoginManager; if already false, re-apply
+        // so any stale error is cleared and the service stays in sync.
+        if launchAtLogin {
+            launchAtLogin = false
+        } else {
+            applyLaunchAtLoginPreference(desired: false)
+        }
 
         Self.resetPersistedState(for: selectedPersonID, defaults: defaults)
     }
@@ -323,24 +455,31 @@ final class AppSettings {
     func applyHoldingsSync(_ result: HoldingsSyncResult) -> Bool {
         let expectedSymbols = selectedProfile.expectedSymbols
 
-        for (symbol, shares) in result.sharesBySymbol where shares > 0 {
+        // Presence (including 0 for full disposal) counts as found; negatives are ignored.
+        let foundSymbols = Set(
+            result.sharesBySymbol
+                .filter { expectedSymbols.contains($0.key) && $0.value >= 0 }
+                .map(\.key)
+        )
+        let isComplete = expectedSymbols.isSubset(of: foundSymbols)
+
+        // Always record the attempt so auto-retry backs off for 24h even on partial results.
+        // Partial results keep prior counts and leave lastHoldingsSyncDate unset.
+        recordHoldingsSyncAttempt(at: result.syncedAt)
+
+        guard isComplete else {
+            return false
+        }
+
+        for (symbol, shares) in result.sharesBySymbol where shares >= 0 {
             if expectedSymbols.contains(symbol) {
                 setShareCount(shares, for: symbol)
             }
         }
 
-        let foundSymbols = Set(
-            result.sharesBySymbol
-                .filter { expectedSymbols.contains($0.key) && $0.value > 0 }
-                .map(\.key)
-        )
-        let isComplete = expectedSymbols.isSubset(of: foundSymbols)
+        lastHoldingsSyncDate = result.syncedAt
+        holdingsSyncSource = result.sourceDescription
 
-        if isComplete {
-            lastHoldingsSyncDate = result.syncedAt
-            holdingsSyncSource = result.sourceDescription
-        }
-
-        return isComplete
+        return true
     }
 }

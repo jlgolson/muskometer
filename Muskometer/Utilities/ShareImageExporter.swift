@@ -35,6 +35,14 @@ enum ShareImageExporter {
             return false
         }
 
+        // Confirm the image is pasteboard-serializable before mutating the
+        // clipboard. NSPasteboard requires clearContents for exclusive image
+        // ownership; a residual empty clipboard remains if writeObjects fails
+        // after clear (uncommon once tiffRepresentation is available).
+        guard image.tiffRepresentation != nil else {
+            return false
+        }
+
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         return pasteboard.writeObjects([image])
@@ -42,9 +50,13 @@ enum ShareImageExporter {
 
     @MainActor
     private static func copyTextToPasteboard(snapshot: GainsSnapshot) -> Bool {
+        // Format first so we never clear the clipboard if formatting failed
+        // (formatting is pure and does not fail). NSPasteboard requires
+        // clearContents to take ownership before setString will succeed.
+        let text = GainSummaryFormatter.format(snapshot)
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        return pasteboard.setString(GainSummaryFormatter.format(snapshot), forType: .string)
+        return pasteboard.setString(text, forType: .string)
     }
 
     @MainActor

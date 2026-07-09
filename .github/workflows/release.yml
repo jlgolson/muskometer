@@ -23,6 +23,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Verify (tests + release build)
+        env:
+          # Skip live Yahoo to avoid flaky external network in CI.
+          MUSKOMETER_SKIP_LIVE_YAHOO: "1"
         run: ./scripts/verify.sh
 
       - name: Package DMG and zip
@@ -31,12 +34,22 @@ jobs:
       - name: Write release notes with checksums
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
+          # Extract only the ## [VERSION] section from CHANGELOG.md
+          # (from that heading until the next ## [ heading or EOF).
+          NOTES=$(awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; print; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            NOTES="See CHANGELOG.md"
+          fi
           {
             echo "Muskometer ${VERSION} — unsigned macOS menu bar app."
             echo ""
             echo "First launch: right-click **Muskometer** → **Open** → **Open**."
             echo ""
-            sed -n '/^## \[/,$p' CHANGELOG.md
+            printf '%s\n' "$NOTES"
             echo ""
             echo "**Checksums (SHA-256)**"
             echo '```'

@@ -3,7 +3,7 @@
 ## Download
 
 1. Go to **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)**.
-2. Download the latest **`Muskometer-0.1.1.dmg`** (or the newest `Muskometer-<version>.dmg` on the releases page).
+2. Download the latest **`Muskometer-0.1.3.dmg`** (or the newest `Muskometer-<version>.dmg` on the releases page).
 3. Open the DMG and drag **Muskometer** into **Applications**.
 4. Eject the disk image.
 
@@ -61,7 +61,7 @@ Preferences are stored in `~/Library/Preferences/` under the app bundle ID (`org
 | App won't open | Right-click → **Open** (see First launch above) |
 | Stale or `—` label | Click **Refresh** or wait for the next auto-refresh |
 | SEC sync message | Holdings update daily from Form 4 — partial syncs retry automatically |
-| Wrong number overnight | Expected — outside extended hours the label reflects the last regular close |
+| Wrong number overnight | Expected — outside regular hours the label reflects the last regular close |
 
 Questions or bugs? [Open an issue on GitHub](https://github.com/jlgolson/muskometer/issues) or email [info@muskometer.org](mailto:info@muskometer.org).
 

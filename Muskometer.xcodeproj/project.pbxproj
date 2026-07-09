@@ -52,7 +52,6 @@
 		A10000000000000000000031 /* GainSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GainSample.swift */; };
 		A10000000000000000000032 /* IntradayGainSampleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* IntradayGainSampleStore.swift */; };
 		A10000000000000000000033 /* GainSparklineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* GainSparklineView.swift */; };
-		A10000000000000000000034 /* XShareIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* XShareIntent.swift */; };
 		A10000000000000000000035 /* Charts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* Charts.framework */; };
 		A10000000000000000000036 /* TradingDayCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* TradingDayCalendar.swift */; };
 		A10000000000000000000037 /* DailyRecordTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* DailyRecordTracker.swift */; };
@@ -69,6 +68,8 @@
 		A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* SparkleUpdateDriver.swift */; };
 		A10000000000000000000043 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* SemanticVersion.swift */; };
 		A10000000000000000000044 /* QuotePriceResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* QuotePriceResolver.swift */; };
+		A10000000000000000000045 /* NotificationAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* NotificationAuthorization.swift */; };
+		A10000000000000000000046 /* ShareCountTextInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000046 /* ShareCountTextInput.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -121,7 +122,6 @@
 		A20000000000000000000031 /* GainSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSample.swift; sourceTree = "<group>"; };
 		A20000000000000000000032 /* IntradayGainSampleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntradayGainSampleStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000033 /* GainSparklineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSparklineView.swift; sourceTree = "<group>"; };
-		A20000000000000000000034 /* XShareIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XShareIntent.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* Charts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Charts.framework; path = System/Library/Frameworks/Charts.framework; sourceTree = SDKROOT; };
 		A20000000000000000000036 /* TradingDayCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TradingDayCalendar.swift; sourceTree = "<group>"; };
 		A20000000000000000000037 /* DailyRecordTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRecordTracker.swift; sourceTree = "<group>"; };
@@ -138,6 +138,8 @@
 		A20000000000000000000042 /* SparkleUpdateDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateDriver.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* QuotePriceResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotePriceResolver.swift; sourceTree = "<group>"; };
+		A20000000000000000000045 /* NotificationAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAuthorization.swift; sourceTree = "<group>"; };
+		A20000000000000000000046 /* ShareCountTextInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCountTextInput.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -312,10 +314,11 @@
 				A2000000000000000000001A /* String+Truncation.swift */,
 				A20000000000000000000020 /* AppVersion.swift */,
 				A20000000000000000000025 /* ShareImageExporter.swift */,
-				A20000000000000000000034 /* XShareIntent.swift */,
 				A20000000000000000000036 /* TradingDayCalendar.swift */,
 				A2000000000000000000003D /* MarketStatusFormatter.swift */,
 				A20000000000000000000043 /* SemanticVersion.swift */,
+				A20000000000000000000045 /* NotificationAuthorization.swift */,
+				A20000000000000000000046 /* ShareCountTextInput.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -463,7 +466,6 @@
 				A10000000000000000000031 /* GainSample.swift in Sources */,
 				A10000000000000000000032 /* IntradayGainSampleStore.swift in Sources */,
 				A10000000000000000000033 /* GainSparklineView.swift in Sources */,
-				A10000000000000000000034 /* XShareIntent.swift in Sources */,
 				A10000000000000000000036 /* TradingDayCalendar.swift in Sources */,
 				A10000000000000000000037 /* DailyRecordTracker.swift in Sources */,
 				A10000000000000000000038 /* GainNotificationThreshold.swift in Sources */,
@@ -478,6 +480,8 @@
 				A10000000000000000000041 /* UpdateCoordinator.swift in Sources */,
 				A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */,
 				A10000000000000000000043 /* SemanticVersion.swift in Sources */,
+				A10000000000000000000045 /* NotificationAuthorization.swift in Sources */,
+				A10000000000000000000046 /* ShareCountTextInput.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -545,7 +549,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -556,7 +560,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -573,7 +577,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -584,7 +588,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -598,11 +602,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -616,11 +620,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 23;
+				CURRENT_PROJECT_VERSION = 24;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.2;
+				MARKETING_VERSION = 0.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

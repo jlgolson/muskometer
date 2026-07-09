@@ -37,8 +37,18 @@ This runs:
 1. **Swift typecheck** — all `Muskometer/**/*.swift` files
 2. **Unit tests** — `xcodebuild test` on macOS
 3. **Release build** — sanity compile
-4. **Entitlements check** — sandbox + network client on the built `.app`
-5. **Live Yahoo API** — end-to-end quote + paper-gain math
+4. **Entitlements check** — **fails** if the built `.app` is missing sandbox or `network.client`
+5. **Live Yahoo API** — end-to-end quote + paper-gain math (local default)
+
+### Skipping live Yahoo (CI)
+
+Live Yahoo is on by default for local `scripts/verify.sh` so you catch integration regressions. GitHub Actions sets `MUSKOMETER_SKIP_LIVE_YAHOO=1` so CI is not flaky when Yahoo is down or rate-limits.
+
+To skip locally:
+
+```bash
+MUSKOMETER_SKIP_LIVE_YAHOO=1 scripts/verify.sh
+```
 
 ## Tests
 

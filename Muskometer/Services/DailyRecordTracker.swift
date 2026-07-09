@@ -14,10 +14,12 @@ final class DailyRecordTracker {
         let date: Date
     }
 
-    private struct DayExtremes: Equatable {
+    /// In-progress peak/trough for the current ET trading day (memory + UserDefaults).
+    private struct DayExtremes: Equatable, Codable {
         var peak: Double
         var trough: Double
         var lastSampleDate: Date
+        var dayKey: String
         var hadQuotableSample: Bool
     }
 
@@ -29,6 +31,8 @@ final class DailyRecordTracker {
     private var currentDayKeyByPerson: [String: String] = [:]
     private var completedDayKeysByPerson: [String: Set<String>] = [:]
     private var quotableSampleDayKeysByPerson: [String: Set<String>] = [:]
+    /// Persons whose unfinished extremes have been loaded from UserDefaults this runtime session.
+    private var loadedUnfinishedPersonIDs: Set<String> = []
 
     init(
         defaults: UserDefaults = .standard,
@@ -45,6 +49,7 @@ final class DailyRecordTracker {
         currentDayKeyByPerson.removeValue(forKey: personID)
         completedDayKeysByPerson.removeValue(forKey: personID)
         quotableSampleDayKeysByPerson.removeValue(forKey: personID)
+        loadedUnfinishedPersonIDs.remove(personID)
     }
 
     func snapshot(for personID: String) -> Snapshot {
@@ -67,6 +72,8 @@ final class DailyRecordTracker {
         at date: Date = .now,
         isQuotable: Bool
     ) -> Snapshot {
+        loadUnfinishedDayExtremesIfNeeded(for: personID)
+
         let dayKey = calendar.dayKey(for: date)
 
         if defaults.string(forKey: Self.installDayKey(personID)) == nil {
@@ -75,31 +82,47 @@ final class DailyRecordTracker {
 
         rolloverDayIfNeeded(personID: personID, to: dayKey, at: date)
 
+        // Always track the ET day key so overnight/closed refreshes can roll over and
+        // finalize prior days without inventing peak/trough from non-quotable gains.
+        currentDayKeyByPerson[personID] = dayKey
+
         if isQuotable {
             var sampledDays = quotableSampleDayKeysByPerson[personID] ?? []
             sampledDays.insert(dayKey)
             quotableSampleDayKeysByPerson[personID] = sampledDays
+
+            var extremes = dayExtremesByPerson[personID] ?? DayExtremes(
+                peak: paperGain,
+                trough: paperGain,
+                lastSampleDate: date,
+                dayKey: dayKey,
+                hadQuotableSample: true
+            )
+            // If memory still holds a different day's extremes (should be rare after rollover), reseat.
+            if extremes.dayKey != dayKey {
+                extremes = DayExtremes(
+                    peak: paperGain,
+                    trough: paperGain,
+                    lastSampleDate: date,
+                    dayKey: dayKey,
+                    hadQuotableSample: true
+                )
+            } else {
+                extremes.peak = max(extremes.peak, paperGain)
+                extremes.trough = min(extremes.trough, paperGain)
+                extremes.lastSampleDate = date
+                extremes.hadQuotableSample = true
+            }
+            dayExtremesByPerson[personID] = extremes
+            persistUnfinishedDayExtremes(extremes, for: personID)
         }
 
-        var extremes = dayExtremesByPerson[personID] ?? DayExtremes(
-            peak: paperGain,
-            trough: paperGain,
-            lastSampleDate: date,
-            hadQuotableSample: isQuotable
-        )
-        extremes.peak = max(extremes.peak, paperGain)
-        extremes.trough = min(extremes.trough, paperGain)
-        extremes.lastSampleDate = date
-        if isQuotable {
-            extremes.hadQuotableSample = true
-        }
-        dayExtremesByPerson[personID] = extremes
-        currentDayKeyByPerson[personID] = dayKey
-
-        if extremes.hadQuotableSample,
-           calendar.hasTradingDayCompleted(dayKey: dayKey, at: date, marketHours: marketHours) {
-            finalizeTradingDay(personID: personID, dayKey: dayKey, extremes: extremes)
-            markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: dayKey, at: date)
+        if let extremes = dayExtremesByPerson[personID],
+           extremes.hadQuotableSample,
+           calendar.hasTradingDayCompleted(dayKey: extremes.dayKey, at: date, marketHours: marketHours) {
+            finalizeTradingDay(personID: personID, dayKey: extremes.dayKey, extremes: extremes)
+            markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: extremes.dayKey, at: date)
+            clearUnfinishedDayExtremes(for: personID)
         }
 
         return snapshot(for: personID)
@@ -110,12 +133,12 @@ final class DailyRecordTracker {
             return
         }
 
-        if let extremes = dayExtremesByPerson[personID] {
+        if let extremes = dayExtremesByPerson[personID], extremes.dayKey == previousDayKey {
             finalizeTradingDay(personID: personID, dayKey: previousDayKey, extremes: extremes)
             markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: previousDayKey, at: date)
         }
 
-        dayExtremesByPerson[personID] = nil
+        clearUnfinishedDayExtremes(for: personID)
     }
 
     private func finalizeTradingDay(personID: String, dayKey: String, extremes: DayExtremes) {
@@ -132,12 +155,26 @@ final class DailyRecordTracker {
 
     private func markFirstTradingDayCompleteIfNeeded(personID: String, completedDayKey: String, at date: Date) {
         guard !defaults.bool(forKey: Self.firstDayCompleteKey(personID)) else { return }
-        guard calendar.hasTradingDayCompleted(dayKey: completedDayKey, at: date, marketHours: marketHours) else {
-            return
-        }
         guard quotableSampleDayKeysByPerson[personID]?.contains(completedDayKey) == true else {
             return
         }
+
+        // A later ET calendar day implies the prior trading day is complete,
+        // even if the market is open again on the new day (hasTradingDayCompleted would
+        // otherwise return false because isMarketOpen is true).
+        let nowDayKey = calendar.dayKey(for: date)
+        let tradingDayIsComplete: Bool
+        if completedDayKey < nowDayKey {
+            tradingDayIsComplete = true
+        } else {
+            tradingDayIsComplete = calendar.hasTradingDayCompleted(
+                dayKey: completedDayKey,
+                at: date,
+                marketHours: marketHours
+            )
+        }
+        guard tradingDayIsComplete else { return }
+
         defaults.set(true, forKey: Self.firstDayCompleteKey(personID))
     }
 
@@ -170,6 +207,41 @@ final class DailyRecordTracker {
         defaults.set(data, forKey: key)
     }
 
+    // MARK: - Unfinished day extremes persistence
+
+    private func loadUnfinishedDayExtremesIfNeeded(for personID: String) {
+        guard !loadedUnfinishedPersonIDs.contains(personID) else { return }
+        loadedUnfinishedPersonIDs.insert(personID)
+
+        guard let extremes = loadUnfinishedDayExtremes(for: personID) else { return }
+
+        dayExtremesByPerson[personID] = extremes
+        currentDayKeyByPerson[personID] = extremes.dayKey
+        if extremes.hadQuotableSample {
+            var sampledDays = quotableSampleDayKeysByPerson[personID] ?? []
+            sampledDays.insert(extremes.dayKey)
+            quotableSampleDayKeysByPerson[personID] = sampledDays
+        }
+    }
+
+    private func loadUnfinishedDayExtremes(for personID: String) -> DayExtremes? {
+        guard let data = defaults.data(forKey: Self.unfinishedKey(personID)),
+              let extremes = try? JSONDecoder().decode(DayExtremes.self, from: data) else {
+            return nil
+        }
+        return extremes
+    }
+
+    private func persistUnfinishedDayExtremes(_ extremes: DayExtremes, for personID: String) {
+        guard let data = try? JSONEncoder().encode(extremes) else { return }
+        defaults.set(data, forKey: Self.unfinishedKey(personID))
+    }
+
+    private func clearUnfinishedDayExtremes(for personID: String) {
+        dayExtremesByPerson.removeValue(forKey: personID)
+        defaults.removeObject(forKey: Self.unfinishedKey(personID))
+    }
+
     private static func bestKey(_ personID: String) -> String {
         "dailyRecordBest_\(personID)"
     }
@@ -186,10 +258,15 @@ final class DailyRecordTracker {
         "dailyRecordFirstDayComplete_\(personID)"
     }
 
+    private static func unfinishedKey(_ personID: String) -> String {
+        "dailyRecordUnfinished_\(personID)"
+    }
+
     nonisolated static func resetPersistedState(for personID: String, defaults: UserDefaults = .standard) {
         defaults.removeObject(forKey: "dailyRecordBest_\(personID)")
         defaults.removeObject(forKey: "dailyRecordWorst_\(personID)")
         defaults.removeObject(forKey: "dailyRecordInstallDay_\(personID)")
         defaults.removeObject(forKey: "dailyRecordFirstDayComplete_\(personID)")
+        defaults.removeObject(forKey: "dailyRecordUnfinished_\(personID)")
     }
 }

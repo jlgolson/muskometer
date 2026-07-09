@@ -1,12 +1,19 @@
 import Foundation
 import ServiceManagement
 
-enum LaunchAtLoginManager {
-    static var isEnabled: Bool {
+protocol LaunchAtLoginManaging {
+    var isEnabled: Bool { get }
+    func setEnabled(_ enabled: Bool) throws
+}
+
+struct LaunchAtLoginManager: LaunchAtLoginManaging {
+    static let shared = LaunchAtLoginManager()
+
+    var isEnabled: Bool {
         SMAppService.mainApp.status == .enabled
     }
 
-    static func setEnabled(_ enabled: Bool) throws {
+    func setEnabled(_ enabled: Bool) throws {
         if enabled {
             try SMAppService.mainApp.register()
         } else {

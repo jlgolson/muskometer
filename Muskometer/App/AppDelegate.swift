@@ -8,8 +8,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     private var shareShortcutController: ShareShortcutController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Keep delegate for foreground presentation / update tap handling.
+        // Authorization is requested only when the user enables a feature that
+        // needs notifications (gain thresholds or update notify).
         UNUserNotificationCenter.current().delegate = self
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert]) { _, _ in }
 
         guard let handler = Self.shareShortcutHandler else { return }
 

@@ -208,7 +208,7 @@ struct SettingsView: View {
             }
             .pickerStyle(.menu)
 
-            Text("Choose what the Copy button puts on your clipboard — a branded image card for Messages, or a text summary for X.")
+            Text("Choose what the Copy button puts on your clipboard — a branded image card, or a plain text summary.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

@@ -342,11 +342,6 @@ final class GainsViewModel {
         )
     }
 
-    func postToX() -> Bool {
-        guard let snapshot else { return false }
-        return XShareIntent.openTweetComposer(for: snapshot)
-    }
-
     func clearActiveMilestone() {
         activeMilestone = nil
     }

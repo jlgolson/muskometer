@@ -2369,56 +2369,6 @@ final class IntradayGainSampleStoreTests: XCTestCase {
     }
 }
 
-final class XShareIntentTests: XCTestCase {
-    private func sampleSnapshot(paperGain: Double = 1_000_000_000) -> GainsSnapshot {
-        let tsla = HoldingGain(
-            id: "tsla",
-            symbol: "TSLA",
-            displayName: "Tesla",
-            shareCount: 100,
-            quote: StockQuote(
-                symbol: "TSLA",
-                displayName: "Tesla",
-                currentPrice: 110,
-                previousClose: 100,
-                currency: "USD"
-            )
-        )
-        return GainsSnapshot(holdings: [tsla], lastUpdated: .now, tradingSession: .regular)
-    }
-
-    func testTweetURLUsesXIntentEndpoint() throws {
-        let url = try XCTUnwrap(XShareIntent.tweetURL(for: sampleSnapshot()))
-
-        XCTAssertEqual(url.scheme, "https")
-        XCTAssertEqual(url.host, "x.com")
-        XCTAssertEqual(url.path, "/intent/tweet")
-    }
-
-    func testTweetURLUsesURLComponentsEncoding() throws {
-        let snapshot = sampleSnapshot()
-        let expectedText = GainSummaryFormatter.format(snapshot)
-        let url = try XCTUnwrap(XShareIntent.tweetURL(for: snapshot))
-        let components = try XCTUnwrap(URLComponents(url: url, resolvingAgainstBaseURL: false))
-        let textItem = try XCTUnwrap(components.queryItems?.first { $0.name == "text" })
-
-        XCTAssertEqual(textItem.value, expectedText)
-        XCTAssertTrue(expectedText.contains("today's gain"))
-        XCTAssertTrue(url.absoluteString.contains("text="))
-        XCTAssertFalse(url.absoluteString.contains(" — "))
-    }
-
-    func testTweetURLEncodesSpecialCharacters() throws {
-        let snapshot = sampleSnapshot()
-        let text = try XCTUnwrap(GainSummaryFormatter.format(snapshot))
-        let url = try XCTUnwrap(XShareIntent.tweetURL(for: snapshot))
-
-        XCTAssertTrue(text.contains("—"))
-        XCTAssertFalse(url.absoluteString.contains("—"))
-        XCTAssertTrue(url.absoluteString.contains("%E2%80%94") || url.absoluteString.contains("%e2%80%94"))
-    }
-}
-
 // MARK: - Foundation services
 
 private enum EasternTestDates {

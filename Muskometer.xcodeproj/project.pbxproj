@@ -52,7 +52,6 @@
 		A10000000000000000000031 /* GainSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GainSample.swift */; };
 		A10000000000000000000032 /* IntradayGainSampleStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* IntradayGainSampleStore.swift */; };
 		A10000000000000000000033 /* GainSparklineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* GainSparklineView.swift */; };
-		A10000000000000000000034 /* XShareIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* XShareIntent.swift */; };
 		A10000000000000000000035 /* Charts.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* Charts.framework */; };
 		A10000000000000000000036 /* TradingDayCalendar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000036 /* TradingDayCalendar.swift */; };
 		A10000000000000000000037 /* DailyRecordTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* DailyRecordTracker.swift */; };
@@ -123,7 +122,6 @@
 		A20000000000000000000031 /* GainSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSample.swift; sourceTree = "<group>"; };
 		A20000000000000000000032 /* IntradayGainSampleStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntradayGainSampleStore.swift; sourceTree = "<group>"; };
 		A20000000000000000000033 /* GainSparklineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSparklineView.swift; sourceTree = "<group>"; };
-		A20000000000000000000034 /* XShareIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XShareIntent.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* Charts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Charts.framework; path = System/Library/Frameworks/Charts.framework; sourceTree = SDKROOT; };
 		A20000000000000000000036 /* TradingDayCalendar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TradingDayCalendar.swift; sourceTree = "<group>"; };
 		A20000000000000000000037 /* DailyRecordTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRecordTracker.swift; sourceTree = "<group>"; };
@@ -316,7 +314,6 @@
 				A2000000000000000000001A /* String+Truncation.swift */,
 				A20000000000000000000020 /* AppVersion.swift */,
 				A20000000000000000000025 /* ShareImageExporter.swift */,
-				A20000000000000000000034 /* XShareIntent.swift */,
 				A20000000000000000000036 /* TradingDayCalendar.swift */,
 				A2000000000000000000003D /* MarketStatusFormatter.swift */,
 				A20000000000000000000043 /* SemanticVersion.swift */,
@@ -469,7 +466,6 @@
 				A10000000000000000000031 /* GainSample.swift in Sources */,
 				A10000000000000000000032 /* IntradayGainSampleStore.swift in Sources */,
 				A10000000000000000000033 /* GainSparklineView.swift in Sources */,
-				A10000000000000000000034 /* XShareIntent.swift in Sources */,
 				A10000000000000000000036 /* TradingDayCalendar.swift in Sources */,
 				A10000000000000000000037 /* DailyRecordTracker.swift in Sources */,
 				A10000000000000000000038 /* GainNotificationThreshold.swift in Sources */,

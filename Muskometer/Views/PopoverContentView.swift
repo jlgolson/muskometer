@@ -213,29 +213,18 @@ struct PopoverContentView: View {
 
             GainSparklineView(samples: viewModel.intradaySamples)
 
-            HStack(spacing: 8) {
-                Button {
-                    copyShare()
-                } label: {
-                    Label(
-                        didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
-                        systemImage: viewModel.settings.shareFormat.buttonIcon
-                    )
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .disabled(didCopyShare)
-                .help(viewModel.settings.shareFormat.helpText)
-
-                Button {
-                    _ = viewModel.postToX()
-                } label: {
-                    Label("Post to X", systemImage: "arrow.up.right.square")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("Open X with a pre-filled summary of today's gains")
+            Button {
+                copyShare()
+            } label: {
+                Label(
+                    didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
+                    systemImage: viewModel.settings.shareFormat.buttonIcon
+                )
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .disabled(didCopyShare)
+            .help(viewModel.settings.shareFormat.helpText)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)

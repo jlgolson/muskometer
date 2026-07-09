@@ -6,6 +6,33 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-07-08
+
+Correctness and reliability release — holdings, daily records, market hours, Settings, and refresh lifecycle.
+
+### Fixed
+
+- **SPCX ownership** — last Form 4 row wins (including full disposal to zero); preferred series ×50 covered by tests
+- **Daily records** — quotable-only peaks/troughs; finalize after post-market (20:00 ET); persist unfinished day extremes across restarts
+- **Sparkline** — clear prior-day samples on load and while always-open overnight (off-market VM sync)
+- **SEC sync** — accept Form 4/A; scan up to 100 accessions; partial sync no longer overwrites counts; 24h backoff after partial/fail; complete sync can apply zero-share disposal
+- **Settings** — share-count fields refresh after SEC so dismiss cannot undo a sync; empty fields restore stored counts
+- **Refresh loop** — first open-session quote is immediate after off-market wait (no extra 60–180s delay)
+- **Yahoo** — one symbol failure no longer drops the whole batch; prefer Yahoo `marketState` for price field selection
+- **Market calendar** — Gregorian + ET defaults; early closes 2026–27; correct 2027 Good Friday (2027-03-26)
+- **Launch at login** — soft-approval keeps user intent; re-sync when Settings opens / app becomes active; reset-to-defaults turns it off
+- **Notifications** — request alert+sound only when enabling features; denied hint lifecycle fixed
+- **Updates** — automatic mode uses GitHub notify checker (Sparkle still a stub until signed builds)
+- **Share** — main-actor copy feedback; shortcut consume-on-success/debounce; global hotkey snapshots event fields
+- **Currency** — en_US_POSIX formatting with consistent grouping
+- **CI** — hard-fail missing sandbox entitlements on Debug product; optional live Yahoo skip in CI
+- **Docs** — 0.1.3; extended-hours refresh floors; unsigned package-dmg sandbox honesty; version-scoped release notes
+
+### Changed
+
+- Net-worth jump below $1T → above $2T celebrates the two-trillion milestone
+- `TradingDayCalendar` day keys use per-call formatters (thread-safe)
+
 ## [0.1.2] - 2026-07-03
 
 Extended-hours release — live pre/post quotes for TSLA and SPCX on identical code paths.

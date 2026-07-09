@@ -45,15 +45,28 @@ struct MarketHoursService: MarketHoursServiceProtocol {
     private enum SessionMinutes {
         static let preMarketOpen = 4 * 60
         static let regularOpen = 9 * 60 + 30
+        /// Standard regular-session close (4:00 PM ET).
         static let regularClose = 16 * 60
+        /// Typical NYSE early close (1:00 PM ET).
+        static let earlyClose = 13 * 60
         static let postMarketClose = 20 * 60
     }
+
+    /// NYSE early-close days → regular-session end as minutes since midnight ET.
+    /// Covers the same years as the full-holiday set (2026–2027). Extend annually.
+    /// Source: NYSE Holidays & Trading Hours (day after Thanksgiving, Christmas Eve when applicable).
+    private static let earlyCloses: [String: Int] = [
+        "2026-11-27": SessionMinutes.earlyClose, // day after Thanksgiving
+        "2026-12-24": SessionMinutes.earlyClose, // Christmas Eve
+        "2027-11-26": SessionMinutes.earlyClose, // day after Thanksgiving
+        // 2027-12-24 is a full holiday (Christmas observed); no Christmas Eve early close in 2027.
+    ]
 
     private let calendar: Calendar
     private let timeZone: TimeZone
 
     init(
-        calendar: Calendar = .current,
+        calendar: Calendar = Calendar(identifier: .gregorian),
         timeZone: TimeZone = TimeZone(identifier: "America/New_York") ?? .current
     ) {
         var configured = calendar
@@ -66,14 +79,16 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         guard isTradingDay(date) else { return .closed }
 
         let minutes = minutesSinceMidnight(on: date)
+        let regularClose = regularCloseMinutes(on: date)
 
         if minutes >= SessionMinutes.preMarketOpen, minutes < SessionMinutes.regularOpen {
             return .preMarket
         }
-        if minutes >= SessionMinutes.regularOpen, minutes < SessionMinutes.regularClose {
+        if minutes >= SessionMinutes.regularOpen, minutes < regularClose {
             return .regular
         }
-        if minutes >= SessionMinutes.regularClose, minutes < SessionMinutes.postMarketClose {
+        // Post-market runs from regular (or early) close until 20:00 ET.
+        if minutes >= regularClose, minutes < SessionMinutes.postMarketClose {
             return .postMarket
         }
         return .closed
@@ -142,6 +157,11 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         return hour * 60 + minute
     }
 
+    /// Regular-session end in minutes since midnight ET (early close when applicable).
+    private func regularCloseMinutes(on date: Date) -> Int {
+        Self.earlyCloses[dayKey(for: date)] ?? SessionMinutes.regularClose
+    }
+
     private func preMarketOpen(on day: Date) -> Date? {
         guard isTradingDay(day) else { return nil }
 
@@ -157,13 +177,23 @@ struct MarketHoursService: MarketHoursServiceProtocol {
     private func marketCloseIfTradingDay(on day: Date) -> Date? {
         guard isTradingDay(day) else { return nil }
 
+        let closeMinutes = regularCloseMinutes(on: day)
         var components = calendar.dateComponents([.year, .month, .day], from: day)
-        components.hour = 16
-        components.minute = 0
+        components.hour = closeMinutes / 60
+        components.minute = closeMinutes % 60
         components.second = 0
         components.timeZone = timeZone
 
         return calendar.date(from: components)
+    }
+
+    private func dayKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.timeZone = timeZone
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 
     private func isHoliday(_ date: Date) -> Bool {
@@ -172,16 +202,11 @@ struct MarketHoursService: MarketHoursServiceProtocol {
             "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03",
             "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07",
             "2026-11-26", "2026-12-25",
-            "2027-01-01", "2027-01-18", "2027-02-15", "2027-04-02",
+            "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26",
             "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
             "2027-11-25", "2027-12-24"
         ]
 
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.timeZone = timeZone
-        formatter.dateFormat = "yyyy-MM-dd"
-
-        return holidays.contains(formatter.string(from: date))
+        return holidays.contains(dayKey(for: date))
     }
 }

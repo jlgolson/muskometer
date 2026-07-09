@@ -5,6 +5,7 @@ struct PopoverContentView: View {
     @Bindable var viewModel: GainsViewModel
     @State private var showingSettings = false
     @State private var didCopyShare = false
+    @State private var copyFeedbackTask: Task<Void, Never>?
     @State private var settingsPanelSize = CGSize(width: 560, height: 420)
 
     var body: some View {
@@ -25,7 +26,12 @@ struct PopoverContentView: View {
             PopoverVisibility.isVisible = true
             showingSettings = false
         }
-        .onDisappear { PopoverVisibility.isVisible = false }
+        .onDisappear {
+            PopoverVisibility.isVisible = false
+            copyFeedbackTask?.cancel()
+            copyFeedbackTask = nil
+            didCopyShare = false
+        }
         .onReceive(NotificationCenter.default.publisher(for: .openMuskometerSettings)) { _ in
             showingSettings = true
         }
@@ -310,11 +316,14 @@ struct PopoverContentView: View {
     private func copyShare() {
         guard viewModel.copyShareToPasteboard() else { return }
 
+        copyFeedbackTask?.cancel()
         didCopyShare = true
 
-        Task {
+        copyFeedbackTask = Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
             didCopyShare = false
+            copyFeedbackTask = nil
         }
     }
 

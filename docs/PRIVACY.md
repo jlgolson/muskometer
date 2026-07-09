@@ -34,7 +34,7 @@ These services receive standard request metadata (IP address, TLS handshake, etc
 
 ## App Sandbox
 
-Muskometer runs with **App Sandbox** enabled. Entitlements are limited to sandboxing and outbound network client access. See [SECURITY.md](../SECURITY.md) for the security policy.
+When codesigned with entitlements (Xcode builds and optional Developer ID releases), Muskometer runs with **App Sandbox** enabled; entitlements are limited to sandboxing and outbound network client access. Public unsigned DMGs from `package-dmg.sh` do **not** embed those entitlements. See [SECURITY.md](../SECURITY.md) for the full policy.
 
 ## Children
 
@@ -42,7 +42,7 @@ Muskometer is not directed at children and does not knowingly collect personal i
 
 ## Changes
 
-If this policy changes materially, it will be updated in this repository. The current public release is **0.1.1**.
+If this policy changes materially, it will be updated in this repository. The current public release is **0.1.3**.
 
 ## Contact
 

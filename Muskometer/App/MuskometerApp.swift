@@ -48,15 +48,7 @@ struct MuskometerApp: App {
             }
 
             CommandGroup(replacing: .appSettings) {
-                Button("Settings…") {
-                    NSApp.activate(ignoringOtherApps: true)
-                    if PopoverVisibility.isVisible {
-                        NotificationCenter.default.post(name: .openMuskometerSettings, object: nil)
-                    } else {
-                        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
-                    }
-                }
-                .keyboardShortcut(",", modifiers: .command)
+                OpenSettingsButton()
             }
         }
 

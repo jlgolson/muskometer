@@ -12,9 +12,11 @@ enum SPCXOwnershipCalculator {
         for table in ["nonDerivativeTable", "derivativeTable"] {
             guard let tableContent = extractBlock(named: table, from: xml) else { continue }
             for block in extractOwnershipBlocks(from: tableContent) {
-                guard let title = block.title, let shares = block.shares, shares > 0 else { continue }
+                guard let title = block.title, let shares = block.shares, shares >= 0 else { continue }
                 let key = BucketKey(title: title, nature: block.nature ?? "")
-                buckets[key] = max(buckets[key] ?? 0, shares)
+                // Last row in document order wins (post-transaction amounts after a sale
+                // can be lower—including full disposal to 0—for the same title/nature).
+                buckets[key] = shares
             }
         }
 

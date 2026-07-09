@@ -36,22 +36,36 @@ echo "PASS: release build"
 
 echo ""
 echo "=== 4. Entitlements on built app ==="
+# Checks the Debug test product (Xcode-signed with entitlements). package-dmg.sh
+# is a separate unsigned path (CODE_SIGNING_ALLOWED=NO) and does not embed
+# sandbox entitlements — see SECURITY.md / docs/RELEASE.md.
 APP=$(find "$TEST_DERIVED/Build/Products/Debug" -name "Muskometer.app" 2>/dev/null | head -1)
 if [[ -z "$APP" ]]; then
   APP=$(find ~/Library/Developer/Xcode/DerivedData/Muskometer-*/Build/Products/Debug -name "Muskometer.app" 2>/dev/null | head -1)
 fi
-if [[ -n "$APP" ]]; then
-  codesign -d --entitlements :- "$APP" 2>/dev/null | grep -E "app-sandbox|network.client" || {
-    echo "WARN: could not verify entitlements"
-  }
-  echo "PASS: app bundle at $APP"
-else
-  echo "WARN: built app not found for entitlements check"
+if [[ -z "$APP" ]]; then
+  echo "FAIL: built app not found for entitlements check"
+  exit 1
 fi
+ENTITLEMENTS=$(codesign -d --entitlements :- "$APP" 2>/dev/null || true)
+if ! echo "$ENTITLEMENTS" | grep -q "app-sandbox"; then
+  echo "FAIL: missing com.apple.security.app-sandbox entitlement"
+  exit 1
+fi
+if ! echo "$ENTITLEMENTS" | grep -q "network.client"; then
+  echo "FAIL: missing com.apple.security.network.client entitlement"
+  exit 1
+fi
+echo "PASS: app-sandbox + network.client on $APP"
 
 echo ""
 echo "=== 5. Live Yahoo API + paper gain math ==="
-python3 <<'PY'
+# Optional in CI: set MUSKOMETER_SKIP_LIVE_YAHOO=1 to avoid flaky external network calls.
+# Local verify runs this step by default (fail on error).
+if [[ "${MUSKOMETER_SKIP_LIVE_YAHOO:-0}" == "1" ]]; then
+  echo "SKIP: live Yahoo API (MUSKOMETER_SKIP_LIVE_YAHOO=1)"
+else
+  python3 <<'PY'
 import json, urllib.request, sys
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -101,7 +115,8 @@ for sym, shares in SHARES.items():
 
 print(f"Combined: ${total/1e9:.1f}B")
 PY
-echo "PASS: live API"
+  echo "PASS: live API"
+fi
 
 echo ""
 echo "=== All automated checks passed ==="

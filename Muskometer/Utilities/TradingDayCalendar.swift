@@ -5,15 +5,8 @@ struct TradingDayCalendar: Sendable {
     let calendar: Calendar
     let timeZone: TimeZone
 
-    private static let dayKeyFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-
     init(
-        calendar: Calendar = .current,
+        calendar: Calendar = Calendar(identifier: .gregorian),
         timeZone: TimeZone = TimeZone(identifier: "America/New_York") ?? .current
     ) {
         var configured = calendar
@@ -22,12 +15,19 @@ struct TradingDayCalendar: Sendable {
         self.timeZone = timeZone
     }
 
-    /// Returns the Eastern calendar day key for `date`.
-    func dayKey(for date: Date) -> String {
-        let formatter = Self.dayKeyFormatter
+    /// `DateFormatter` is not thread-safe; create a fresh instance per call with fixed locale/format.
+    private func makeDayKeyFormatter() -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
         formatter.calendar = calendar
         formatter.timeZone = timeZone
-        return formatter.string(from: date)
+        return formatter
+    }
+
+    /// Returns the Eastern calendar day key for `date`.
+    func dayKey(for date: Date) -> String {
+        makeDayKeyFormatter().string(from: date)
     }
 
     func isSameTradingDay(_ lhs: Date, _ rhs: Date) -> Bool {
@@ -36,10 +36,7 @@ struct TradingDayCalendar: Sendable {
 
     /// Start of the Eastern calendar day for `dayKey`.
     func startOfDay(for dayKey: String) -> Date? {
-        let formatter = Self.dayKeyFormatter
-        formatter.calendar = calendar
-        formatter.timeZone = timeZone
-        guard let day = formatter.date(from: dayKey) else { return nil }
+        guard let day = makeDayKeyFormatter().date(from: dayKey) else { return nil }
         return calendar.startOfDay(for: day)
     }
 
@@ -55,10 +52,11 @@ struct TradingDayCalendar: Sendable {
         return calendar.date(from: components)
     }
 
-    /// A trading day is complete once regular market hours have ended for that Eastern day.
+    /// A trading day is complete once the post-market session has ended for that Eastern day (20:00 ET).
+    /// Daily best/worst may still update while post-market quotes are live (16:00–20:00 ET).
     func hasTradingDayCompleted(dayKey: String, at date: Date, marketHours: any MarketHoursServiceProtocol) -> Bool {
-        guard let marketClose = self.date(on: dayKey, hour: 16, minute: 0) else { return false }
-        return date >= marketClose && !marketHours.isMarketOpen(at: date)
+        guard let postMarketClose = self.date(on: dayKey, hour: 20, minute: 0) else { return false }
+        return date >= postMarketClose && !marketHours.isMarketOpen(at: date)
     }
 
 }

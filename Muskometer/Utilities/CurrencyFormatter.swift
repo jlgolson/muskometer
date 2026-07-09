@@ -78,19 +78,36 @@ enum CurrencyFormatter {
     }
 
     static func formatShareCount(_ value: Int64) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = ","
+        let formatter = makeDecimalFormatter(minimumFractionDigits: 0, maximumFractionDigits: 0)
         return formatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 
+    /// Fixed US-style separators (`,` thousands, `.` decimal) regardless of device locale.
     private static func formatNumber(_ value: Double, decimals: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = decimals
-        formatter.maximumFractionDigits = decimals
-        formatter.groupingSeparator = ","
+        let formatter = makeDecimalFormatter(
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        )
         return formatter.string(from: NSNumber(value: value)) ?? String(format: "%.\(decimals)f", value)
+    }
+
+    private static func makeDecimalFormatter(
+        minimumFractionDigits: Int,
+        maximumFractionDigits: Int
+    ) -> NumberFormatter {
+        let formatter = NumberFormatter()
+        // en_US_POSIX: independent of user locale for minus prefix and base decimal rules.
+        // Grouping is off by default under POSIX — enable it and pin separators explicitly.
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.numberStyle = .decimal
+        formatter.usesGroupingSeparator = true
+        formatter.groupingSeparator = ","
+        formatter.decimalSeparator = "."
+        // Avoid banker's rounding (e.g. 12.345 → 12.34); half-up yields 12.35.
+        formatter.roundingMode = .halfUp
+        formatter.minimumFractionDigits = minimumFractionDigits
+        formatter.maximumFractionDigits = maximumFractionDigits
+        return formatter
     }
 
     enum CompactStyle {

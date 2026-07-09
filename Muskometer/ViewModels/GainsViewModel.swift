@@ -22,6 +22,8 @@ final class GainsViewModel {
     private(set) var activeMilestone: NetWorthMilestone?
     private(set) var trillionEasterEggMessage: String?
     private(set) var enabledNotificationThresholdIDs: Set<String>
+    /// Shown when the user enables a gain threshold but notification auth is denied.
+    private(set) var notificationAuthorizationMessage: String?
 
     let settings: AppSettings
     let updateCoordinator: UpdateCoordinator
@@ -85,16 +87,38 @@ final class GainsViewModel {
 
             await self.refresh()
 
+            // After the initial refresh, treat current quotability as "already refreshed this session"
+            // so the first open-session loop iteration sleeps between refreshes (no double-refresh).
+            // When off-market sleep ends into a quotable session, wasQuotable is false and we
+            // refresh immediately instead of sleeping another full open-session interval.
+            var wasQuotable = self.marketHours.isQuotable(at: self.dateProvider())
+
             while !Task.isCancelled {
-                guard self.marketHours.isQuotable(at: self.dateProvider()) else {
+                let isQuotable = self.marketHours.isQuotable(at: self.dateProvider())
+                let timing = Self.openSessionRefreshTiming(isQuotable: isQuotable, wasQuotable: wasQuotable)
+
+                if timing == .waitOffMarket {
+                    wasQuotable = false
+                    // Keep sparkline in sync with the store without a full quote refresh.
+                    // loadSamples drops prior-day samples after ET rollover (always-open overnight).
+                    self.syncIntradaySamplesFromStore()
                     let sleepSeconds = self.offMarketSleepInterval()
                     try? await Task.sleep(for: .seconds(sleepSeconds))
+                    guard !Task.isCancelled else { break }
+                    // Day may have rolled while sleeping until the next session.
+                    self.syncIntradaySamplesFromStore()
                     continue
                 }
 
-                let interval = self.refreshSleepInterval()
-                try? await Task.sleep(for: .seconds(interval))
-                guard !Task.isCancelled else { break }
+                // Sleep only between consecutive open-session refreshes.
+                // Skip when first entering a quotable session after off-market wait.
+                if timing == .sleepThenRefresh {
+                    let interval = self.refreshSleepInterval()
+                    try? await Task.sleep(for: .seconds(interval))
+                    guard !Task.isCancelled else { break }
+                }
+
+                wasQuotable = true
 
                 if self.settings.needsHoldingsSync {
                     await self.syncHoldingsIfNeeded()
@@ -193,6 +217,7 @@ final class GainsViewModel {
         do {
             let service = holdingsSyncServiceFactory(profile)
             let result = try await service.syncHoldings()
+            // applyHoldingsSync records lastHoldingsSyncAttemptAt for complete and partial.
             let syncComplete = settings.applyHoldingsSync(result)
 
             if syncComplete {
@@ -203,6 +228,8 @@ final class GainsViewModel {
                     await refresh(force: true)
                 }
             } else {
+                // Partial sync does not change share counts — message only, no refresh.
+                // Attempt is recorded so auto-retry waits holdingsSyncInterval (not every quote cycle).
                 let found = result.sharesBySymbol.keys
                     .filter { expectedSymbols.contains($0) }
                     .sorted()
@@ -212,12 +239,10 @@ final class GainsViewModel {
                 } else {
                     holdingsSyncMessage = "SEC sync incomplete — will retry later (\(found.joined(separator: ", ")) found)."
                 }
-
-                if !found.isEmpty, snapshot != nil {
-                    await refresh(force: true)
-                }
             }
         } catch {
+            // Record failed attempts so network errors also back off for 24h.
+            settings.recordHoldingsSyncAttempt()
             holdingsSyncMessage = "SEC sync failed: \(error.localizedDescription)"
         }
     }
@@ -344,11 +369,39 @@ final class GainsViewModel {
         var ids = gainThresholdNotificationService.enabledThresholdIDs(for: settings.selectedPersonID)
         if enabled {
             ids.insert(thresholdID)
+            Task { @MainActor in
+                let granted = await NotificationAuthorization.requestIfNeeded()
+                // Clear any prior denied hint when permission is granted.
+                notificationAuthorizationMessage = granted ? nil : NotificationAuthorization.deniedHint
+            }
         } else {
             ids.remove(thresholdID)
+            // Clear denied-authorization hint only when no thresholds remain enabled.
+            // If others stay on and auth is still denied, keep the existing hint.
+            if ids.isEmpty {
+                notificationAuthorizationMessage = nil
+            }
         }
         gainThresholdNotificationService.setEnabledThresholdIDs(ids, for: settings.selectedPersonID)
         enabledNotificationThresholdIDs = ids
+    }
+
+    /// Refreshes the denied-auth hint when any gain threshold is enabled (e.g. Alerts tab appear).
+    /// Uses `requestIfNeeded`, which only prompts when status is notDetermined.
+    func refreshNotificationAuthorizationMessageIfNeeded() {
+        guard !enabledNotificationThresholdIDs.isEmpty else {
+            notificationAuthorizationMessage = nil
+            return
+        }
+        Task { @MainActor in
+            let granted = await NotificationAuthorization.requestIfNeeded()
+            // Thresholds may have been cleared while awaiting auth status.
+            guard !enabledNotificationThresholdIDs.isEmpty else {
+                notificationAuthorizationMessage = nil
+                return
+            }
+            notificationAuthorizationMessage = granted ? nil : NotificationAuthorization.deniedHint
+        }
     }
 
     private func processSnapshotSideEffects(_ snapshot: GainsSnapshot) async {
@@ -435,6 +488,13 @@ final class GainsViewModel {
         lastComparisonStateByPerson[personID] = (dayKey: dayKey, bucket: bucket, isGain: isGain)
     }
 
+    /// Reloads display samples from the store for the selected person.
+    /// Clears the sparkline when the store's ET day key has rolled (no quote fetch).
+    func syncIntradaySamplesFromStore() {
+        let personID = settings.selectedPersonID
+        intradaySamples = intradayGainSampleStore.loadSamples(for: personID)
+    }
+
     private func offMarketSleepInterval() -> TimeInterval {
         let now = dateProvider()
         if let nextOpen = marketHours.nextOpenDate(from: now) {
@@ -452,6 +512,24 @@ final class GainsViewModel {
         case .regular, .closed:
             return userInterval
         }
+    }
+
+    /// Timing for one iteration of the live refresh loop after evaluating market quotability.
+    nonisolated enum OpenSessionRefreshTiming: Equatable {
+        /// Market not quotable — wait off-market, then re-evaluate (do not refresh).
+        case waitOffMarket
+        /// First cycle of a quotable session — refresh without pre-sleep.
+        case refreshImmediately
+        /// Subsequent open-session cycles — sleep the interval, then refresh.
+        case sleepThenRefresh
+    }
+
+    /// Decides whether to sleep before the next open-session refresh.
+    /// Skip the pre-refresh sleep when first entering a quotable session (e.g. after
+    /// off-market wait ends at pre-market/open, or always-open overnight wake at open).
+    nonisolated static func openSessionRefreshTiming(isQuotable: Bool, wasQuotable: Bool) -> OpenSessionRefreshTiming {
+        guard isQuotable else { return .waitOffMarket }
+        return wasQuotable ? .sleepThenRefresh : .refreshImmediately
     }
 
     enum GainColor {

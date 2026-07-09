@@ -3,6 +3,9 @@ import Foundation
 /// Fetches reported share counts from recent SEC Form 4 filings for a tracked person profile.
 /// SEC requires a descriptive User-Agent: https://www.sec.gov/os/accessing-edgar-data
 final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Sendable {
+    /// Max Form 4 / 4A accessions to scan per sync. Higher than a short TSLA-heavy window so rarer issuers (e.g. SPCX) still surface; walk still stops early once all expected symbols are found.
+    static let maxForm4AccessionsToScan = 100
+
     private let profile: TrackedPersonProfile
     private let expectedSymbols: Set<String>
     private let session: URLSession
@@ -16,8 +19,13 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
         self.session = session
     }
 
+    /// Whether an EDGAR form type is a Form 4, including amendments (`4/A`).
+    static func isForm4Filing(_ form: String) -> Bool {
+        form == "4" || form == "4/A"
+    }
+
     func syncHoldings() async throws -> HoldingsSyncResult {
-        let accessions = try await fetchRecentForm4Accessions(limit: 25)
+        let accessions = try await fetchRecentForm4Accessions(limit: Self.maxForm4AccessionsToScan)
         var sharesBySymbol: [String: Int64] = [:]
 
         for (index, accession) in accessions.enumerated() {
@@ -63,7 +71,7 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
 
         for index in recent.form.indices {
             guard index < recent.accessionNumber.count else { continue }
-            guard recent.form[index] == "4" else { continue }
+            guard Self.isForm4Filing(recent.form[index]) else { continue }
             accessions.append(recent.accessionNumber[index])
             if accessions.count >= limit { break }
         }

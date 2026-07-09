@@ -42,7 +42,7 @@ final class NetWorthMilestoneTracker {
         defaults.set(newZone.rawValue, forKey: Self.zoneKey(personID: personID))
 
         switch (previousZone, newZone) {
-        case (.belowOneTrillion, .aboveOneTrillion), (.belowOneTrillion, .aboveTwoTrillion):
+        case (.belowOneTrillion, .aboveOneTrillion):
             return .celebration(
                 NetWorthMilestone(
                     id: "trillion-up-\(Int(date.timeIntervalSince1970))",
@@ -51,7 +51,8 @@ final class NetWorthMilestoneTracker {
                 )
             )
 
-        case (.aboveOneTrillion, .aboveTwoTrillion):
+        // Prefer the highest threshold when both $1T and $2T are crossed in one jump.
+        case (.belowOneTrillion, .aboveTwoTrillion), (.aboveOneTrillion, .aboveTwoTrillion):
             return .celebration(
                 NetWorthMilestone(
                     id: "two-trillion-up-\(Int(date.timeIntervalSince1970))",

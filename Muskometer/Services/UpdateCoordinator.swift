@@ -25,6 +25,8 @@ final class UpdateCoordinator {
     private(set) var lastCheckError: String?
     private(set) var manualCheckSummary: String?
     private(set) var availableUpdate: UpdateCheckResult?
+    /// Shown when update notify is enabled but notification auth is denied.
+    private(set) var notificationAuthorizationMessage: String?
 
     private let settings: AppSettings
     private let defaults: UserDefaults
@@ -60,6 +62,12 @@ final class UpdateCoordinator {
             return
         }
 
+        Task { @MainActor [weak self] in
+            let granted = await NotificationAuthorization.requestIfNeeded()
+            guard let self, self.settings.notifyOfAvailableUpdates else { return }
+            self.notificationAuthorizationMessage = granted ? nil : NotificationAuthorization.deniedHint
+        }
+
         scheduleBackgroundChecksIfNeeded()
 
         guard checkTask == nil else { return }
@@ -75,6 +83,7 @@ final class UpdateCoordinator {
         scheduler?.invalidate()
         scheduler = nil
         isSchedulerActive = false
+        notificationAuthorizationMessage = nil
     }
 
     static func resetNotificationDebounce(defaults: UserDefaults = .standard) {
@@ -116,7 +125,12 @@ final class UpdateCoordinator {
         case .notifyOnly:
             return githubChecker
         case .automatic:
-            return sparkleDriver
+            // SparkleUpdateDriver is still a permanent no-op stub (always nil).
+            // Fall back to the GitHub notify checker so automatic mode never
+            // falsely reports "you're on the latest." Re-route to sparkleDriver
+            // when Sparkle SPM is actually integrated.
+            _ = sparkleDriver
+            return githubChecker
         }
     }
 
@@ -163,7 +177,9 @@ final class UpdateCoordinator {
 
     private func shouldNotify(for result: UpdateCheckResult) -> Bool {
         guard settings.notifyOfAvailableUpdates else { return false }
-        guard settings.updateDeliveryMode == .notifyOnly else { return false }
+        // Both delivery modes use the GitHub notify path until Sparkle can
+        // actually install updates. Do not suppress notifications for
+        // `.automatic` — that mode is currently check-only via GitHub.
 
         let lastVersion = defaults.string(forKey: Keys.lastNotifiedAvailableVersion)
         let lastNotifiedAt = defaults.double(forKey: Keys.lastNotifiedAt)

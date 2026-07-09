@@ -3066,8 +3066,8 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
 }
 
 final class ComparisonLibraryTests: XCTestCase {
-    func testLibraryHasAtLeastSixtyEntries() {
-        XCTAssertGreaterThanOrEqual(ComparisonLibrary.entries.count, 60)
+    func testLibraryHasAtLeastFiveHundredEntries() {
+        XCTAssertGreaterThanOrEqual(ComparisonLibrary.entries.count, 500)
     }
 
     func testEntriesUseTenBillionBuckets() {
@@ -3082,6 +3082,25 @@ final class ComparisonLibraryTests: XCTestCase {
         XCTAssertTrue(bucketStarts.contains(70))
     }
 
+    func testEachBucketHasAtLeastFiftyEntries() {
+        let buckets: [(min: Double, max: Double)] = [
+            (0, 10), (10, 20), (20, 30), (30, 40),
+            (40, 50), (50, 60), (60, 70), (70, 1_000),
+        ]
+        for bucket in buckets {
+            let minMag = bucket.min * 1_000_000_000
+            let maxMag = bucket.max * 1_000_000_000
+            let count = ComparisonLibrary.entries.filter {
+                $0.minMagnitude == minMag && $0.maxMagnitude == maxMag
+            }.count
+            XCTAssertGreaterThanOrEqual(
+                count,
+                50,
+                "Bucket \(Int(bucket.min))–\(Int(bucket.max))B too thin (\(count))"
+            )
+        }
+    }
+
     func testCandidatesMatchMagnitudeBucket() {
         let candidates = ComparisonLibrary.candidates(forMagnitude: 15_000_000_000)
         XCTAssertFalse(candidates.isEmpty)
@@ -3092,6 +3111,73 @@ final class ComparisonLibraryTests: XCTestCase {
         let entry = ComparisonLibrary.entries.first!
         XCTAssertTrue(entry.line(forGain: 5_000_000_000).text.hasPrefix("Today's gain "))
         XCTAssertTrue(entry.line(forGain: -5_000_000_000).text.hasPrefix("Today's loss "))
+        XCTAssertTrue(entry.line(forGain: 0).text.hasPrefix("Today's move "))
+    }
+
+    func testPolarityAwareBodiesForSpendMetaphors() throws {
+        let debt = try XCTUnwrap(ComparisonLibrary.entries.first { $0.id == "econ-11" })
+        let gainLine = debt.line(forGain: 15_000_000_000)
+        let lossLine = debt.line(forGain: -15_000_000_000)
+
+        XCTAssertTrue(gainLine.text.contains("could wipe out the student debt"))
+        XCTAssertTrue(lossLine.text.contains("equals the student debt"))
+        XCTAssertFalse(lossLine.text.contains("could wipe out"))
+        XCTAssertEqual(gainLine.highlight, "400,000")
+        XCTAssertEqual(lossLine.highlight, "400,000")
+    }
+
+    func testStreamingEntryHasLossSafeCopy() throws {
+        let entry = try XCTUnwrap(ComparisonLibrary.entries.first { $0.id == "ent-60" })
+        let gainLine = entry.line(forGain: 65_000_000_000)
+        let lossLine = entry.line(forGain: -65_000_000_000)
+
+        XCTAssertTrue(gainLine.text.contains("could run every major streaming service at a loss"))
+        XCTAssertTrue(lossLine.text.contains("matches a quarter of operating losses"))
+        XCTAssertFalse(lossLine.text.contains("could run every major streaming service at a loss"))
+    }
+
+    func testPolaritySafeEntriesShareBody() throws {
+        let entry = try XCTUnwrap(ComparisonLibrary.entries.first { $0.id == "econ-01" })
+        XCTAssertEqual(entry.gainText, entry.lossText)
+        let gainBody = entry.line(forGain: 5_000_000_000).text
+        let lossBody = entry.line(forGain: -5_000_000_000).text
+        XCTAssertTrue(gainBody.hasSuffix(entry.gainText))
+        XCTAssertTrue(lossBody.hasSuffix(entry.lossText))
+    }
+
+    func testLossBodiesAvoidSpendVerbsWhenGainUsesThem() {
+        let spendPatterns = [
+            "could wipe out", "could fund", "could pay", "could buy", "could bankroll",
+            "would buy", "would pay for", "would fund", "would cover", "could acquire",
+            "could produce", "could launch", "could build", "could modernize", "could rebuild",
+            "could vaccinate", "could reforest", "could rewild", "could restore", "could tunnel",
+            "could bury", "could lay", "could repave", "could fuel", "could seed",
+            "could underwrite", "could zero out", "could erase", "could end", "could run every",
+        ]
+        for entry in ComparisonLibrary.entries where entry.gainText != entry.lossText {
+            for pattern in spendPatterns {
+                XCTAssertFalse(
+                    entry.lossText.contains(pattern),
+                    "\(entry.id) lossText still spends: \(entry.lossText)"
+                )
+            }
+        }
+    }
+
+    func testHighlightsAppearInCorrespondingBodies() {
+        for entry in ComparisonLibrary.entries {
+            if let h = entry.gainHighlight {
+                XCTAssertTrue(entry.gainText.contains(h), "\(entry.id) gainHighlight missing from gainText")
+            }
+            if let h = entry.lossHighlight {
+                XCTAssertTrue(entry.lossText.contains(h), "\(entry.id) lossHighlight missing from lossText")
+            }
+        }
+    }
+
+    func testEntryIDsAreUnique() {
+        let ids = ComparisonLibrary.entries.map(\.id)
+        XCTAssertEqual(ids.count, Set(ids).count)
     }
 
     func testSports01UsesSportsCategory() {

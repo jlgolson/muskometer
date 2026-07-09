@@ -119,9 +119,10 @@ final class YahooFinanceStockPriceService: StockPriceServiceProtocol, @unchecked
 
 /// Maps Yahoo Finance chart meta `marketState` strings to local `TradingSession`.
 ///
-/// Known Yahoo values include PRE, REGULAR, POST, CLOSED, PREPRE, POSTPOST,
-/// HOLIDAY, and BREAK. Returns `nil` when the value is missing or unrecognized
-/// so callers can fall back to local market hours.
+/// RTH-only: only `REGULAR` maps to `.regular`. PRE/POST/PREPRE/POSTPOST and other
+/// non-regular states map to `.closed` so extended-hours price fields are never selected.
+/// Returns `nil` when the value is missing or unrecognized so callers can fall back
+/// to local market hours.
 enum YahooMarketStateMapper {
     static func tradingSession(from marketState: String?) -> TradingSession? {
         guard let raw = marketState?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -130,13 +131,9 @@ enum YahooMarketStateMapper {
         }
 
         switch raw.uppercased() {
-        case "PRE":
-            return .preMarket
         case "REGULAR":
             return .regular
-        case "POST":
-            return .postMarket
-        case "CLOSED", "PREPRE", "POSTPOST", "HOLIDAY", "BREAK":
+        case "PRE", "POST", "CLOSED", "PREPRE", "POSTPOST", "HOLIDAY", "BREAK":
             return .closed
         default:
             return nil

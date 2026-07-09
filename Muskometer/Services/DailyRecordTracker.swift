@@ -159,7 +159,7 @@ final class DailyRecordTracker {
             return
         }
 
-        // A later ET calendar day implies the prior day's post-market session has ended,
+        // A later ET calendar day implies the prior trading day is complete,
         // even if the market is open again on the new day (hasTradingDayCompleted would
         // otherwise return false because isMarketOpen is true).
         let nowDayKey = calendar.dayKey(for: date)

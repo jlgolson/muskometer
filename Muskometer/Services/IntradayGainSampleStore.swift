@@ -1,6 +1,10 @@
 import Foundation
 
-/// Persists intraday combined paper-gain samples for the current US/Eastern trading day.
+/// Persists intraday combined paper-gain samples for the most recent US/Eastern RTH session.
+///
+/// Samples are recorded only while the market is quotable (regular session). After the session
+/// ends — including overnight past ET midnight — the last completed session's samples remain
+/// available for display/share until the next RTH day appends its first sample.
 @MainActor
 final class IntradayGainSampleStore {
     static let maxSampleCount = 400
@@ -18,6 +22,7 @@ final class IntradayGainSampleStore {
     private let marketHours: any MarketHoursServiceProtocol
     private let now: () -> Date
     private var activePersonID: String?
+    /// ET calendar day key of the RTH session that produced `samples`.
     private var currentDayKey: String
 
     init(
@@ -36,13 +41,20 @@ final class IntradayGainSampleStore {
         self.currentDayKey = Self.dayKey(for: now(), calendar: calendar)
     }
 
-    /// Records a sample during quotable US equity hours. Clears prior samples on ET day rollover.
+    /// Records a sample during quotable US equity hours.
+    ///
+    /// On the first sample of a new RTH trading day (ET day key), clears prior-session samples
+    /// and starts a fresh series. Non-quotable times never append and never wipe stored samples.
     func append(personID: String, combinedPaperGain: Double, at date: Date = .now) {
-        loadStateIfNeeded(for: personID, referenceDate: date)
+        loadStateIfNeeded(for: personID)
 
-        // Day rollover (and persistence of empty state) runs even when closed so sparklines
-        // do not keep yesterday's samples overnight / across non-quotable refreshes.
         guard marketHours.isQuotable(at: date) else { return }
+
+        let sampleDayKey = Self.dayKey(for: date, calendar: calendar)
+        if sampleDayKey != currentDayKey {
+            samples = []
+            currentDayKey = sampleDayKey
+        }
 
         samples.append(GainSample(timestamp: date, combinedPaperGain: combinedPaperGain))
 
@@ -53,15 +65,18 @@ final class IntradayGainSampleStore {
         persist(for: personID)
     }
 
+    /// Returns stored samples for display, including the last completed RTH session overnight.
+    ///
+    /// Does **not** clear samples when the ET calendar day advances while the market is closed.
     func loadSamples(for personID: String) -> [GainSample] {
-        loadStateIfNeeded(for: personID, referenceDate: now())
+        loadStateIfNeeded(for: personID)
         return samples
     }
 
     /// Clears the in-memory person cache and reloads samples from `UserDefaults`.
     func reloadFromDefaults(for personID: String) {
         activePersonID = nil
-        loadStateIfNeeded(for: personID, referenceDate: now())
+        loadStateIfNeeded(for: personID)
     }
 
     nonisolated static func resetPersistedState(for personID: String, defaults: UserDefaults = .standard) {
@@ -71,32 +86,20 @@ final class IntradayGainSampleStore {
         }
     }
 
-    private func loadStateIfNeeded(for personID: String, referenceDate: Date) {
-        if activePersonID != personID {
-            Self.migrateLegacyIfNeeded(defaults: defaults, personID: personID)
+    private func loadStateIfNeeded(for personID: String) {
+        guard activePersonID != personID else { return }
 
-            if let stored = Self.loadState(from: defaults, personID: personID) {
-                samples = stored.samples
-                currentDayKey = stored.dayKey
-            } else {
-                samples = []
-                currentDayKey = Self.dayKey(for: referenceDate, calendar: calendar)
-            }
+        Self.migrateLegacyIfNeeded(defaults: defaults, personID: personID)
 
-            activePersonID = personID
+        if let stored = Self.loadState(from: defaults, personID: personID) {
+            samples = stored.samples
+            currentDayKey = stored.dayKey
+        } else {
+            samples = []
+            currentDayKey = Self.dayKey(for: now(), calendar: calendar)
         }
 
-        ensureCurrentDayState(at: referenceDate, personID: personID)
-    }
-
-    /// Drops samples when `referenceDate` is a different ET calendar day than `currentDayKey`.
-    private func ensureCurrentDayState(at referenceDate: Date, personID: String) {
-        let dayKey = Self.dayKey(for: referenceDate, calendar: calendar)
-        guard dayKey != currentDayKey else { return }
-
-        samples = []
-        currentDayKey = dayKey
-        persist(for: personID)
+        activePersonID = personID
     }
 
     private func persist(for personID: String) {

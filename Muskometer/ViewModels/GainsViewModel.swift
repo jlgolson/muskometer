@@ -100,12 +100,12 @@ final class GainsViewModel {
                 if timing == .waitOffMarket {
                     wasQuotable = false
                     // Keep sparkline in sync with the store without a full quote refresh.
-                    // loadSamples drops prior-day samples after ET rollover (always-open overnight).
+                    // Overnight load retains the last completed RTH session's samples for share/display.
                     self.syncIntradaySamplesFromStore()
                     let sleepSeconds = self.offMarketSleepInterval()
                     try? await Task.sleep(for: .seconds(sleepSeconds))
                     guard !Task.isCancelled else { break }
-                    // Day may have rolled while sleeping until the next session.
+                    // Still off-market: store keeps prior RTH samples until the next session appends.
                     self.syncIntradaySamplesFromStore()
                     continue
                 }
@@ -484,7 +484,7 @@ final class GainsViewModel {
     }
 
     /// Reloads display samples from the store for the selected person.
-    /// Clears the sparkline when the store's ET day key has rolled (no quote fetch).
+    /// Retains the last completed RTH session overnight; new-day clear happens on the first RTH append.
     func syncIntradaySamplesFromStore() {
         let personID = settings.selectedPersonID
         intradaySamples = intradayGainSampleStore.loadSamples(for: personID)
@@ -498,15 +498,9 @@ final class GainsViewModel {
         return 300
     }
 
+    /// Settings interval during the regular session. Pre/post are not quotable (RTH-only).
     private func refreshSleepInterval() -> TimeInterval {
-        let session = marketHours.currentSession(at: dateProvider())
-        let userInterval = TimeInterval(settings.refreshIntervalSeconds)
-        switch session {
-        case .preMarket, .postMarket:
-            return max(userInterval, 180)
-        case .regular, .closed:
-            return userInterval
-        }
+        TimeInterval(settings.refreshIntervalSeconds)
     }
 
     /// Timing for one iteration of the live refresh loop after evaluating market quotability.
@@ -521,7 +515,7 @@ final class GainsViewModel {
 
     /// Decides whether to sleep before the next open-session refresh.
     /// Skip the pre-refresh sleep when first entering a quotable session (e.g. after
-    /// off-market wait ends at pre-market/open, or always-open overnight wake at open).
+    /// off-market wait ends at regular open, or always-open overnight wake at open).
     nonisolated static func openSessionRefreshTiming(isQuotable: Bool, wasQuotable: Bool) -> OpenSessionRefreshTiming {
         guard isQuotable else { return .waitOffMarket }
         return wasQuotable ? .sleepThenRefresh : .refreshImmediately

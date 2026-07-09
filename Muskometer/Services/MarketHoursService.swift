@@ -1,13 +1,17 @@
 import Foundation
 
 enum TradingSession: Equatable, Sendable {
+    /// Kept for API compatibility; never emitted by `MarketHoursService.currentSession`.
     case preMarket
     case regular
+    /// Kept for API compatibility; never emitted by `MarketHoursService.currentSession`.
     case postMarket
     case closed
 
+    /// Live quotes / auto-refresh only during the regular session (RTH).
+    /// Pre-market and post-market are treated as closed for product purposes.
     var isQuotable: Bool {
-        self != .closed
+        self == .regular
     }
 }
 
@@ -17,6 +21,9 @@ protocol MarketHoursServiceProtocol: Sendable {
     func isMarketOpen(at date: Date) -> Bool
     func nextOpenDate(from date: Date) -> Date?
     func lastMarketClose(from date: Date) -> Date?
+    /// Regular-session close for the Eastern calendar day of `day` (16:00 ET, or early close).
+    /// Returns `nil` when `day` is not a trading day.
+    func regularCloseDate(on day: Date) -> Date?
 }
 
 extension MarketHoursServiceProtocol {
@@ -39,17 +46,33 @@ extension MarketHoursServiceProtocol {
     func lastMarketClose() -> Date? {
         lastMarketClose(from: .now)
     }
+
+    /// Default 16:00 ET close for mocks/stubs that do not model early closes.
+    func regularCloseDate(on day: Date) -> Date? {
+        var calendar = Calendar(identifier: .gregorian)
+        let timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        calendar.timeZone = timeZone
+        var components = calendar.dateComponents([.year, .month, .day], from: day)
+        components.hour = 16
+        components.minute = 0
+        components.second = 0
+        components.timeZone = timeZone
+        return calendar.date(from: components)
+    }
 }
 
+/// US equity market hours limited to **regular trading hours (RTH)** only.
+///
+/// Quotable / live prices / auto-refresh apply only 9:30–16:00 ET (or early close).
+/// Pre-market (4:00–9:30) and post-market (close–20:00) are treated as closed —
+/// same as overnight for product purposes.
 struct MarketHoursService: MarketHoursServiceProtocol {
     private enum SessionMinutes {
-        static let preMarketOpen = 4 * 60
         static let regularOpen = 9 * 60 + 30
         /// Standard regular-session close (4:00 PM ET).
         static let regularClose = 16 * 60
         /// Typical NYSE early close (1:00 PM ET).
         static let earlyClose = 13 * 60
-        static let postMarketClose = 20 * 60
     }
 
     /// NYSE early-close days → regular-session end as minutes since midnight ET.
@@ -75,21 +98,16 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         self.timeZone = timeZone
     }
 
+    /// Returns `.regular` only during RTH; `.closed` otherwise (including pre/post).
+    /// Does not emit `.preMarket` / `.postMarket` — those cases remain on the enum for API compatibility only.
     func currentSession(at date: Date = .now) -> TradingSession {
         guard isTradingDay(date) else { return .closed }
 
         let minutes = minutesSinceMidnight(on: date)
         let regularClose = regularCloseMinutes(on: date)
 
-        if minutes >= SessionMinutes.preMarketOpen, minutes < SessionMinutes.regularOpen {
-            return .preMarket
-        }
         if minutes >= SessionMinutes.regularOpen, minutes < regularClose {
             return .regular
-        }
-        // Post-market runs from regular (or early) close until 20:00 ET.
-        if minutes >= regularClose, minutes < SessionMinutes.postMarketClose {
-            return .postMarket
         }
         return .closed
     }
@@ -102,11 +120,12 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         currentSession(at: date) == .regular
     }
 
+    /// Next regular open (9:30 ET) on a trading day. `nil` when already in a quotable (RTH) session.
     func nextOpenDate(from date: Date = .now) -> Date? {
         if isQuotable(at: date) { return nil }
 
-        if let preMarketOpen = preMarketOpen(on: date), date < preMarketOpen {
-            return preMarketOpen
+        if let open = regularOpen(on: date), date < open {
+            return open
         }
 
         var day = calendar.startOfDay(for: date)
@@ -117,7 +136,7 @@ struct MarketHoursService: MarketHoursServiceProtocol {
             }
             day = nextDay
 
-            if let open = preMarketOpen(on: day) {
+            if let open = regularOpen(on: day) {
                 return open
             }
         }
@@ -125,6 +144,7 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         return nil
     }
 
+    /// Most recent regular-session close (16:00 ET, or early close when applicable).
     func lastMarketClose(from date: Date) -> Date? {
         var day = calendar.startOfDay(for: date)
 
@@ -145,6 +165,12 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         return nil
     }
 
+    /// Regular-session close for the Eastern calendar day of `day` (16:00 ET, or early close).
+    /// Returns `nil` when `day` is not a trading day.
+    func regularCloseDate(on day: Date) -> Date? {
+        marketCloseIfTradingDay(on: day)
+    }
+
     private func isTradingDay(_ date: Date) -> Bool {
         let weekday = calendar.component(.weekday, from: date)
         guard weekday != 1, weekday != 7 else { return false }
@@ -162,12 +188,12 @@ struct MarketHoursService: MarketHoursServiceProtocol {
         Self.earlyCloses[dayKey(for: date)] ?? SessionMinutes.regularClose
     }
 
-    private func preMarketOpen(on day: Date) -> Date? {
+    private func regularOpen(on day: Date) -> Date? {
         guard isTradingDay(day) else { return nil }
 
         var components = calendar.dateComponents([.year, .month, .day], from: day)
-        components.hour = 4
-        components.minute = 0
+        components.hour = 9
+        components.minute = 30
         components.second = 0
         components.timeZone = timeZone
 

@@ -22,7 +22,7 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 | `ViewModels/GainsViewModel.swift` | Core state machine + refresh loop |
 | `Services/YahooFinanceStockPriceService.swift` | Chart API → `StockQuote` |
 | `Services/SECHoldingsSyncService.swift` | EDGAR Form 4 → TSLA/SPCX share counts |
-| `Services/MarketHoursService.swift` | Pre/regular/post sessions (4:00–20:00 ET), weekends, US market holidays + early closes |
+| `Services/MarketHoursService.swift` | RTH-only sessions (9:30–16:00 ET), weekends, US market holidays + early closes |
 | `Utilities/SPCXHoldings.swift` | Default SPCX share count + legacy migration |
 | `Utilities/AppSettings.swift` | Holdings, refresh interval, launch at login |
 
@@ -85,11 +85,9 @@ flowchart LR
 2. **SEC sync** if `AppSettings.needsHoldingsSync` (default: once per 24h).
 3. **First refresh** runs immediately on start (quotes for all holding symbols in parallel → `GainsSnapshot`).
 4. Loop until `stop()` on app terminate, using `openSessionRefreshTiming(isQuotable:wasQuotable:)`:
-   - **Quotable sessions** (pre / regular / post): after the first refresh of a session, sleep then refresh.
-     - **Regular:** sleep user interval (60–120s from Settings).
-     - **Pre/post:** sleep `max(userInterval, 180)`.
-   - **Off hours:** sleep until next open (`max(timeUntilOpen, 60)`; fallback 300s if no next open), set `wasQuotable = false`, then on the next quotable tick **refresh immediately** (no extra pre-sleep).
-5. Subsequent open-session cycles sleep the interval above, then refresh again.
+   - **Quotable (regular session only, 9:30–16:00 ET / early close):** after the first refresh of a session, sleep the user interval (60–120s from Settings), then refresh.
+   - **Off hours** (including pre/post): sleep until next regular open (`max(timeUntilOpen, 60)`; fallback 300s if no next open), set `wasQuotable = false`, then on the next quotable tick **refresh immediately** (no extra pre-sleep).
+5. Subsequent open-session cycles sleep the user interval, then refresh again.
 
 Force refresh (`⌘R`) bypasses the in-flight guard and increments a generation token to drop stale responses.
 
@@ -107,7 +105,7 @@ The same service keeps a small **early-close map** (date → regular-session end
 | 2026-12-24 | Christmas Eve |
 | 2027-11-26 | Day after Thanksgiving |
 
-On early-close days, regular session ends at the early hour (not 16:00); **post-market still runs until 20:00 ET**, then closed. Daily records still finalize at post-market 20:00 for simplicity. Without this map, afternoon hours on early-close days would be treated as regular session (wrong price field / refresh cadence).
+On early-close days, regular session ends at the early hour (not 16:00); everything after is **closed** (RTH-only — no post-market refresh). Daily records finalize at regular close (or early close). Without this map, afternoon hours on early-close days would be treated as regular session (wrong refresh cadence).
 
 This is intentional for v0.1.0 — no external holiday API. **Maintainers must extend holidays and early closes annually** (or replace them with a maintained data source) so refresh timing and "market open" status stay correct after 2027.
 

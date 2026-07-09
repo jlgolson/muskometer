@@ -195,7 +195,7 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertTrue(service.isMarketOpen(at: notHoliday))
     }
 
-    func testNextOpenAfterHoursIsPreMarketNotRegular() throws {
+    func testNextOpenAfterHoursIsRegularOpenNotPreMarket() throws {
         var components = DateComponents()
         components.year = 2026
         components.month = 6
@@ -209,8 +209,8 @@ final class MarketHoursServiceTests: XCTestCase {
 
         let nextOpen = try XCTUnwrap(service.nextOpenDate(from: tuesdayEvening))
 
-        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 4)
-        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 0)
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
         XCTAssertEqual(calendar.component(.month, from: nextOpen), 7)
     }
@@ -250,48 +250,56 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertEqual(calendar.component(.hour, from: close), 16)
     }
 
-    func testPreMarketIsQuotableButNotRegularOpen() throws {
+    func testPreMarketHoursAreClosedAndNotQuotable() throws {
+        // 8:00 AM ET weekday — formerly pre-market; RTH-only treats as closed
         var components = DateComponents()
         components.year = 2026
         components.month = 7
         components.day = 1
-        components.hour = 7
+        components.hour = 8
         components.minute = 0
         components.timeZone = eastern
 
         let wednesdayMorning = try XCTUnwrap(calendar.date(from: components))
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
 
-        XCTAssertEqual(service.currentSession(at: wednesdayMorning), .preMarket)
-        XCTAssertTrue(service.isQuotable(at: wednesdayMorning))
+        XCTAssertEqual(service.currentSession(at: wednesdayMorning), .closed)
+        XCTAssertFalse(service.isQuotable(at: wednesdayMorning))
         XCTAssertFalse(service.isMarketOpen(at: wednesdayMorning))
-        XCTAssertNil(service.nextOpenDate(from: wednesdayMorning))
+
+        let nextOpen = try XCTUnwrap(service.nextOpenDate(from: wednesdayMorning))
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
+        XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
     }
 
-    func testTradingSessionBoundaries() throws {
+    func testTradingSessionBoundariesAreRTHOnly() throws {
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
         let day = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 0)
 
         let preMarket = try XCTUnwrap(calendar.date(bySettingHour: 5, minute: 0, second: 0, of: day))
-        let regular = try XCTUnwrap(calendar.date(bySettingHour: 11, minute: 0, second: 0, of: day))
-        let postMarket = try XCTUnwrap(calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day))
+        let eightAM = try XCTUnwrap(calendar.date(bySettingHour: 8, minute: 0, second: 0, of: day))
+        let regular = try XCTUnwrap(calendar.date(bySettingHour: 10, minute: 0, second: 0, of: day))
+        let fivePM = try XCTUnwrap(calendar.date(bySettingHour: 17, minute: 0, second: 0, of: day))
         let overnight = try XCTUnwrap(calendar.date(bySettingHour: 2, minute: 0, second: 0, of: day))
         let afterPost = try XCTUnwrap(calendar.date(bySettingHour: 21, minute: 0, second: 0, of: day))
 
-        XCTAssertEqual(service.currentSession(at: preMarket), .preMarket)
+        XCTAssertEqual(service.currentSession(at: preMarket), .closed)
+        XCTAssertEqual(service.currentSession(at: eightAM), .closed)
         XCTAssertEqual(service.currentSession(at: regular), .regular)
-        XCTAssertEqual(service.currentSession(at: postMarket), .postMarket)
+        XCTAssertEqual(service.currentSession(at: fivePM), .closed)
         XCTAssertEqual(service.currentSession(at: overnight), .closed)
         XCTAssertEqual(service.currentSession(at: afterPost), .closed)
 
-        XCTAssertTrue(service.isQuotable(at: preMarket))
+        XCTAssertFalse(service.isQuotable(at: preMarket))
+        XCTAssertFalse(service.isQuotable(at: eightAM))
         XCTAssertTrue(service.isQuotable(at: regular))
-        XCTAssertTrue(service.isQuotable(at: postMarket))
+        XCTAssertFalse(service.isQuotable(at: fivePM))
         XCTAssertFalse(service.isQuotable(at: overnight))
         XCTAssertFalse(service.isQuotable(at: afterPost))
     }
 
-    func testNextOpenBeforePreMarketSameDayIs4AM() throws {
+    func testNextOpenBeforeRegularOpenSameDayIs930AM() throws {
         var components = DateComponents()
         components.year = 2026
         components.month = 7
@@ -305,13 +313,13 @@ final class MarketHoursServiceTests: XCTestCase {
 
         let nextOpen = try XCTUnwrap(service.nextOpenDate(from: earlyMorning))
 
-        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 4)
-        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 0)
+        XCTAssertEqual(calendar.component(.hour, from: nextOpen), 9)
+        XCTAssertEqual(calendar.component(.minute, from: nextOpen), 30)
         XCTAssertEqual(calendar.component(.day, from: nextOpen), 1)
     }
 
     /// Day after Thanksgiving 2026 is an NYSE early close at 13:00 ET.
-    func testEarlyCloseAfternoonIsPostMarket() throws {
+    func testEarlyCloseAfternoonIsClosed() throws {
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
 
         // 12:30 ET — still regular (before 13:00 early close)
@@ -319,13 +327,13 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertEqual(service.currentSession(at: beforeEarlyClose), .regular)
         XCTAssertTrue(service.isMarketOpen(at: beforeEarlyClose))
 
-        // 14:00 ET — regular already ended; post-market until 20:00
+        // 14:00 ET — regular already ended; RTH-only treats as closed (not post-market)
         let afternoon = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 14)
-        XCTAssertEqual(service.currentSession(at: afternoon), .postMarket)
+        XCTAssertEqual(service.currentSession(at: afternoon), .closed)
         XCTAssertFalse(service.isMarketOpen(at: afternoon))
-        XCTAssertTrue(service.isQuotable(at: afternoon))
+        XCTAssertFalse(service.isQuotable(at: afternoon))
 
-        // 21:00 ET — closed after post-market
+        // 21:00 ET — still closed
         let evening = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 21)
         XCTAssertEqual(service.currentSession(at: evening), .closed)
         XCTAssertFalse(service.isQuotable(at: evening))
@@ -335,8 +343,9 @@ final class MarketHoursServiceTests: XCTestCase {
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
         let afternoon = try EasternTestDates.date(year: 2026, month: 12, day: 24, hour: 14)
 
-        XCTAssertEqual(service.currentSession(at: afternoon), .postMarket)
+        XCTAssertEqual(service.currentSession(at: afternoon), .closed)
         XCTAssertFalse(service.isMarketOpen(at: afternoon))
+        XCTAssertFalse(service.isQuotable(at: afternoon))
     }
 
     func testLastMarketCloseOnEarlyCloseDayIs1PM() throws {
@@ -356,9 +365,23 @@ final class MarketHoursServiceTests: XCTestCase {
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
         let afternoon = try EasternTestDates.date(year: 2027, month: 11, day: 26, hour: 14)
 
-        XCTAssertEqual(service.currentSession(at: afternoon), .postMarket)
+        XCTAssertEqual(service.currentSession(at: afternoon), .closed)
         XCTAssertFalse(service.isMarketOpen(at: afternoon))
-        XCTAssertTrue(service.isQuotable(at: afternoon))
+        XCTAssertFalse(service.isQuotable(at: afternoon))
+    }
+
+    func testRegularCloseDateUsesEarlyCloseWhenApplicable() throws {
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        let earlyCloseDay = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 10)
+        let normalDay = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 10)
+
+        let earlyClose = try XCTUnwrap(service.regularCloseDate(on: earlyCloseDay))
+        XCTAssertEqual(calendar.component(.hour, from: earlyClose), 13)
+        XCTAssertEqual(calendar.component(.minute, from: earlyClose), 0)
+
+        let normalClose = try XCTUnwrap(service.regularCloseDate(on: normalDay))
+        XCTAssertEqual(calendar.component(.hour, from: normalClose), 16)
+        XCTAssertEqual(calendar.component(.minute, from: normalClose), 0)
     }
 }
 
@@ -371,62 +394,44 @@ final class QuotePriceResolverTests: XCTestCase {
         previousClose: 94
     )
 
-    func testPicksCorrectPricePerSessionForTSLAAndSPCX() {
+    func testAlwaysUsesRegularMarketPriceRegardlessOfSession() {
         for symbol in ["TSLA", "SPCX"] {
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .regular),
-                100,
-                "\(symbol) regular"
-            )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .preMarket),
-                101,
-                "\(symbol) pre-market"
-            )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .postMarket),
-                102,
-                "\(symbol) post-market"
-            )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: meta, session: .closed),
-                100,
-                "\(symbol) closed"
-            )
+            for session: TradingSession in [.regular, .preMarket, .postMarket, .closed] {
+                XCTAssertEqual(
+                    QuotePriceResolver.currentPrice(from: meta, session: session),
+                    100,
+                    "\(symbol) \(session) should use regularMarketPrice"
+                )
+            }
             XCTAssertEqual(QuotePriceResolver.previousClose(from: meta), 95, "\(symbol) previous close")
         }
     }
 
-    func testFallsBackToRegularPriceWhenExtendedPriceMissing() {
+    func testReturnsNilWhenRegularPriceMissing() {
         let sparseMeta = QuotePriceResolver.Meta(
-            regularMarketPrice: 200,
-            preMarketPrice: nil,
-            postMarketPrice: nil,
+            regularMarketPrice: nil,
+            preMarketPrice: 101,
+            postMarketPrice: 102,
             chartPreviousClose: nil,
             previousClose: 190
         )
 
-        for symbol in ["TSLA", "SPCX"] {
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: sparseMeta, session: .preMarket),
-                200,
-                "\(symbol) pre-market fallback"
+        for session: TradingSession in [.regular, .preMarket, .postMarket, .closed] {
+            XCTAssertNil(
+                QuotePriceResolver.currentPrice(from: sparseMeta, session: session),
+                "\(session) must not fall back to extended-hours prices"
             )
-            XCTAssertEqual(
-                QuotePriceResolver.currentPrice(from: sparseMeta, session: .postMarket),
-                200,
-                "\(symbol) post-market fallback"
-            )
-            XCTAssertEqual(QuotePriceResolver.previousClose(from: sparseMeta), 190, "\(symbol) previous close fallback")
         }
+        XCTAssertEqual(QuotePriceResolver.previousClose(from: sparseMeta), 190)
     }
 }
 
 final class YahooMarketStateMapperTests: XCTestCase {
-    func testMapsKnownMarketStates() {
-        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "PRE"), .preMarket)
+    func testMapsKnownMarketStatesRTHOnly() {
+        // Only REGULAR is open; PRE/POST map to closed so extended prices are never selected.
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "PRE"), .closed)
         XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "REGULAR"), .regular)
-        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "POST"), .postMarket)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "POST"), .closed)
         XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "CLOSED"), .closed)
         XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "PREPRE"), .closed)
         XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "POSTPOST"), .closed)
@@ -435,9 +440,9 @@ final class YahooMarketStateMapperTests: XCTestCase {
     }
 
     func testMappingIsCaseInsensitiveAndTrimsWhitespace() {
-        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "pre"), .preMarket)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "pre"), .closed)
         XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "Regular"), .regular)
-        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: " post "), .postMarket)
+        XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: " post "), .closed)
         XCTAssertEqual(YahooMarketStateMapper.tradingSession(from: "\tCLOSED\n"), .closed)
     }
 
@@ -627,9 +632,8 @@ final class YahooFinanceStockPriceServiceTests: XCTestCase {
         XCTAssertTrue(quotes.isEmpty)
     }
 
-    func testPrefersYahooMarketStateOverLocalSessionForPriceField() async throws {
-        // Local hours say regular, but Yahoo reports POST (e.g. early close).
-        // Price selection must follow Yahoo so postMarketPrice is used.
+    func testYahooPostStateStillUsesRegularMarketPrice() async throws {
+        // RTH-only: Yahoo POST maps to closed; extended postMarketPrice is never selected.
         MockURLProtocol.requestHandler = { request in
             let body = Self.chartJSON(
                 shortName: "Tesla, Inc.",
@@ -654,10 +658,11 @@ final class YahooFinanceStockPriceServiceTests: XCTestCase {
         )
         let quotes = try await service.fetchQuotes(for: ["TSLA"])
 
-        XCTAssertEqual(quotes.first?.currentPrice, 252)
+        XCTAssertEqual(quotes.first?.currentPrice, 250)
     }
 
     func testFallsBackToLocalSessionWhenMarketStateMissing() async throws {
+        // Missing marketState → local session; RTH-only still uses regularMarketPrice.
         MockURLProtocol.requestHandler = { request in
             let body = Self.chartJSON(
                 shortName: "Tesla, Inc.",
@@ -678,11 +683,11 @@ final class YahooFinanceStockPriceServiceTests: XCTestCase {
 
         let service = YahooFinanceStockPriceService(
             session: session,
-            marketHours: FixedMarketHours(session: .preMarket)
+            marketHours: FixedMarketHours(session: .closed)
         )
         let quotes = try await service.fetchQuotes(for: ["TSLA"])
 
-        XCTAssertEqual(quotes.first?.currentPrice, 248)
+        XCTAssertEqual(quotes.first?.currentPrice, 250)
     }
 
     private static func chartJSON(
@@ -1751,7 +1756,8 @@ final class GainsViewModelExtendedHoursTests: XCTestCase {
             StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 110, previousClose: 100, currency: "USD"),
             StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 55, previousClose: 50, currency: "USD"),
         ]
-        let marketHours = FixedMarketHours(session: .postMarket)
+        // RTH-only: non-regular sessions are not quotable (treated like closed).
+        let marketHours = FixedMarketHours(session: .closed)
         let viewModel = GainsViewModel(
             settings: settings,
             stockService: MockStockService(quotes: quotes),
@@ -1760,11 +1766,11 @@ final class GainsViewModelExtendedHoursTests: XCTestCase {
 
         await viewModel.refresh(force: true)
 
-        XCTAssertEqual(viewModel.snapshot?.tradingSession, .postMarket)
+        XCTAssertEqual(viewModel.snapshot?.tradingSession, .closed)
         XCTAssertFalse(viewModel.snapshot?.marketIsOpen ?? true)
-        XCTAssertTrue(viewModel.snapshot?.isQuotable ?? false)
-        XCTAssertEqual(viewModel.marketStatusLabel, "Post-market")
-        XCTAssertFalse(viewModel.shouldDimMenuBarLabel)
+        XCTAssertFalse(viewModel.snapshot?.isQuotable ?? true)
+        XCTAssertEqual(viewModel.marketStatusLabel, "Market closed")
+        XCTAssertTrue(viewModel.shouldDimMenuBarLabel)
     }
 
     func testClosedSessionShowsAsOfCloseLabel() async {
@@ -1823,7 +1829,7 @@ final class GainsViewModelOpenSessionRefreshTimingTests: XCTestCase {
     }
 
     func testFirstQuotableCycleRefreshesImmediately() {
-        // After off-market sleep ends into pre-market/open, or always-open overnight wake at open.
+        // After off-market sleep ends into regular open, or always-open overnight wake at open.
         XCTAssertEqual(
             GainsViewModel.openSessionRefreshTiming(isQuotable: true, wasQuotable: false),
             .refreshImmediately
@@ -2163,20 +2169,21 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         XCTAssertTrue(store.samples.isEmpty)
     }
 
-    func testAppendsDuringPostMarket() throws {
+    func testDoesNotAppendDuringPostMarketHours() throws {
+        // RTH-only: post-market is not quotable, so sparkline samples are not taken.
         let suiteName = "MuskometerTests-intraday-post-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
         let store = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
-            marketHours: FixedMarketHours(session: .postMarket)
+            marketHours: FixedMarketHours(session: .closed)
         )
         let date = try easternDate(year: 2026, month: 6, day: 30, hour: 17)
 
         store.append(personID: "musk", combinedPaperGain: 1_000_000_000, at: date)
 
-        XCTAssertEqual(store.samples.count, 1)
+        XCTAssertTrue(store.samples.isEmpty)
     }
 
     func testETDayRolloverClearsPriorSamples() throws {
@@ -2246,7 +2253,7 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         XCTAssertEqual(samples.first?.timestamp, date)
     }
 
-    func testLoadYesterdaysSamplesDuringClosedSessionReturnsEmpty() throws {
+    func testLoadYesterdaysSamplesDuringClosedSessionKeepsPriorRTHSamples() throws {
         let suiteName = "MuskometerTests-intraday-stale-load-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -2263,7 +2270,7 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         openStore.append(personID: "musk", combinedPaperGain: 99_000_000_000, at: monday)
         XCTAssertEqual(openStore.samples.count, 1)
 
-        // Mid-closed session next ET day: load must not restore Monday's sparkline.
+        // Mid-closed session next ET day: keep Monday's sparkline for overnight share/display.
         let closedStore = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
@@ -2272,17 +2279,94 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         )
         let samples = closedStore.loadSamples(for: "musk")
 
-        XCTAssertTrue(samples.isEmpty)
-        XCTAssertTrue(closedStore.samples.isEmpty)
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.combinedPaperGain, 99_000_000_000)
+        XCTAssertEqual(samples.first?.timestamp, monday)
 
-        // Stale state is rewritten for the new day so a later same-day reload stays empty.
+        // Later same-day closed reload still shows the prior RTH session.
         let reloaded = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
             marketHours: FixedMarketHours(isOpen: false),
             now: { tuesdayClosed }
         )
-        XCTAssertTrue(reloaded.loadSamples(for: "musk").isEmpty)
+        let reloadedSamples = reloaded.loadSamples(for: "musk")
+        XCTAssertEqual(reloadedSamples.count, 1)
+        XCTAssertEqual(reloadedSamples.first?.combinedPaperGain, 99_000_000_000)
+    }
+
+    func testOvernightLoadKeepsPriorRTHSamples() throws {
+        let suiteName = "MuskometerTests-intraday-overnight-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let mondayClose = try easternDate(year: 2026, month: 6, day: 30, hour: 15, minute: 45)
+        let tuesdayPreOpen = try easternDate(year: 2026, month: 7, day: 1, hour: 8)
+
+        let openStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { mondayClose }
+        )
+        openStore.append(personID: "musk", combinedPaperGain: 12_000_000_000, at: mondayClose)
+        openStore.append(
+            personID: "musk",
+            combinedPaperGain: 15_000_000_000,
+            at: mondayClose.addingTimeInterval(60)
+        )
+
+        let overnightStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: false),
+            now: { tuesdayPreOpen }
+        )
+        let samples = overnightStore.loadSamples(for: "musk")
+
+        XCTAssertEqual(samples.count, 2)
+        XCTAssertEqual(samples.map(\.combinedPaperGain), [12_000_000_000, 15_000_000_000])
+    }
+
+    func testFirstRTHAppendNextDayClearsPriorSessionSamples() throws {
+        let suiteName = "MuskometerTests-intraday-next-rth-clear-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let monday = try easternDate(year: 2026, month: 6, day: 30, hour: 11)
+        let tuesdayOvernight = try easternDate(year: 2026, month: 7, day: 1, hour: 2)
+        let tuesdayOpen = try easternDate(year: 2026, month: 7, day: 1, hour: 10)
+
+        let openStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { monday }
+        )
+        openStore.append(personID: "musk", combinedPaperGain: 100, at: monday)
+
+        // Overnight load keeps Monday.
+        let overnightStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: false),
+            now: { tuesdayOvernight }
+        )
+        XCTAssertEqual(overnightStore.loadSamples(for: "musk").count, 1)
+
+        // First quotable append on the new RTH day replaces the prior session.
+        let nextSessionStore = IntradayGainSampleStore(
+            defaults: defaults,
+            calendar: calendar,
+            marketHours: FixedMarketHours(isOpen: true),
+            now: { tuesdayOpen }
+        )
+        nextSessionStore.append(personID: "musk", combinedPaperGain: 250, at: tuesdayOpen)
+
+        XCTAssertEqual(nextSessionStore.samples.count, 1)
+        XCTAssertEqual(nextSessionStore.samples.first?.combinedPaperGain, 250)
+        XCTAssertEqual(nextSessionStore.samples.first?.timestamp, tuesdayOpen)
+        XCTAssertEqual(nextSessionStore.loadSamples(for: "musk").count, 1)
     }
 
     func testDayRolloverOnQuotableAppendStillWorks() throws {
@@ -2337,7 +2421,7 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         XCTAssertEqual(samples.map(\.combinedPaperGain), [1_000_000_000, 2_000_000_000])
     }
 
-    func testNonQuotableAppendAfterMidnightClearsYesterdaysSamples() throws {
+    func testNonQuotableAppendAfterMidnightKeepsYesterdaysSamples() throws {
         let suiteName = "MuskometerTests-intraday-closed-rollover-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -2353,9 +2437,8 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         )
         openStore.append(personID: "musk", combinedPaperGain: 50_000_000_000, at: monday)
 
-        // Same process: closed refresh after ET midnight must clear without adding a sample.
+        // Closed refresh after ET midnight must not append and must not wipe prior RTH samples.
         let closedHours = FixedMarketHours(isOpen: false)
-        // Switch market hours by using a store that shares defaults and reloads person state.
         let closedStore = IntradayGainSampleStore(
             defaults: defaults,
             calendar: calendar,
@@ -2364,8 +2447,10 @@ final class IntradayGainSampleStoreTests: XCTestCase {
         )
         closedStore.append(personID: "musk", combinedPaperGain: 50_000_000_000, at: tuesdayOvernight)
 
-        XCTAssertTrue(closedStore.samples.isEmpty)
-        XCTAssertTrue(closedStore.loadSamples(for: "musk").isEmpty)
+        let samples = closedStore.loadSamples(for: "musk")
+        XCTAssertEqual(samples.count, 1)
+        XCTAssertEqual(samples.first?.combinedPaperGain, 50_000_000_000)
+        XCTAssertEqual(samples.first?.timestamp, monday)
     }
 }
 
@@ -2427,23 +2512,33 @@ final class TradingDayCalendarTests: XCTestCase {
         XCTAssertFalse(tradingCalendar.isSameTradingDay(late, early))
     }
 
-    func testHasTradingDayCompletedAfterPostMarketClose() throws {
-        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+    func testHasTradingDayCompletedAfterRegularClose() throws {
+        // RTH ends at 16:00 ET; day is complete once regular close has passed.
+        let afterRegularClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 16)
         XCTAssertTrue(
             tradingCalendar.hasTradingDayCompleted(
                 dayKey: "2026-06-30",
-                at: afterPostMarketClose,
+                at: afterRegularClose,
+                marketHours: marketHours
+            )
+        )
+
+        let fivePM = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+        XCTAssertTrue(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-06-30",
+                at: fivePM,
                 marketHours: marketHours
             )
         )
     }
 
-    func testHasTradingDayNotCompletedDuringPostMarket() throws {
-        let postMarket = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
+    func testHasTradingDayNotCompletedBeforeRegularClose() throws {
+        let beforeClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 15, minute: 59)
         XCTAssertFalse(
             tradingCalendar.hasTradingDayCompleted(
                 dayKey: "2026-06-30",
-                at: postMarket,
+                at: beforeClose,
                 marketHours: marketHours
             )
         )
@@ -2455,6 +2550,27 @@ final class TradingDayCalendarTests: XCTestCase {
             tradingCalendar.hasTradingDayCompleted(
                 dayKey: "2026-06-30",
                 at: midday,
+                marketHours: marketHours
+            )
+        )
+    }
+
+    func testHasTradingDayCompletedAfterEarlyClose() throws {
+        // Day after Thanksgiving 2026 early-closes at 13:00 ET.
+        let afterEarlyClose = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 13)
+        XCTAssertTrue(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-11-27",
+                at: afterEarlyClose,
+                marketHours: marketHours
+            )
+        )
+
+        let beforeEarlyClose = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 12, minute: 30)
+        XCTAssertFalse(
+            tradingCalendar.hasTradingDayCompleted(
+                dayKey: "2026-11-27",
+                at: beforeEarlyClose,
                 marketHours: marketHours
             )
         )
@@ -2594,37 +2710,47 @@ final class DailyRecordTrackerTests: XCTestCase {
         XCTAssertEqual(snapshot.worstRecord?.amount, -6_000_000_000)
     }
 
-    func testPostMarketQuotableSamplesUpdatePeakAndTroughBeforeFinalize() throws {
+    func testPostMarketSamplesDoNotUpdateExtremesAfterRTHFinalize() throws {
+        // RTH-only: day finalizes at regular close (16:00); post-market isQuotable:false samples are ignored.
         let tracker = makeTracker()
         let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        let postMarketPeak = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
-        let postMarketTrough = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 18, minute: 30)
-        let afterPostMarketClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        let lateRTH = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 15, minute: 30)
+        let afterRegularClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 16)
+        let postMarket = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 17)
 
         _ = tracker.update(personID: "musk", paperGain: 5_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 12_000_000_000, at: lateRTH, isQuotable: true)
 
-        // Post-market remains open for extremes; day must not finalize yet.
-        let duringPostMarket = tracker.update(
+        // Still during RTH — not finalized yet.
+        let duringRTH = tracker.update(
             personID: "musk",
-            paperGain: 22_000_000_000,
-            at: postMarketPeak,
+            paperGain: -3_000_000_000,
+            at: lateRTH.addingTimeInterval(60),
             isQuotable: true
         )
-        XCTAssertFalse(duringPostMarket.hasCompletedFirstTradingDay)
-        XCTAssertNil(duringPostMarket.bestRecord)
+        XCTAssertFalse(duringRTH.hasCompletedFirstTradingDay)
+        XCTAssertNil(duringRTH.bestRecord)
 
-        _ = tracker.update(personID: "musk", paperGain: -8_000_000_000, at: postMarketTrough, isQuotable: true)
-
-        let snapshot = tracker.update(
+        // After regular close, day finalizes with RTH extremes only.
+        let finalized = tracker.update(
             personID: "musk",
-            paperGain: -8_000_000_000,
-            at: afterPostMarketClose,
+            paperGain: 99_000_000_000,
+            at: afterRegularClose,
             isQuotable: false
         )
+        XCTAssertTrue(finalized.hasCompletedFirstTradingDay)
+        XCTAssertEqual(finalized.bestRecord?.amount, 12_000_000_000)
+        XCTAssertEqual(finalized.worstRecord?.amount, -3_000_000_000)
 
-        XCTAssertTrue(snapshot.hasCompletedFirstTradingDay)
-        XCTAssertEqual(snapshot.bestRecord?.amount, 22_000_000_000)
-        XCTAssertEqual(snapshot.worstRecord?.amount, -8_000_000_000)
+        // Post-market sample with isQuotable:false must not rewrite records.
+        let afterPost = tracker.update(
+            personID: "musk",
+            paperGain: 99_000_000_000,
+            at: postMarket,
+            isQuotable: false
+        )
+        XCTAssertEqual(afterPost.bestRecord?.amount, 12_000_000_000)
+        XCTAssertEqual(afterPost.worstRecord?.amount, -3_000_000_000)
     }
 
     func testNonQuotableOvernightDoesNotPolluteNextDayAfterRollover() throws {
@@ -3421,9 +3547,9 @@ final class GainsViewModelOffMarketSparklineTests: XCTestCase {
         ]
     }
 
-    /// Always-open overnight: off-market loop must clear VM sparkline after ET day rollover
-    /// via store reload only (no quote refresh).
-    func testSyncIntradaySamplesFromStoreClearsAfterETDayRollover() async throws {
+    /// Off-market overnight: store sync keeps last RTH session sparkline after ET day rollover
+    /// (share card still shows yesterday's session curve until the next RTH append).
+    func testSyncIntradaySamplesFromStoreKeepsPriorRTHAfterETDayRollover() async throws {
         let (settings, defaults) = makeSettings()
         settings.setShareCount(100, for: "TSLA")
         settings.setShareCount(100, for: "SPCX")
@@ -3449,16 +3575,17 @@ final class GainsViewModelOffMarketSparklineTests: XCTestCase {
         )
 
         await viewModel.refresh(force: true)
-        XCTAssertFalse(viewModel.intradaySamples.isEmpty, "expected samples after open-session refresh")
+        let samplesAfterOpen = viewModel.intradaySamples
+        XCTAssertFalse(samplesAfterOpen.isEmpty, "expected samples after open-session refresh")
 
-        // Simulate always-open overnight: wall clock advances past ET midnight while VM
-        // still holds yesterday's samples (off-market loop previously only slept).
+        // Wall clock advances past ET midnight; off-market sync must retain prior RTH samples.
         now = tuesdayOvernight
         viewModel.syncIntradaySamplesFromStore()
 
-        XCTAssertTrue(
-            viewModel.intradaySamples.isEmpty,
-            "off-market store sync should clear sparkline after ET day rollover"
+        XCTAssertEqual(viewModel.intradaySamples.count, samplesAfterOpen.count)
+        XCTAssertEqual(
+            viewModel.intradaySamples.map(\.combinedPaperGain),
+            samplesAfterOpen.map(\.combinedPaperGain)
         )
     }
 

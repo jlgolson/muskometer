@@ -52,11 +52,14 @@ struct TradingDayCalendar: Sendable {
         return calendar.date(from: components)
     }
 
-    /// A trading day is complete once the post-market session has ended for that Eastern day (20:00 ET).
-    /// Daily best/worst may still update while post-market quotes are live (16:00–20:00 ET).
+    /// A trading day is complete once the regular session has ended for that Eastern day
+    /// (16:00 ET, or early close when `marketHours` models it). Daily best/worst finalize at RTH end.
     func hasTradingDayCompleted(dayKey: String, at date: Date, marketHours: any MarketHoursServiceProtocol) -> Bool {
-        guard let postMarketClose = self.date(on: dayKey, hour: 20, minute: 0) else { return false }
-        return date >= postMarketClose && !marketHours.isMarketOpen(at: date)
+        guard let dayStart = startOfDay(for: dayKey),
+              let regularClose = marketHours.regularCloseDate(on: dayStart) else {
+            return false
+        }
+        return date >= regularClose && !marketHours.isMarketOpen(at: date)
     }
 
 }

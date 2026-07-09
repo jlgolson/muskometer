@@ -75,24 +75,16 @@ SHARES = {"TSLA": 699_580_882, "SPCX": 6_068_734_060}
 ET = ZoneInfo("America/New_York")
 
 def current_session(now):
+    # RTH-only product: regular session only; pre/post treated as closed.
     if now.weekday() >= 5:
         return "closed"
     minutes = now.hour * 60 + now.minute
-    if 4 * 60 <= minutes < 9 * 60 + 30:
-        return "preMarket"
     if 9 * 60 + 30 <= minutes < 16 * 60:
         return "regular"
-    if 16 * 60 <= minutes < 20 * 60:
-        return "postMarket"
     return "closed"
 
 def current_price(meta, session):
-    if session == "regular":
-        return meta.get("regularMarketPrice")
-    if session == "preMarket":
-        return meta.get("preMarketPrice") or meta.get("regularMarketPrice")
-    if session == "postMarket":
-        return meta.get("postMarketPrice") or meta.get("regularMarketPrice")
+    # Always regularMarketPrice (RTH-only); extended-hours fields are never selected.
     return meta.get("regularMarketPrice")
 
 session = current_session(datetime.now(tz=ET))

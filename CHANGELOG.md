@@ -6,6 +6,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
+### Changed
+
+- **RTH-only product** — auto-refresh, quotes, sparkline, and daily records run only during regular US trading hours (9:30 AM–4:00 PM ET / early close); pre-market and post-market are treated as closed (no extended-hours live trading labels or 180s floor)
+
 ## [0.1.3] - 2026-07-08
 
 Correctness and reliability release — holdings, daily records, market hours, Settings, and refresh lifecycle.

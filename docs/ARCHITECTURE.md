@@ -6,11 +6,11 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 
 | Layer | Role |
 |-------|------|
-| **Views** | `MenuBarLabelView`, `PopoverContentView`, `SettingsView` — render snapshot, forward user actions |
-| **ViewModel** | `GainsViewModel` — refresh loop, holdings sync, formatted menu bar title |
+| **Views** | `MenuBarLabelView`, `PopoverContentView`, `SettingsView`, `MergerParityCardView` — render snapshot, forward user actions |
+| **ViewModel** | `GainsViewModel` — refresh loop, Form 4 + issuer-outstanding sync, formatted menu bar title, parity presentation |
 | **Models** | `StockQuote`, `GainsSnapshot`, `PortfolioHolding`, `MenuBarDisplayMode` |
-| **Services** | Yahoo quotes, SEC Form 4 sync, US market hours |
-| **Utilities** | `AppSettings` (UserDefaults), formatters, `SPCXHoldings` defaults |
+| **Services** | Yahoo quotes, SEC Form 4 sync, issuer companyfacts outstanding, US market hours |
+| **Utilities** | `AppSettings` (UserDefaults), formatters, `SPCXHoldings` / `IssuerSharesOutstanding` defaults, `MergerMarketCapParity` |
 
 `GainsViewModel` is `@Observable` and `@MainActor`. Services conform to small protocols (`StockPriceServiceProtocol`, `HoldingsSyncServiceProtocol`, `MarketHoursServiceProtocol`) for test injection.
 
@@ -19,12 +19,17 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 | File | Purpose |
 |------|---------|
 | `App/MuskometerApp.swift` | `MenuBarExtra`, commands, settings window |
-| `ViewModels/GainsViewModel.swift` | Core state machine + refresh loop |
+| `ViewModels/GainsViewModel.swift` | Core state machine + refresh loop + parity presentation |
 | `Services/YahooFinanceStockPriceService.swift` | Chart API → `StockQuote` |
-| `Services/SECHoldingsSyncService.swift` | EDGAR Form 4 → TSLA/SPCX share counts |
+| `Services/SECHoldingsSyncService.swift` | EDGAR Form 4 → TSLA/SPCX **ownership** share counts |
+| `Services/IssuerOutstandingSyncService.swift` | SEC companyfacts → issuer shares outstanding (best-effort) |
+| `Services/CompanyFactsOutstandingResolver.swift` | Pure companyfacts JSON → point-in-time outstanding (rejects WASO) |
 | `Services/MarketHoursService.swift` | RTH-only sessions (9:30–16:00 ET), weekends, US market holidays + early closes |
-| `Utilities/SPCXHoldings.swift` | Default SPCX share count + legacy migration |
-| `Utilities/AppSettings.swift` | Holdings, refresh interval, launch at login |
+| `Utilities/MergerMarketCapParity.swift` | Pure implied-TSLA calculator for market-cap parity card |
+| `Utilities/IssuerSharesOutstanding.swift` | Bundled cover/companyfacts defaults for outstanding |
+| `Utilities/SPCXHoldings.swift` | Default SPCX ownership share count + legacy migration |
+| `Utilities/AppSettings.swift` | Ownership, outstanding, refresh interval, parity card toggle, launch at login |
+| `Views/MergerParityCardView.swift` | Main-popover “If Tesla had SpaceX's market cap” card |
 
 ## Paper gain math
 
@@ -32,11 +37,21 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 paperGain = shareCount × (currentPrice − previousClose)
 ```
 
-- **TSLA** — share count from SEC Form 4 (direct beneficial-ownership row).
-- **SPCX** — share counts aggregate Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent).
+- **TSLA** — ownership from SEC Form 4 (direct beneficial-ownership row).
+- **SPCX** — ownership aggregates Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent).
 - **Quotes** — TSLA and SPCX use identical Yahoo fetch, session, and price-selection logic. See [HOLDINGS.md](HOLDINGS.md).
 
 Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
+
+### Market-cap parity (orthogonal)
+
+Issuer **shares outstanding** (company totals) are separate from Form 4 ownership. On the same ~24h SEC cadence, a best-effort companyfacts fetch updates `sharesOutstanding_*` without participating in Form 4 completeness. The pure calculator:
+
+```
+implied TSLA $/share = (SPCX Class A price × SPCX A+B outstanding) / TSLA outstanding
+```
+
+Presentation is gated by the Settings toggle `showMergerParityCard` (default on). See [HOLDINGS.md](HOLDINGS.md).
 
 ## Data flow
 
@@ -46,6 +61,7 @@ flowchart LR
         MB[MenuBarLabelView]
         POP[PopoverContentView]
         SET[SettingsView]
+        MPC[MergerParityCardView]
     end
 
     VM[GainsViewModel]
@@ -53,36 +69,42 @@ flowchart LR
     subgraph Services
         YF[YahooFinanceStockPriceService]
         SEC[SECHoldingsSyncService]
+        OUT[IssuerOutstandingSyncService]
         MH[MarketHoursService]
     end
 
     subgraph External
         Yahoo[(Yahoo Finance API)]
-        EDGAR[(SEC EDGAR)]
+        EDGAR[(SEC EDGAR Form 4)]
+        CF[(SEC companyfacts)]
     end
 
     AS[(AppSettings / UserDefaults)]
 
     MB --> VM
     POP --> VM
+    MPC --> VM
     SET --> AS
     VM --> AS
 
     VM --> YF
     VM --> SEC
+    VM --> OUT
     VM --> MH
 
     YF --> Yahoo
     SEC --> EDGAR
+    OUT --> CF
 
     VM --> MB
     VM --> POP
+    VM --> MPC
 ```
 
 ## Refresh loop
 
 1. **Start** (`MenuBarLabelView.onAppear` → `viewModel.start()`). `PopoverContentView.onAppear` only toggles popover visibility for settings routing.
-2. **SEC sync** if `AppSettings.needsHoldingsSync` (default: once per 24h).
+2. **SEC sync** if `AppSettings.needsHoldingsSync` (default: once per 24h) — Form 4 ownership plus best-effort companyfacts outstanding.
 3. **First refresh** runs immediately on start (quotes for all holding symbols in parallel → `GainsSnapshot`).
 4. Loop until `stop()` on app terminate, using `openSessionRefreshTiming(isQuotable:wasQuotable:)`:
    - **Quotable (regular session only, 9:30–16:00 ET / early close):** after the first refresh of a session, sleep the user interval (60–120s from Settings), then refresh.
@@ -113,12 +135,12 @@ This is intentional for v0.1.0 — no external holiday API. **Maintainers must e
 
 - **Sandboxed builds** (Xcode Debug/Release product, optional signed Developer ID via `scripts/release.sh`): App Sandbox + `network.client` only (`Muskometer/Muskometer.entitlements`).
 - **Unsigned package-dmg path** (`scripts/package-dmg.sh`, current public GitHub Release artifacts): built with `CODE_SIGNING_ALLOWED=NO` — **no embedded entitlements**, so **not sandboxed**. Open-source distribution without a paid Apple account; Gatekeeper requires right-click → Open. See [SECURITY.md](../SECURITY.md) and [RELEASE.md](RELEASE.md).
-- Holdings, refresh interval, display mode, launch-at-login → **UserDefaults**.
+- Ownership counts, issuer outstanding, refresh interval, display mode, parity card toggle, launch-at-login → **UserDefaults**.
 - No local database, no analytics SDK, no API keys.
 
 ## Testing strategy
 
-`MuskometerTests` covers pure logic (formatters, SPCX scaling, market hours, Form 4 parser) and view model behavior with mock services. `scripts/verify.sh` adds integration checks against live Yahoo endpoints.
+`MuskometerTests` covers pure logic (formatters, SPCX scaling, market hours, Form 4 parser, companyfacts resolver, merger parity calculator) and view model behavior with mock services. `scripts/verify.sh` adds integration checks against live Yahoo endpoints.
 
 ---
 

@@ -61,7 +61,7 @@ xcodebuild test \
   -destination 'platform=macOS'
 ```
 
-Tests live in `MuskometerTests/` — formatters, quote math, market hours, SEC parser, SPCX scaling, and view model behavior.
+Tests live in `MuskometerTests/` — formatters, quote math, market hours, Form 4 parser, companyfacts resolver, merger parity calculator, SPCX scaling, and view model behavior.
 
 ## Project layout
 
@@ -72,8 +72,8 @@ muskometer/
 │   ├── ViewModels/       # GainsViewModel (@Observable)
 │   ├── Views/            # Menu bar label, popover, settings
 │   ├── Models/           # StockQuote, GainsSnapshot, holdings
-│   ├── Services/         # Yahoo Finance, SEC sync, market hours
-│   ├── Utilities/        # Formatters, AppSettings, SPCXHoldings
+│   ├── Services/         # Yahoo Finance, Form 4 + companyfacts SEC, market hours
+│   ├── Utilities/        # Formatters, AppSettings, holdings/outstanding, parity math
 │   └── Resources/        # Assets, Info.plist, entitlements
 ├── MuskometerTests/
 ├── scripts/

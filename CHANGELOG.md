@@ -6,19 +6,15 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
-### Changed
-
-- **RTH-only product** — auto-refresh, quotes, sparkline, and daily records run only during regular US trading hours (9:30 AM–4:00 PM ET / early close); pre-market and post-market are treated as closed (no extended-hours live trading labels or 180s floor)
-
 ## [0.1.4] - 2026-08-08
 
-Merger market-cap parity card and small copy fix.
+Merger market-cap parity card, RTH-only refresh, and small copy fix.
 
 ### Added
 
 - **TSLA↔SPCX merger parity card** — main popover shows implied TSLA $/share if Tesla’s market cap matched SpaceX’s (`SPCX Class A price × Class A+B outstanding / TSLA outstanding`)
 - **Issuer shares outstanding** — SEC companyfacts (point-in-time only; rejects WASO) with cover-derived defaults; orthogonal to Musk Form 4 ownership
-- **HOLDINGS docs** — issuer outstanding vs Form 4 ownership, dual-class SPCX convention, parity formula
+- **Docs** — issuer outstanding vs Form 4 ownership, dual-class SPCX convention, parity formula (HOLDINGS, ARCHITECTURE, PRIVACY, disclaimer, site)
 
 ### Fixed
 
@@ -27,6 +23,7 @@ Merger market-cap parity card and small copy fix.
 ### Changed
 
 - **Settings** — toggle “Show market-cap parity card” (default on) to hide or show the TSLA↔SPCX parity card in the popover
+- **RTH-only product** — auto-refresh, quotes, sparkline, and daily records run only during regular US trading hours (9:30 AM–4:00 PM ET / early close); pre-market and post-market are treated as closed (no extended-hours live trading labels or 180s floor)
 
 ## [0.1.3] - 2026-07-08
 

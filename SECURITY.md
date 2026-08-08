@@ -5,8 +5,9 @@ Muskometer is a read-only menu bar utility. It does not handle payments, account
 ## What the app does
 
 - Fetches **public** stock quotes from Yahoo Finance (`query1.finance.yahoo.com`)
-- Fetches **public** SEC EDGAR Form 4 filings for Elon Musk's reported holdings
-- Stores preferences locally in **UserDefaults** (share counts, refresh interval, display mode, launch-at-login)
+- Fetches **public** SEC EDGAR Form 4 filings for Elon Musk's reported ownership holdings
+- Fetches **public** SEC companyfacts (issuer shares outstanding) for the optional market-cap parity card
+- Stores preferences locally in **UserDefaults** (ownership counts, issuer outstanding, refresh interval, display mode, parity card toggle, launch-at-login)
 
 ## What the app does *not* do
 

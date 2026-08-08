@@ -6,8 +6,9 @@ Muskometer is designed to be a **local, read-only** menu bar utility. It does no
 
 Preferences are stored in **UserDefaults** under the app bundle ID (`org.muskometer.app`):
 
-- TSLA and SPCX share counts (including SEC-synced defaults)
-- Menu bar display mode and trend icon preference
+- TSLA and SPCX share counts (including SEC-synced ownership defaults)
+- Issuer shares outstanding for market-cap parity (company totals, separate from ownership)
+- Menu bar display mode, trend icon preference, and market-cap parity card toggle
 - Auto-refresh interval
 - Launch-at-login setting
 - Last SEC holdings sync timestamp
@@ -21,7 +22,7 @@ The app makes **outbound HTTPS** requests only:
 | Destination | Purpose |
 |-------------|---------|
 | Yahoo Finance (`query1.finance.yahoo.com`) | Live TSLA and SPCX quotes |
-| SEC EDGAR (`data.sec.gov`, `www.sec.gov`) | Public Form 4 filings for reported holdings |
+| SEC EDGAR (`data.sec.gov`, `www.sec.gov`) | Public Form 4 filings (ownership) and companyfacts (issuer outstanding) |
 
 These services receive standard request metadata (IP address, TLS handshake, etc.) as any HTTPS client would. Muskometer does **not** send your name, email, Apple ID, or other personal identifiers.
 
@@ -42,7 +43,7 @@ Muskometer is not directed at children and does not knowingly collect personal i
 
 ## Changes
 
-If this policy changes materially, it will be updated in this repository. The current public release is **0.1.3**.
+If this policy changes materially, it will be updated in this repository. The current public release is **0.1.4**.
 
 ## Contact
 

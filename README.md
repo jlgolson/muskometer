@@ -35,10 +35,11 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 - **Menu bar label** — combined daily paper gain, percent change, split view, or **total worth** across TSLA and SPCX
 - **Trend icon toggle** — optional chart icon beside the label; hide it for text only
 - **Popover** — **Elon's Ownership** total, per-stock price, **Today's Gain/Loss** labels, combined total, market status
+- **Market-cap parity card** — optional “If Tesla had SpaceX's market cap” implied TSLA $/share (toggle in Settings)
 - **Auto-refresh** — during regular US trading hours (9:30 AM–4:00 PM ET)
 - **Share** — copy an image card or text summary (configurable in Settings)
 - **Launch at login** — always-on menu bar utility
-- **SEC holdings sync** — TSLA/SPCX share counts from Form 4 filings
+- **SEC sync** — Form 4 ownership counts plus companyfacts issuer outstanding for the parity card
 
 ## Keyboard shortcuts
 
@@ -54,7 +55,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk. See **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**.
 
 **Where do share counts come from?**  
-**TSLA** and **SPCX** share counts come from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
+**Ownership** for TSLA and SPCX comes from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). **Issuer outstanding** for the market-cap parity card comes from SEC companyfacts (with cover defaults) and is separate from ownership. Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
 
 **When does the number update?**  
 Quotes auto-refresh only during the **regular US session** (9:30 AM–4:00 PM ET, or early close) using your Settings interval (60–120s, default 90s). Pre-market and post-market are treated as closed. Overnight and on weekends the app sleeps until the next regular open (minimum 60s), then refreshes immediately when the session starts; the label shows the last regular close until then (use **Refresh** or **⌘R** to update manually).
@@ -87,4 +88,4 @@ MIT — see [LICENSE](LICENSE). Copyright [Jordan Golson](https://jordangolson.c
 
 ## Disclaimer
 
-Share counts come from SEC Form 4 filings. Figures are illustrative — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk. **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)** · **[docs/HOLDINGS.md](docs/HOLDINGS.md)**
+Ownership share counts come from SEC Form 4 filings; issuer outstanding for the parity card from companyfacts / cover defaults. Figures are illustrative — not financial advice. Not affiliated with Tesla, SpaceX, or Elon Musk. **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)** · **[docs/HOLDINGS.md](docs/HOLDINGS.md)**

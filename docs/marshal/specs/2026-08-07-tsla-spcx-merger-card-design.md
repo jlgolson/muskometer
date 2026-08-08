@@ -19,21 +19,28 @@ status: design
 
 ## Goals
 
-- Show a live **implied TSLA price** under company market-cap parity:  
-  `impliedTSLAPrice = (SPCX.price × SPCX.sharesOutstanding) / TSLA.sharesOutstanding`
-- Source **issuer shares outstanding** from **SEC** (not Yahoo, not Musk Form 4 ownership).
+- Show a live **implied TSLA price** under company market-cap parity:
+
+  ```
+  SPCX.marketCap = SPCX.classAYahooPrice × SPCX.economicallyEquivalentCommonOutstanding
+  impliedTSLAPrice = SPCX.marketCap / TSLA.sharesOutstanding
+  ```
+
+  For SpaceX (dual-class), **economically equivalent common outstanding** = **Class A + Class B** common shares outstanding (same economic claim per share; Class B is super-voting). Do **not** use Class A alone, fully diluted (options/RSUs), or EPS weighted-average share counts. SPCX mcap multiplies the existing Yahoo **Class A** last price by that A+B total.
+- Source **issuer shares outstanding** from **SEC** point-in-time figures (not Yahoo, not Musk Form 4 ownership, not period-average EPS share counts).
 - Surface it as a **card on the main menu-bar popover**, visually distinct from Musk ownership / paper-gain rows.
 - Fix the loneliest spelling in product copy and tests.
-- Keep the feature resilient when SEC outstanding data is missing or incomplete (no crash; hide or degrade gracefully).
+- Keep the feature resilient when SEC outstanding data is missing or incomplete (no crash; hide or degrade gracefully). **Defaults-only outstanding still shows the card** when both quote legs are present.
 
 ## Non-goals
 
-- Modeling a legal merger, exchange ratio, dilution, preferred classes, or control premium.
+- Modeling a legal merger, exchange ratio, dilution, preferred classes, control premium, or fully diluted share counts.
 - Reverse direction (SPCX priced at TSLA mcap) in v1.
 - Using Musk’s Form 4 stake counts as a proxy for company float.
 - Pulling market cap from Yahoo `quoteSummary` (currently 401 without auth cookies).
 - Settings UI to edit outstanding shares manually (defaults + SEC sync only for v1).
 - Multi-person profile generalization beyond the data hooks needed for Musk’s TSLA/SPCX pair.
+- Parsing 10-Q HTML cover pages in v1 (bundled cover-derived defaults cover SPCX until companyfacts exposes point-in-time multi-class totals).
 
 ## Current architecture (relevant)
 
@@ -58,6 +65,21 @@ No behavior change beyond spelling.
 
 ### 2. Issuer outstanding shares (SEC)
 
+**Definition (market-cap quantity):** Point-in-time **economically equivalent common shares outstanding** — the share count you multiply by the primary trading-class price to approximate equity market cap.
+
+| Issuer | Rule |
+|--------|------|
+| **TSLA** (single class) | Common shares outstanding (cover / `EntityCommonStockSharesOutstanding`). |
+| **SPCX** (dual-class) | **Class A + Class B** common outstanding. Class C (if any, zero on recent cover) is not required for v1. Prefer cover-page totals over balance-sheet “in millions” rounding. |
+
+**Reject for mcap (do not accept as a successful resolve):**
+
+- `WeightedAverageNumberOfSharesOutstandingBasic`
+- `WeightedAverageNumberOfDilutedSharesOutstanding`
+- Any other period-average / EPS denominator concept
+
+If companyfacts only yields those (current SPCX companyfacts as of 2026-08), **keep prior or bundled default** — do not “succeed” with a wrong ~5.86B WASO figure.
+
 **Issuer CIKs** (company entities, not Musk):
 
 | Symbol | Issuer CIK (padded) | Notes |
@@ -65,46 +87,63 @@ No behavior change beyond spelling.
 | TSLA | `0001318605` | Tesla, Inc. |
 | SPCX | `0001181412` | Space Exploration Technologies Corp |
 
-Attach issuer CIK on `TrackedHoldingSpec` (or a small adjacent map keyed by symbol) so sync code is not hard-coded only in one service.
+Attach issuer CIK on `TrackedHoldingSpec` (or a small adjacent map keyed by symbol) so sync code is not hard-coded only in one service. Presentation always keys on `"TSLA"` / `"SPCX"` explicitly for this card.
 
-**Fetch:** On the existing SEC holdings sync path (same ~24h cadence, same SEC User-Agent), after or alongside Form 4 ownership:
+**Bundled defaults** (cold start, offline, failed resolve; card **is** shown with these):
 
-1. For each expected symbol with an issuer CIK, `GET https://data.sec.gov/api/xbrl/companyfacts/CIK{padded}.json`
-2. Resolve shares outstanding with **priority** (first concept that has a usable latest `shares` unit value):
-   1. `dei:EntityCommonStockSharesOutstanding` (preferred; present for TSLA)
+| Symbol | Default | Source |
+|--------|---------|--------|
+| TSLA | `3_949_547_394` | `dei:EntityCommonStockSharesOutstanding`, end 2026-07-16 (companyfacts / 10-Q) |
+| SPCX | `13_181_779_945` | 10-Q cover as of **2026-07-28**: Class A `7_696_293_669` + Class B `5_485_486_276` (accession `0001628280-26-052535`) |
+
+Comment constants with as-of / accession. `AppSettings.resetToDefaults()` **reseeds** outstanding keys to these bundled defaults (independent of Musk `shareCount_*` ownership keys).
+
+**Fetch:** On the existing SEC holdings sync path (same ~24h cadence, same SEC User-Agent), after or alongside Form 4 ownership — **orthogonal** types: do not fold outstanding into `HoldingsSyncResult.sharesBySymbol` or `applyHoldingsSync`’s all-symbols-complete ownership gate. Prefer a dedicated pure companyfacts parser + small fetch invoked from the daily SEC path so Form 4 `throws` never depends on companyfacts.
+
+1. For each expected symbol with an issuer CIK, `GET https://data.sec.gov/api/xbrl/companyfacts/CIK{padded}.json` (parse only target concept paths; payloads can be multi-MB).
+2. **Resolve** point-in-time outstanding:
+
+   **Concept priority** (first that yields a usable value under the selection rules below):
+   1. `dei:EntityCommonStockSharesOutstanding`
    2. `us-gaap:CommonStockSharesOutstanding`
-   3. `us-gaap:WeightedAverageNumberOfSharesOutstandingBasic` (fallback; present for SPCX as of 2026-08 10-Q)
-3. Persist resolved counts per symbol (UserDefaults), independent of Musk ownership keys.
-4. Bundled **defaults** for cold start / offline (last-known-good style constants, updated when SEC succeeds):
-   - TSLA ≈ `3_949_547_394` (EntityCommonStockSharesOutstanding, mid-2026)
-   - SPCX ≈ `5_864_000_000` (WeightedAverageNumberOfSharesOutstandingBasic, Q2 2026 10-Q)
 
-**Sync completeness:** Outstanding is **best-effort relative to Form 4**. A full Form 4 ownership sync must not fail solely because companyfacts is missing for one issuer. Conversely, if companyfacts succeeds for a symbol, store it even when Form 4 for that symbol is still pending.
+   **Multi-class / multi-member:** If a concept has multiple members (e.g. per share class), **sum** members that share the same `end` date for the chosen “latest” instant. Do not take max/first alone. If the taxonomy does not expose a trustworthy multi-class total for SPCX, leave unresolved and keep default.
 
-Optional metadata to store (nice-to-have, not required for v1 UI): concept name + filed date for caption honesty (“SEC 10-Q …”).
+   **Latest usable row selection** (only `shares` unit; only point-in-time facts with an `end` date — reject duration-only rows that lack an instant `end` usable as outstanding):
+   1. Prefer forms in `{10-Q, 10-K, 10-K/A, 10-Q/A}` when `form` is present.
+   2. Sort candidates by `(end desc, filed desc)`; take the first after form preference.
+   3. Value must be finite and `> 0`.
+
+3. Persist resolved counts under **independent** UserDefaults keys (e.g. `sharesOutstanding_TSLA`), never ownership keys.
+4. On successful resolve for a symbol, overwrite that symbol’s outstanding; on failure, keep prior/default.
+
+**Sync completeness:** Outstanding is **best-effort relative to Form 4**. Form 4 ownership sync must not fail solely because companyfacts is missing. Outstanding success for a symbol must not require Form 4 success for that symbol. Outstanding **never** participates in the ownership completeness gate.
+
+Optional metadata (nice-to-have, not required for v1 UI): concept name + filed/end date for caption honesty.
 
 ### 3. Pure market-cap parity calculator
 
 New pure type (e.g. `MergerMarketCapParity` or free functions in a small util), unit-tested:
 
 ```
-marketCap(price, outstanding) = price × Double(outstanding)
-impliedTSLAPrice(spcxPrice, spcxOutstanding, tslaOutstanding) =
-    marketCap(spcxPrice, spcxOutstanding) / Double(tslaOutstanding)
+// SPCX: Class A Yahoo price × (Class A + Class B) outstanding
+spcxMarketCap = spcxClassAPrice × Double(spcxOutstandingAPlusB)
+tslaMarketCap = tslaPrice × Double(tslaOutstanding)
+impliedTSLAPrice = spcxMarketCap / Double(tslaOutstanding)
 ```
 
-Guards: return `nil` if any input is non-finite, ≤ 0, or outstanding ≤ 0.
+Guards: return `nil` if any input is non-finite, `≤ 0`, or outstanding `≤ 0`.
 
 ### 4. Snapshot / view-model wiring
 
-- Read outstanding counts from settings (or dedicated store) when building the popover model.
-- Inputs for the card: live TSLA/SPCX prices from the current `GainsSnapshot` (same quotes as stock rows) + outstanding counts.
-- Expose a small view model property or computed presentation model, e.g. `mergerParityCard: MergerParityPresentation?` with:
+- Read outstanding counts from settings (defaults if never synced).
+- Inputs: live `"TSLA"` / `"SPCX"` prices from current `GainsSnapshot` + outstanding for those symbols.
+- Presentation model, e.g. `mergerParityCard: MergerParityPresentation?`:
   - `impliedTSLAPrice`
-  - `tslaMarketCap`, `spcxMarketCap` (for caption)
-  - optional `currentTSLAPrice` for comparison
+  - `tslaMarketCap`, `spcxMarketCap` (caption)
+  - `currentTSLAPrice` for contrast
 
-Card hidden when presentation is `nil` (missing quote leg or outstanding).
+Card **hidden** only when presentation is `nil` because a **quote** leg is missing or calculator guards fail. Card **shown** when outstanding is defaults-only (never successfully companyfacts-synced).
 
 ### 5. UI — main popover card
 
@@ -121,7 +160,10 @@ No navigation, no settings gear, no reverse-direction toggle in v1.
 
 ### 6. Docs
 
-- Short note in `docs/HOLDINGS.md` (or a one-paragraph addition) explaining issuer outstanding vs Form 4 ownership and the formula.
+- Update `docs/HOLDINGS.md` with a short section covering:
+  - Issuer outstanding (companyfacts / cover defaults) vs Form 4 **ownership**
+  - Dual-class SPCX convention: mcap ≈ Class A price × (A+B)
+  - Formula for implied TSLA under SPCX mcap parity
 - No marketing site change required for v1.
 
 ## Data flow
@@ -141,27 +183,33 @@ Yahoo chart prices ──────────────► GainsSnapshot q
 
 | Condition | Behavior |
 |-----------|----------|
-| Companyfacts 404 / network error | Keep prior outstanding; log/ignore; Form 4 path unaffected |
-| Concept list all missing | Keep prior / defaults; card still works if defaults present |
+| Companyfacts 404 / network error | Keep prior outstanding; Form 4 path unaffected |
+| Only weighted-average / non-mcap concepts present | Treat as unresolved; keep prior / bundled default (do not store WASO) |
+| Multi-class facts incomplete / unsummable | Unresolved; keep prior / default |
+| Concept list all missing | Keep prior / defaults; **card still shows** with defaults |
 | One of TSLA/SPCX quotes missing from snapshot | Hide card |
-| Outstanding zero/negative after parse | Ignore that value; do not overwrite good prior |
+| Outstanding zero/negative after parse | Ignore; do not overwrite good prior |
+| `resetToDefaults()` | Reseed outstanding to bundled constants; clear any stale SEC value |
 
 ## Testing
 
-- **Unit:** priority resolver for companyfacts JSON fixtures (TSLA-style dei concept; SPCX-style weighted-average only).
-- **Unit:** calculator edge cases (zero outstanding, missing price).
-- **Unit:** typo string exact match `Loneliest`.
-- **Unit (optional):** AppSettings round-trip for outstanding keys.
-- No mandatory live SEC integration test in CI (network flaky); local verify may remain quote-focused.
+- **Unit:** companyfacts resolver — TSLA-style single `EntityCommonStockSharesOutstanding` row accepted.
+- **Unit:** multi-member same-`end` sum for dual-class-style fixtures.
+- **Unit:** WASO-only fixture → unresolved (nil), does not beat default.
+- **Unit:** latest selection by `(end, filed)` and form preference.
+- **Unit:** calculator edges (zero outstanding, non-finite price); A+B mcap math smoke.
+- **Unit:** typo string exact match `Loneliest` (update any test whose **name** embeds `Lonliest`).
+- **Unit:** AppSettings outstanding keys independent of ownership; reset reseeds defaults.
+- No mandatory live SEC integration test in CI.
 
 ## Implementation sketch (files)
 
 | Area | Likely touch |
 |------|----------------|
 | Typo | `NetWorthMilestoneTracker.swift`, tests |
-| Model | `TrackedHoldingSpec` + issuer CIK; outstanding defaults |
-| SEC | companyfacts client/parser; extend sync result or parallel call from `GainsViewModel` / sync service |
-| Settings | `sharesOutstanding(for:)` / `setSharesOutstanding` |
+| Model | `TrackedHoldingSpec` + issuer CIK; outstanding defaults (~13.18B SPCX) |
+| SEC | dedicated companyfacts fetch/parser; invoke from daily SEC path without coupling Form 4 result type |
+| Settings | `sharesOutstanding(for:)` / `setSharesOutstanding`; reset reseeds |
 | Calc | new pure util + tests |
 | UI | `MergerParityCardView`, `PopoverContentView` |
 | Docs | `HOLDINGS.md` |
@@ -172,4 +220,4 @@ None.
 
 ## Scale & Validation
 
-Not applicable: UI + local SEC parse with two issuer CIKs; no data-volume or multi-tenant dimension.
+Not applicable: UI + local SEC parse with two issuer CIKs; no multi-tenant dimension. Companyfacts JSON can be multi-MB — parse only target concept paths; no CI live network test.

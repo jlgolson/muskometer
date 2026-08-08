@@ -5,6 +5,7 @@ DerivedData/
 .build/
 build/
 dist/
+.worktrees/
 Config/Release.xcconfig
 *.ipa
 *.p12

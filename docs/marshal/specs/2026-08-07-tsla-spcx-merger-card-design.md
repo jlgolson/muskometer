@@ -1,3 +1,11 @@
+---
+slug: 2026-08-07-tsla-spcx-merger-card-design
+title: TSLA↔SPCX merger market-cap card + trillion easter-egg typo
+date: 2026-08-07
+branch: jordan/tsla-spcx-merger-card
+status: design
+---
+
 # TSLA↔SPCX merger market-cap card + trillion easter-egg typo
 
 **Date:** 2026-08-07  

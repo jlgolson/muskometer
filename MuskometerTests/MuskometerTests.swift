@@ -1123,6 +1123,146 @@ final class IssuerSharesOutstandingTests: XCTestCase {
     }
 }
 
+final class MergerMarketCapParityTests: XCTestCase {
+    func testHappyPathImpliedEqualsSPCXMarketCapOverTSLAShares() throws {
+        // tslaPrice 100, spcxPrice 50, outstanding 2 / 4
+        // → spcx mcap 200, tsla mcap 200, implied TSLA 100
+        let result = MergerMarketCapParity.presentation(
+            tslaPrice: 100,
+            spcxPrice: 50,
+            tslaOutstanding: 2,
+            spcxOutstanding: 4
+        )
+
+        let presentation = try XCTUnwrap(result)
+        XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
+        XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
+        XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
+        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
+    }
+
+    func testZeroOrNegativeInputsReturnNil() {
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 0,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 0,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: -1,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: -1,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: 0,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: 0
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: -1,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: -1
+            )
+        )
+    }
+
+    func testNonFiniteInputsReturnNil() {
+        let nonFinite: [Double] = [.nan, .infinity, -.infinity]
+        for bad in nonFinite {
+            XCTAssertNil(
+                MergerMarketCapParity.presentation(
+                    tslaPrice: bad,
+                    spcxPrice: 50,
+                    tslaOutstanding: 2,
+                    spcxOutstanding: 4
+                ),
+                "tslaPrice \(bad) should yield nil"
+            )
+            XCTAssertNil(
+                MergerMarketCapParity.presentation(
+                    tslaPrice: 100,
+                    spcxPrice: bad,
+                    tslaOutstanding: 2,
+                    spcxOutstanding: 4
+                ),
+                "spcxPrice \(bad) should yield nil"
+            )
+        }
+    }
+
+    func testRealishOrdersOfMagnitude() throws {
+        let tslaOutstanding = IssuerSharesOutstanding.defaultTSLA
+        let spcxOutstanding = IssuerSharesOutstanding.defaultSPCX
+        let tslaPrice = 250.0
+        let spcxPrice = 80.0
+
+        let result = MergerMarketCapParity.presentation(
+            tslaPrice: tslaPrice,
+            spcxPrice: spcxPrice,
+            tslaOutstanding: tslaOutstanding,
+            spcxOutstanding: spcxOutstanding
+        )
+
+        let presentation = try XCTUnwrap(result)
+        let expectedSPCXMcap = spcxPrice * Double(spcxOutstanding)
+        let expectedTSLAMcap = tslaPrice * Double(tslaOutstanding)
+        let expectedImplied = expectedSPCXMcap / Double(tslaOutstanding)
+
+        XCTAssertEqual(presentation.spcxMarketCap, expectedSPCXMcap, accuracy: 1.0)
+        XCTAssertEqual(presentation.tslaMarketCap, expectedTSLAMcap, accuracy: 1.0)
+        XCTAssertEqual(presentation.impliedTSLAPrice, expectedImplied, accuracy: 1e-6)
+        XCTAssertEqual(presentation.currentTSLAPrice, tslaPrice, accuracy: 1e-9)
+
+        // Sanity: with ~3.3× more SPCX shares at $80 vs TSLA at $250, implied is in hundreds–thousands.
+        XCTAssertGreaterThan(presentation.impliedTSLAPrice, 100)
+        XCTAssertLessThan(presentation.impliedTSLAPrice, 10_000)
+        XCTAssertGreaterThan(presentation.spcxMarketCap, 1e11)
+        XCTAssertGreaterThan(presentation.tslaMarketCap, 1e11)
+    }
+}
+
 final class AppSettingsLaunchAtLoginTests: XCTestCase {
     private func makeDefaults(suiteName: String = "MuskometerTests-launch-\(UUID().uuidString)") -> UserDefaults {
         let defaults = UserDefaults(suiteName: suiteName)!

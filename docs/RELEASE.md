@@ -2,9 +2,9 @@
 
 Guide for maintainers shipping builds to [GitHub Releases](https://github.com/jlgolson/muskometer/releases).
 
-## Primary path: unsigned DMG (current: v0.1.3)
+## Primary path: unsigned DMG (current: v0.1.4)
 
-**This is what we ship today.** No Apple Developer Program ($99) required. Examples below use **0.1.3**; substitute the version you are shipping.
+**This is what we ship today.** No Apple Developer Program ($99) required. Examples below use **0.1.4**; substitute the version you are shipping.
 
 ```bash
 ./scripts/package-dmg.sh
@@ -21,26 +21,26 @@ No signing or notarization. Tell users to **right-click → Open** on first laun
 
 ### Tag and publish
 
-1. Confirm `MARKETING_VERSION` matches the release (e.g. `0.1.3`) in the Xcode project / `Info.plist`.
+1. Confirm `MARKETING_VERSION` matches the release (e.g. `0.1.4`) in the Xcode project / `Info.plist`.
 2. Run `./scripts/package-dmg.sh`.
 3. Tag and push:
 
 ```bash
-git tag v0.1.3
-git push origin v0.1.3
+git tag v0.1.4
+git push origin v0.1.4
 ```
 
 4. Create the GitHub Release and attach the artifacts:
 
 ```bash
-gh release create v0.1.3 \
-  dist/Muskometer-0.1.3.dmg \
-  dist/Muskometer-0.1.3.zip \
-  --title "Muskometer 0.1.3" \
+gh release create v0.1.4 \
+  dist/Muskometer-0.1.4.dmg \
+  dist/Muskometer-0.1.4.zip \
+  --title "Muskometer 0.1.4" \
   --notes "See CHANGELOG.md. Unsigned DMG — right-click → Open on first launch."
 ```
 
-Or use the [New release](https://github.com/jlgolson/muskometer/releases/new) UI: choose tag `v0.1.3`, title **Muskometer 0.1.3**, attach `dist/Muskometer-0.1.3.dmg` (and optionally the `.zip`).
+Or use the [New release](https://github.com/jlgolson/muskometer/releases/new) UI: choose tag `v0.1.4`, title **Muskometer 0.1.4**, attach `dist/Muskometer-0.1.4.dmg` (and optionally the `.zip`).
 
 ---
 
@@ -156,8 +156,8 @@ cp Config/Release.xcconfig.example Config/Release.xcconfig
 
 Update in Xcode or in `Muskometer.xcodeproj` / `Info.plist`:
 
-- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.3`)
-- `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `24`)
+- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.4`)
+- `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `25`)
 
 Commit the version bump before tagging.
 

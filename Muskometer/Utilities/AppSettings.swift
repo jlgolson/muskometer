@@ -15,6 +15,7 @@ final class AppSettings {
         static let selectedPersonID = "selectedPersonID"
         static let menuBarDisplayMode = "menuBarDisplayMode"
         static let showMenuBarIcon = "showMenuBarIcon"
+        static let showMergerParityCard = "showMergerParityCard"
         static let lastHoldingsSync = "lastHoldingsSyncDate"
         static let holdingsSyncSource = "holdingsSyncSource"
         static let launchAtLogin = "launchAtLogin"
@@ -71,6 +72,13 @@ final class AppSettings {
         didSet {
             defaults.set(showMenuBarIcon, forKey: Keys.showMenuBarIcon)
             bumpMenuBarLabelEpoch()
+        }
+    }
+
+    /// When true, the main popover shows the TSLA↔SPCX market-cap parity card (if data allows).
+    var showMergerParityCard: Bool {
+        didSet {
+            defaults.set(showMergerParityCard, forKey: Keys.showMergerParityCard)
         }
     }
 
@@ -216,6 +224,12 @@ final class AppSettings {
             self.showMenuBarIcon = defaults.bool(forKey: Keys.showMenuBarIcon)
         } else {
             self.showMenuBarIcon = true
+        }
+
+        if defaults.object(forKey: Keys.showMergerParityCard) != nil {
+            self.showMergerParityCard = defaults.bool(forKey: Keys.showMergerParityCard)
+        } else {
+            self.showMergerParityCard = true
         }
 
         if let storedPersonID = defaults.string(forKey: Keys.selectedPersonID),
@@ -456,6 +470,7 @@ final class AppSettings {
         refreshIntervalSeconds = Self.defaultRefreshInterval
         menuBarDisplayMode = .combinedDollars
         showMenuBarIcon = true
+        showMergerParityCard = true
         shareFormat = .image
         notifyOfAvailableUpdates = false
         updateDeliveryMode = .notifyOnly

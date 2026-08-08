@@ -24,6 +24,10 @@ Merger market-cap parity card and small copy fix.
 
 - **Trillion easter egg** — “One Trillion Is the Loneliest Number” spelling (was *Lonliest*)
 
+### Changed
+
+- **Settings** — toggle “Show market-cap parity card” (default on) to hide or show the TSLA↔SPCX parity card in the popover
+
 ## [0.1.3] - 2026-07-08
 
 Correctness and reliability release — holdings, daily records, market hours, Settings, and refresh lifecycle.

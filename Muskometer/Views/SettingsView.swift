@@ -174,6 +174,14 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            groupedCard {
+                Toggle("Show market-cap parity card", isOn: $settings.showMergerParityCard)
+
+                Text("When on, the popover shows implied TSLA $/share if Tesla’s market cap matched SpaceX’s.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             updatesSection
 
             groupedCard {

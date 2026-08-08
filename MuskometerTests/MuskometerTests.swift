@@ -995,6 +995,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
         XCTAssertEqual(settings.selectedPersonID, TrackedPersonProfile.musk.id)
         XCTAssertTrue(settings.showMenuBarIcon)
+        XCTAssertTrue(settings.showMergerParityCard)
     }
 
     func testShowMenuBarIconPersists() {
@@ -1008,6 +1009,34 @@ final class AppSettingsTests: XCTestCase {
         let reloaded = AppSettings(defaults: defaults)
         XCTAssertFalse(reloaded.showMenuBarIcon)
         XCTAssertGreaterThan(settings.menuBarLabelEpoch, initialEpoch)
+    }
+
+    func testShowMergerParityCardDefaultsOnAndPersists() {
+        let suiteName = "MuskometerTests-merger-parity-toggle-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertTrue(settings.showMergerParityCard)
+
+        settings.showMergerParityCard = false
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertFalse(reloaded.showMergerParityCard)
+
+        reloaded.showMergerParityCard = true
+        let reloadedOn = AppSettings(defaults: defaults)
+        XCTAssertTrue(reloadedOn.showMergerParityCard)
+    }
+
+    func testResetToDefaultsTurnsMergerParityCardBackOn() {
+        let suiteName = "MuskometerTests-merger-parity-reset-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.showMergerParityCard = false
+        settings.resetToDefaults()
+        XCTAssertTrue(settings.showMergerParityCard)
     }
 
     func testTotalWorthDisplayModePersists() {

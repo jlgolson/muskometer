@@ -30,6 +30,7 @@ final class GainsViewModel {
 
     private let stockService: any StockPriceServiceProtocol
     private let holdingsSyncServiceFactory: (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol
+    private let outstandingSyncServiceFactory: () -> any IssuerOutstandingSyncServiceProtocol
     private let marketHours: any MarketHoursServiceProtocol
     private let dailyRecordTracker: DailyRecordTracker
     private let gainThresholdNotificationService: GainThresholdNotificationService
@@ -48,6 +49,7 @@ final class GainsViewModel {
         settings: AppSettings = .shared,
         stockService: any StockPriceServiceProtocol = YahooFinanceStockPriceService(),
         holdingsSyncServiceFactory: @escaping (TrackedPersonProfile) -> any HoldingsSyncServiceProtocol = { SECHoldingsSyncService(profile: $0) },
+        outstandingSyncServiceFactory: @escaping () -> any IssuerOutstandingSyncServiceProtocol = { IssuerOutstandingSyncService() },
         marketHours: any MarketHoursServiceProtocol = MarketHoursService(),
         dailyRecordTracker: DailyRecordTracker? = nil,
         gainThresholdNotificationService: GainThresholdNotificationService? = nil,
@@ -62,6 +64,7 @@ final class GainsViewModel {
         self.updateCoordinator = updateCoordinator ?? UpdateCoordinator(settings: settings)
         self.stockService = stockService
         self.holdingsSyncServiceFactory = holdingsSyncServiceFactory
+        self.outstandingSyncServiceFactory = outstandingSyncServiceFactory
         self.marketHours = marketHours
         self.dailyRecordTracker = dailyRecordTracker ?? DailyRecordTracker()
         self.gainThresholdNotificationService = gainThresholdNotificationService ?? GainThresholdNotificationService()
@@ -245,6 +248,35 @@ final class GainsViewModel {
             settings.recordHoldingsSyncAttempt()
             holdingsSyncMessage = "SEC sync failed: \(error.localizedDescription)"
         }
+
+        // Best-effort issuer outstanding (companyfacts). Independent of Form 4 outcome;
+        // never alters holdingsSyncMessage on failure.
+        await syncIssuerOutstanding(for: profile)
+    }
+
+    /// Fetches companyfacts outstanding for the profile's holding specs and persists positive results.
+    private func syncIssuerOutstanding(for profile: TrackedPersonProfile) async {
+        let service = outstandingSyncServiceFactory()
+        let outstanding = await service.fetchOutstanding(for: profile.holdingSpecs)
+        for (symbol, shares) in outstanding where shares > 0 {
+            settings.setSharesOutstanding(shares, for: symbol)
+        }
+    }
+
+    /// Market-cap parity presentation for the TSLA/SPCX merger card.
+    /// Uses live snapshot quotes + settings outstanding (bundled defaults when never synced).
+    var mergerParityPresentation: MergerParityPresentation? {
+        guard let snapshot else { return nil }
+        guard let tsla = snapshot.holdings.first(where: { $0.symbol == "TSLA" }),
+              let spcx = snapshot.holdings.first(where: { $0.symbol == "SPCX" }) else {
+            return nil
+        }
+        return MergerMarketCapParity.presentation(
+            tslaPrice: tsla.quote.currentPrice,
+            spcxPrice: spcx.quote.currentPrice,
+            tslaOutstanding: settings.sharesOutstanding(for: "TSLA"),
+            spcxOutstanding: settings.sharesOutstanding(for: "SPCX")
+        )
     }
 
     var menuBarTitle: String {

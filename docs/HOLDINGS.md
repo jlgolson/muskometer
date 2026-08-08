@@ -61,7 +61,7 @@ Class B is super-voting but economically equivalent per share for this toy. The 
 
 ### Implied TSLA at SPCX market-cap parity
 
-The main popover card **“If TSLA matched SPCX’s market cap”** answers: what would one TSLA share be worth if TSLA’s company market cap equaled SPCX’s?
+The main popover card **“If Tesla had SpaceX’s market cap”** answers: what would one TSLA share be worth if Tesla’s company market cap equaled SpaceX’s?
 
 ```
 SPCX mcap     = SPCX Class A price × SPCX (A+B) outstanding

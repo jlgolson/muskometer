@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// “If TSLA matched SPCX’s market cap” card for the main popover.
+/// “If Tesla had SpaceX’s market cap” card for the main popover.
 struct MergerParityCardView: View {
     let presentation: MergerParityPresentation
     var animateValues = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("If TSLA matched SPCX's market cap")
+            Text("If Tesla had SpaceX's market cap")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
@@ -30,8 +30,7 @@ struct MergerParityCardView: View {
     private var caption: String {
         let spcx = CurrencyFormatter.formatMarketValue(presentation.spcxMarketCap)
         let tsla = CurrencyFormatter.formatMarketValue(presentation.tslaMarketCap)
-        let price = CurrencyFormatter.formatPrice(presentation.currentTSLAPrice)
-        return "SPCX \(spcx) · TSLA now \(tsla) (\(price)/sh)"
+        return "SPCX \(spcx) · TSLA \(tsla)"
     }
 
     @ViewBuilder

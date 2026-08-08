@@ -17,7 +17,7 @@ final class NetWorthMilestoneTracker {
     static let oneTrillion: Double = 1_000_000_000_000
     static let twoTrillion: Double = 2_000_000_000_000
     static let hysteresisFraction: Double = 0.01
-    static let belowTrillionMessage = "One Trillion Is the Lonliest Number"
+    static let belowTrillionMessage = "One Trillion Is the Loneliest Number"
 
     private let defaults: UserDefaults
 

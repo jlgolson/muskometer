@@ -3336,7 +3336,7 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.currentZone(for: personID), .belowOneTrillion)
     }
 
-    func testSadMessageUsesLonliestNumberCopy() {
+    func testSadMessageUsesLoneliestNumberCopy() {
         let tracker = makeTracker()
         _ = tracker.update(netWorth: 1_100_000_000_000, personID: personID)
         let event = tracker.update(netWorth: 900_000_000_000, personID: personID)
@@ -3344,7 +3344,8 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
         guard case .fellBelowTrillion(let message) = event else {
             return XCTFail("Expected fellBelowTrillion")
         }
-        XCTAssertEqual(message, "One Trillion Is the Lonliest Number")
+        XCTAssertEqual(message, "One Trillion Is the Loneliest Number")
+        XCTAssertEqual(message, NetWorthMilestoneTracker.belowTrillionMessage)
     }
 
     func testNoCelebrationWhenAlreadyAboveTrillion() {

@@ -31,4 +31,44 @@ Combined paper gain is the sum across TSLA and SPCX. Combined **percent** change
 
 Figures are **illustrative** — not financial advice.
 
+## Issuer outstanding vs Form 4 ownership
+
+Muskometer tracks **two different share numbers** for each ticker:
+
+| Concept | What it measures | Source | Used for |
+|---------|------------------|--------|----------|
+| **Form 4 ownership** | Musk’s beneficial / Class A-equivalent holdings | SEC Form 4 XML (daily EDGAR walk) | Paper gain, portfolio worth, stock rows |
+| **Issuer outstanding** | Company-wide shares outstanding (mcap base) | SEC companyfacts (`data.sec.gov` XBRL) with cover-derived bundled defaults | Merger market-cap parity card only |
+
+These paths are independent: Form 4 ownership never writes issuer outstanding, and companyfacts never overwrites Form 4 share counts. Outstanding sync is best-effort on the same ~24h SEC cadence; a companyfacts miss leaves prior or default outstanding in place and does not fail Form 4.
+
+| Ticker | Default outstanding | Derivation |
+|--------|---------------------|------------|
+| **TSLA** | 3,949,547,394 | `dei:EntityCommonStockSharesOutstanding`, end 2026-07-16 (10-Q / companyfacts) |
+| **SPCX** | 13,181,779,945 | 10-Q cover as of 2026-07-28: Class A 7,696,293,669 + Class B 5,485,486,276 (accession `0001628280-26-052535`) |
+
+Settings → Reset to defaults reseeds both ownership and outstanding to bundled values. Weighted-average / EPS share counts (WASO) are **rejected** for mcap — if companyfacts only exposes those, the app keeps the prior or cover default.
+
+### Dual-class SPCX market cap
+
+SpaceX has dual-class common stock. For market-cap parity the app uses:
+
+```
+SPCX market cap ≈ Class A Yahoo price × (Class A + Class B outstanding)
+```
+
+Class B is super-voting but economically equivalent per share for this toy. The Yahoo **Class A** last price is multiplied by the **A+B** outstanding total (not Class A alone, not fully diluted options/RSUs).
+
+### Implied TSLA at SPCX market-cap parity
+
+The main popover card **“If TSLA matched SPCX’s market cap”** answers: what would one TSLA share be worth if TSLA’s company market cap equaled SPCX’s?
+
+```
+SPCX mcap     = SPCX Class A price × SPCX (A+B) outstanding
+TSLA mcap     = TSLA price × TSLA outstanding
+implied TSLA  = SPCX mcap / TSLA outstanding
+```
+
+The card is **illustrative market-cap parity only** — not a merger announcement, fairness opinion, deal model, or investment advice. It is hidden only when a required quote leg is missing or inputs fail basic guards; defaults-only outstanding still shows the card.
+
 See [DISCLAIMER.md](DISCLAIMER.md).

@@ -85,6 +85,8 @@ final class AppSettings {
     }
 
     private(set) var shareCountsBySymbol: [String: Int64] = [:]
+    /// Issuer shares outstanding (company totals), independent of Musk Form 4 ownership.
+    private(set) var sharesOutstandingBySymbol: [String: Int64] = [:]
 
     var selectedProfile: TrackedPersonProfile {
         TrackedPersonProfile.profile(for: selectedPersonID)
@@ -100,6 +102,23 @@ final class AppSettings {
     func setShareCount(_ count: Int64, for symbol: String) {
         shareCountsBySymbol[symbol] = count
         defaults.set(String(count), forKey: Self.shareCountKey(for: symbol))
+    }
+
+    /// Issuer outstanding for market-cap parity. Prefers stored positive values, then bundled defaults.
+    func sharesOutstanding(for symbol: String) -> Int64 {
+        let normalized = symbol.uppercased()
+        if let stored = sharesOutstandingBySymbol[normalized], stored > 0 {
+            return stored
+        }
+        return IssuerSharesOutstanding.defaultOutstanding(for: normalized) ?? 0
+    }
+
+    /// Persists issuer outstanding when `count > 0`. Keys are independent of ownership `shareCount_*`.
+    func setSharesOutstanding(_ count: Int64, for symbol: String) {
+        guard count > 0 else { return }
+        let normalized = symbol.uppercased()
+        sharesOutstandingBySymbol[normalized] = count
+        defaults.set(String(count), forKey: IssuerSharesOutstanding.userDefaultsKey(for: normalized))
     }
 
     var lastHoldingsSyncDate: Date? {
@@ -209,6 +228,7 @@ final class AppSettings {
         Self.migrateLegacyShareCounts(defaults: defaults)
         Self.migrateLegacyHoldingsSyncMetadata(defaults: defaults)
         self.shareCountsBySymbol = Self.loadShareCounts(defaults: defaults)
+        self.sharesOutstandingBySymbol = Self.loadSharesOutstanding(defaults: defaults)
 
         self.launchAtLogin = defaults.bool(forKey: Keys.launchAtLogin)
 
@@ -330,6 +350,24 @@ final class AppSettings {
         return counts
     }
 
+    private static func loadSharesOutstanding(defaults: UserDefaults) -> [String: Int64] {
+        var counts: [String: Int64] = [:]
+
+        for profile in TrackedPersonProfile.registry {
+            for spec in profile.holdingSpecs {
+                let normalized = spec.symbol.uppercased()
+                let key = IssuerSharesOutstanding.userDefaultsKey(for: normalized)
+                if let stored = defaults.string(forKey: key),
+                   let value = Int64(stored),
+                   value > 0 {
+                    counts[normalized] = value
+                }
+            }
+        }
+
+        return counts
+    }
+
     func syncLaunchAtLoginFromService() {
         let desired = launchAtLogin
         let actual = launchAtLoginManager.isEnabled
@@ -425,6 +463,9 @@ final class AppSettings {
 
         for spec in selectedProfile.holdingSpecs {
             setShareCount(spec.defaultShareCount, for: spec.symbol)
+            if let defaultOutstanding = IssuerSharesOutstanding.defaultOutstanding(for: spec.symbol) {
+                setSharesOutstanding(defaultOutstanding, for: spec.symbol)
+            }
         }
 
         lastHoldingsSyncDate = nil

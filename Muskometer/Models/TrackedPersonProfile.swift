@@ -11,6 +11,8 @@ struct TrackedHoldingSpec: Identifiable, Sendable, Equatable {
     let displayName: String
     let defaultShareCount: Int64
     let parseStrategy: HoldingParseStrategy
+    /// Issuer (company) CIK for companyfacts outstanding sync — not the person Form 4 CIK.
+    let issuerCIKPadded: String?
 }
 
 struct TrackedPersonProfile: Identifiable, Sendable, Equatable {
@@ -41,14 +43,16 @@ struct TrackedPersonProfile: Identifiable, Sendable, Equatable {
                 symbol: "TSLA",
                 displayName: "Tesla",
                 defaultShareCount: 699_580_882,
-                parseStrategy: .directBeneficial
+                parseStrategy: .directBeneficial,
+                issuerCIKPadded: "0001318605"
             ),
             TrackedHoldingSpec(
                 id: "spcx",
                 symbol: "SPCX",
                 displayName: "SpaceX",
                 defaultShareCount: 6_068_734_060,
-                parseStrategy: .spcxAggregate
+                parseStrategy: .spcxAggregate,
+                issuerCIKPadded: "0001181412"
             )
         ]
     )

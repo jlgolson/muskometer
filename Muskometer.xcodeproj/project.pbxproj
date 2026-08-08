@@ -70,6 +70,7 @@
 		A10000000000000000000044 /* QuotePriceResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* QuotePriceResolver.swift */; };
 		A10000000000000000000045 /* NotificationAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* NotificationAuthorization.swift */; };
 		A10000000000000000000046 /* ShareCountTextInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000046 /* ShareCountTextInput.swift */; };
+		A10000000000000000000050 /* IssuerSharesOutstanding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000050 /* IssuerSharesOutstanding.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -140,6 +141,7 @@
 		A20000000000000000000044 /* QuotePriceResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotePriceResolver.swift; sourceTree = "<group>"; };
 		A20000000000000000000045 /* NotificationAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAuthorization.swift; sourceTree = "<group>"; };
 		A20000000000000000000046 /* ShareCountTextInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCountTextInput.swift; sourceTree = "<group>"; };
+		A20000000000000000000050 /* IssuerSharesOutstanding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuerSharesOutstanding.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -319,6 +321,7 @@
 				A20000000000000000000043 /* SemanticVersion.swift */,
 				A20000000000000000000045 /* NotificationAuthorization.swift */,
 				A20000000000000000000046 /* ShareCountTextInput.swift */,
+				A20000000000000000000050 /* IssuerSharesOutstanding.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -482,6 +485,7 @@
 				A10000000000000000000043 /* SemanticVersion.swift in Sources */,
 				A10000000000000000000045 /* NotificationAuthorization.swift in Sources */,
 				A10000000000000000000046 /* ShareCountTextInput.swift in Sources */,
+				A10000000000000000000050 /* IssuerSharesOutstanding.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

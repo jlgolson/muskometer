@@ -1020,6 +1020,109 @@ final class AppSettingsTests: XCTestCase {
     }
 }
 
+final class IssuerSharesOutstandingTests: XCTestCase {
+    private func makeSettings(suiteName: String = "MuskometerTests-outstanding-\(UUID().uuidString)") -> (AppSettings, UserDefaults) {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return (AppSettings(defaults: defaults), defaults)
+    }
+
+    func testBundledDefaultsAndKeys() {
+        XCTAssertEqual(IssuerSharesOutstanding.defaultTSLA, 3_949_547_394)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultSPCX, 13_181_779_945)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "tsla"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+        XCTAssertNil(IssuerSharesOutstanding.defaultOutstanding(for: "AAPL"))
+        XCTAssertEqual(IssuerSharesOutstanding.userDefaultsKey(for: "tsla"), "sharesOutstanding_TSLA")
+        XCTAssertEqual(IssuerSharesOutstanding.userDefaultsKey(for: "SPCX"), "sharesOutstanding_SPCX")
+    }
+
+    func testMuskHoldingsHaveIssuerCIKs() {
+        let tsla = TrackedPersonProfile.musk.holdingSpecs.first { $0.symbol == "TSLA" }
+        let spcx = TrackedPersonProfile.musk.holdingSpecs.first { $0.symbol == "SPCX" }
+        XCTAssertEqual(tsla?.issuerCIKPadded, "0001318605")
+        XCTAssertEqual(spcx?.issuerCIKPadded, "0001181412")
+    }
+
+    func testDefaultsReturnedWhenNoKeySet() {
+        let (settings, _) = makeSettings()
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+        XCTAssertEqual(settings.sharesOutstanding(for: "UNKNOWN"), 0)
+    }
+
+    func testSetGetRoundTripIndependentOfShareCount() {
+        let (settings, defaults) = makeSettings()
+
+        let customTSLAOutstanding: Int64 = 4_000_000_000
+        let customSPCXOutstanding: Int64 = 14_000_000_000
+        let ownershipTSLA: Int64 = 111
+        let ownershipSPCX: Int64 = 222
+
+        settings.setShareCount(ownershipTSLA, for: "TSLA")
+        settings.setShareCount(ownershipSPCX, for: "SPCX")
+        settings.setSharesOutstanding(customTSLAOutstanding, for: "TSLA")
+        settings.setSharesOutstanding(customSPCXOutstanding, for: "SPCX")
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), customTSLAOutstanding)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), customSPCXOutstanding)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), ownershipTSLA)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), ownershipSPCX)
+
+        XCTAssertEqual(
+            defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")),
+            String(customTSLAOutstanding)
+        )
+        XCTAssertEqual(
+            defaults.string(forKey: "shareCount_TSLA"),
+            String(ownershipTSLA)
+        )
+        XCTAssertNotEqual(
+            IssuerSharesOutstanding.userDefaultsKey(for: "TSLA"),
+            "shareCount_TSLA"
+        )
+
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertEqual(reloaded.sharesOutstanding(for: "TSLA"), customTSLAOutstanding)
+        XCTAssertEqual(reloaded.sharesOutstanding(for: "SPCX"), customSPCXOutstanding)
+        XCTAssertEqual(reloaded.shareCount(for: "TSLA"), ownershipTSLA)
+        XCTAssertEqual(reloaded.shareCount(for: "SPCX"), ownershipSPCX)
+    }
+
+    func testSetSharesOutstandingIgnoresNonPositive() {
+        let (settings, defaults) = makeSettings()
+
+        settings.setSharesOutstanding(0, for: "TSLA")
+        settings.setSharesOutstanding(-1, for: "SPCX")
+
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")))
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX")))
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+    }
+
+    func testResetToDefaultsReseedsOutstanding() {
+        let (settings, _) = makeSettings()
+
+        settings.setSharesOutstanding(9_999_999_999, for: "TSLA")
+        settings.setSharesOutstanding(8_888_888_888, for: "SPCX")
+        settings.setShareCount(123, for: "TSLA")
+        settings.setShareCount(456, for: "SPCX")
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 9_999_999_999)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 8_888_888_888)
+
+        settings.resetToDefaults()
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+    }
+}
+
 final class AppSettingsLaunchAtLoginTests: XCTestCase {
     private func makeDefaults(suiteName: String = "MuskometerTests-launch-\(UUID().uuidString)") -> UserDefaults {
         let defaults = UserDefaults(suiteName: suiteName)!

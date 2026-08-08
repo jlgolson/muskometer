@@ -908,7 +908,8 @@ final class GainsViewModelHoldingsSyncBackoffTests: XCTestCase {
         let viewModel = GainsViewModel(
             settings: settings,
             stockService: MockStockService(quotes: []),
-            holdingsSyncServiceFactory: { _ in mock }
+            holdingsSyncServiceFactory: { _ in mock },
+            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) }
         )
 
         await viewModel.syncHoldingsFromSEC()
@@ -942,7 +943,8 @@ final class GainsViewModelHoldingsSyncBackoffTests: XCTestCase {
         let viewModel = GainsViewModel(
             settings: settings,
             stockService: MockStockService(quotes: []),
-            holdingsSyncServiceFactory: { _ in mock }
+            holdingsSyncServiceFactory: { _ in mock },
+            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) }
         )
 
         // Non-force respects backoff.
@@ -993,6 +995,7 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
         XCTAssertEqual(settings.selectedPersonID, TrackedPersonProfile.musk.id)
         XCTAssertTrue(settings.showMenuBarIcon)
+        XCTAssertTrue(settings.showMergerParityCard)
     }
 
     func testShowMenuBarIconPersists() {
@@ -1008,6 +1011,34 @@ final class AppSettingsTests: XCTestCase {
         XCTAssertGreaterThan(settings.menuBarLabelEpoch, initialEpoch)
     }
 
+    func testShowMergerParityCardDefaultsOnAndPersists() {
+        let suiteName = "MuskometerTests-merger-parity-toggle-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertTrue(settings.showMergerParityCard)
+
+        settings.showMergerParityCard = false
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertFalse(reloaded.showMergerParityCard)
+
+        reloaded.showMergerParityCard = true
+        let reloadedOn = AppSettings(defaults: defaults)
+        XCTAssertTrue(reloadedOn.showMergerParityCard)
+    }
+
+    func testResetToDefaultsTurnsMergerParityCardBackOn() {
+        let suiteName = "MuskometerTests-merger-parity-reset-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.showMergerParityCard = false
+        settings.resetToDefaults()
+        XCTAssertTrue(settings.showMergerParityCard)
+    }
+
     func testTotalWorthDisplayModePersists() {
         let defaults = UserDefaults(suiteName: "MuskometerTests-total-worth")!
         defaults.removePersistentDomain(forName: "MuskometerTests-total-worth")
@@ -1017,6 +1048,568 @@ final class AppSettingsTests: XCTestCase {
 
         let reloaded = AppSettings(defaults: defaults)
         XCTAssertEqual(reloaded.menuBarDisplayMode, .totalWorth)
+    }
+}
+
+final class IssuerSharesOutstandingTests: XCTestCase {
+    private func makeSettings(suiteName: String = "MuskometerTests-outstanding-\(UUID().uuidString)") -> (AppSettings, UserDefaults) {
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return (AppSettings(defaults: defaults), defaults)
+    }
+
+    func testBundledDefaultsAndKeys() {
+        XCTAssertEqual(IssuerSharesOutstanding.defaultTSLA, 3_949_547_394)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultSPCX, 13_181_779_945)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "tsla"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+        XCTAssertNil(IssuerSharesOutstanding.defaultOutstanding(for: "AAPL"))
+        XCTAssertEqual(IssuerSharesOutstanding.userDefaultsKey(for: "tsla"), "sharesOutstanding_TSLA")
+        XCTAssertEqual(IssuerSharesOutstanding.userDefaultsKey(for: "SPCX"), "sharesOutstanding_SPCX")
+    }
+
+    func testMuskHoldingsHaveIssuerCIKs() {
+        let tsla = TrackedPersonProfile.musk.holdingSpecs.first { $0.symbol == "TSLA" }
+        let spcx = TrackedPersonProfile.musk.holdingSpecs.first { $0.symbol == "SPCX" }
+        XCTAssertEqual(tsla?.issuerCIKPadded, "0001318605")
+        XCTAssertEqual(spcx?.issuerCIKPadded, "0001181412")
+    }
+
+    func testDefaultsReturnedWhenNoKeySet() {
+        let (settings, _) = makeSettings()
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+        XCTAssertEqual(settings.sharesOutstanding(for: "UNKNOWN"), 0)
+    }
+
+    func testSetGetRoundTripIndependentOfShareCount() {
+        let (settings, defaults) = makeSettings()
+
+        let customTSLAOutstanding: Int64 = 4_000_000_000
+        let customSPCXOutstanding: Int64 = 14_000_000_000
+        let ownershipTSLA: Int64 = 111
+        let ownershipSPCX: Int64 = 222
+
+        settings.setShareCount(ownershipTSLA, for: "TSLA")
+        settings.setShareCount(ownershipSPCX, for: "SPCX")
+        settings.setSharesOutstanding(customTSLAOutstanding, for: "TSLA")
+        settings.setSharesOutstanding(customSPCXOutstanding, for: "SPCX")
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), customTSLAOutstanding)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), customSPCXOutstanding)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), ownershipTSLA)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), ownershipSPCX)
+
+        XCTAssertEqual(
+            defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")),
+            String(customTSLAOutstanding)
+        )
+        XCTAssertEqual(
+            defaults.string(forKey: "shareCount_TSLA"),
+            String(ownershipTSLA)
+        )
+        XCTAssertNotEqual(
+            IssuerSharesOutstanding.userDefaultsKey(for: "TSLA"),
+            "shareCount_TSLA"
+        )
+
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertEqual(reloaded.sharesOutstanding(for: "TSLA"), customTSLAOutstanding)
+        XCTAssertEqual(reloaded.sharesOutstanding(for: "SPCX"), customSPCXOutstanding)
+        XCTAssertEqual(reloaded.shareCount(for: "TSLA"), ownershipTSLA)
+        XCTAssertEqual(reloaded.shareCount(for: "SPCX"), ownershipSPCX)
+    }
+
+    func testSetSharesOutstandingIgnoresNonPositive() {
+        let (settings, defaults) = makeSettings()
+
+        settings.setSharesOutstanding(0, for: "TSLA")
+        settings.setSharesOutstanding(-1, for: "SPCX")
+
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")))
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX")))
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+    }
+
+    func testResetToDefaultsReseedsOutstanding() {
+        let (settings, _) = makeSettings()
+
+        settings.setSharesOutstanding(9_999_999_999, for: "TSLA")
+        settings.setSharesOutstanding(8_888_888_888, for: "SPCX")
+        settings.setShareCount(123, for: "TSLA")
+        settings.setShareCount(456, for: "SPCX")
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 9_999_999_999)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 8_888_888_888)
+
+        settings.resetToDefaults()
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+    }
+}
+
+final class MergerMarketCapParityTests: XCTestCase {
+    func testHappyPathImpliedEqualsSPCXMarketCapOverTSLAShares() throws {
+        // tslaPrice 100, spcxPrice 50, outstanding 2 / 4
+        // → spcx mcap 200, tsla mcap 200, implied TSLA 100
+        let result = MergerMarketCapParity.presentation(
+            tslaPrice: 100,
+            spcxPrice: 50,
+            tslaOutstanding: 2,
+            spcxOutstanding: 4
+        )
+
+        let presentation = try XCTUnwrap(result)
+        XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
+        XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
+        XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
+        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
+    }
+
+    func testZeroOrNegativeInputsReturnNil() {
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 0,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 0,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: -1,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: -1,
+                tslaOutstanding: 2,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: 0,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: 0
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: -1,
+                spcxOutstanding: 4
+            )
+        )
+        XCTAssertNil(
+            MergerMarketCapParity.presentation(
+                tslaPrice: 100,
+                spcxPrice: 50,
+                tslaOutstanding: 2,
+                spcxOutstanding: -1
+            )
+        )
+    }
+
+    func testNonFiniteInputsReturnNil() {
+        let nonFinite: [Double] = [.nan, .infinity, -.infinity]
+        for bad in nonFinite {
+            XCTAssertNil(
+                MergerMarketCapParity.presentation(
+                    tslaPrice: bad,
+                    spcxPrice: 50,
+                    tslaOutstanding: 2,
+                    spcxOutstanding: 4
+                ),
+                "tslaPrice \(bad) should yield nil"
+            )
+            XCTAssertNil(
+                MergerMarketCapParity.presentation(
+                    tslaPrice: 100,
+                    spcxPrice: bad,
+                    tslaOutstanding: 2,
+                    spcxOutstanding: 4
+                ),
+                "spcxPrice \(bad) should yield nil"
+            )
+        }
+    }
+
+    func testRealishOrdersOfMagnitude() throws {
+        let tslaOutstanding = IssuerSharesOutstanding.defaultTSLA
+        let spcxOutstanding = IssuerSharesOutstanding.defaultSPCX
+        let tslaPrice = 250.0
+        let spcxPrice = 80.0
+
+        let result = MergerMarketCapParity.presentation(
+            tslaPrice: tslaPrice,
+            spcxPrice: spcxPrice,
+            tslaOutstanding: tslaOutstanding,
+            spcxOutstanding: spcxOutstanding
+        )
+
+        let presentation = try XCTUnwrap(result)
+        let expectedSPCXMcap = spcxPrice * Double(spcxOutstanding)
+        let expectedTSLAMcap = tslaPrice * Double(tslaOutstanding)
+        let expectedImplied = expectedSPCXMcap / Double(tslaOutstanding)
+
+        XCTAssertEqual(presentation.spcxMarketCap, expectedSPCXMcap, accuracy: 1.0)
+        XCTAssertEqual(presentation.tslaMarketCap, expectedTSLAMcap, accuracy: 1.0)
+        XCTAssertEqual(presentation.impliedTSLAPrice, expectedImplied, accuracy: 1e-6)
+        XCTAssertEqual(presentation.currentTSLAPrice, tslaPrice, accuracy: 1e-9)
+
+        // Sanity: with ~3.3× more SPCX shares at $80 vs TSLA at $250, implied is in hundreds–thousands.
+        XCTAssertGreaterThan(presentation.impliedTSLAPrice, 100)
+        XCTAssertLessThan(presentation.impliedTSLAPrice, 10_000)
+        XCTAssertGreaterThan(presentation.spcxMarketCap, 1e11)
+        XCTAssertGreaterThan(presentation.tslaMarketCap, 1e11)
+    }
+}
+
+final class CompanyFactsOutstandingResolverTests: XCTestCase {
+    private func data(_ json: String) -> Data {
+        Data(json.utf8)
+    }
+
+    func testSingleEntityCommonStockSharesOutstanding() {
+        let json = """
+        {
+          "facts": {
+            "dei": {
+              "EntityCommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-07-16",
+                      "val": 3949547394,
+                      "form": "10-Q",
+                      "filed": "2026-07-23"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            3_949_547_394
+        )
+    }
+
+    func testMultiMemberSameEndFiledSums() {
+        let json = """
+        {
+          "facts": {
+            "dei": {
+              "EntityCommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-07-28",
+                      "val": 100,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    },
+                    {
+                      "end": "2026-07-28",
+                      "val": 200,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            300
+        )
+    }
+
+    func testWASOOnlyReturnsNil() {
+        let json = """
+        {
+          "facts": {
+            "us-gaap": {
+              "WeightedAverageNumberOfSharesOutstandingBasic": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-06-30",
+                      "val": 5860000000,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    }
+                  ]
+                }
+              },
+              "WeightedAverageNumberOfDilutedSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-06-30",
+                      "val": 6000000000,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertNil(CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)))
+    }
+
+    func testPrefers10QOverNonPreferredFormWithLaterEndOrFiled() {
+        // 8-K has later end and filed; preferred 10-Q pool must win per form preference.
+        let json = """
+        {
+          "facts": {
+            "dei": {
+              "EntityCommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-08-01",
+                      "val": 999,
+                      "form": "8-K",
+                      "filed": "2026-08-05"
+                    },
+                    {
+                      "end": "2026-07-16",
+                      "val": 3949547394,
+                      "form": "10-Q",
+                      "filed": "2026-07-23"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            3_949_547_394
+        )
+    }
+
+    func testFallsBackToCommonStockSharesOutstandingWhenEntityMissing() {
+        let json = """
+        {
+          "facts": {
+            "us-gaap": {
+              "CommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2025-12-31",
+                      "val": 111222333,
+                      "form": "10-K",
+                      "filed": "2026-02-01"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            111_222_333
+        )
+    }
+
+    func testInvalidJSONReturnsNil() {
+        XCTAssertNil(CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data("not-json")))
+        XCTAssertNil(CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data("{}")))
+    }
+}
+
+@MainActor
+final class GainsViewModelMergerParityPresentationTests: XCTestCase {
+    private func makeSettings() -> AppSettings {
+        let suiteName = "MuskometerTests-merger-parity-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return AppSettings(defaults: defaults)
+    }
+
+    func testPresentationNilWithoutSnapshot() {
+        let settings = makeSettings()
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: []),
+            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) }
+        )
+        XCTAssertNil(viewModel.mergerParityPresentation)
+    }
+
+    func testPresentationUsesSnapshotPricesAndSettingsOutstanding() async throws {
+        let settings = makeSettings()
+        settings.setSharesOutstanding(2, for: "TSLA")
+        settings.setSharesOutstanding(4, for: "SPCX")
+
+        let quotes = [
+            StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: 100, previousClose: 90, currency: "USD"),
+            StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: 50, previousClose: 40, currency: "USD"),
+        ]
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes),
+            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) }
+        )
+
+        await viewModel.refresh(force: true)
+
+        let presentation = try XCTUnwrap(viewModel.mergerParityPresentation)
+        // spcx mcap 200 / tsla shares 2 → implied 100; tsla mcap 200
+        XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
+        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
+        XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
+        XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
+    }
+
+    func testPresentationUsesDefaultOutstandingWhenUnset() async throws {
+        let settings = makeSettings()
+        let tslaPrice = 250.0
+        let spcxPrice = 80.0
+        let quotes = [
+            StockQuote(symbol: "TSLA", displayName: "Tesla", currentPrice: tslaPrice, previousClose: 240, currency: "USD"),
+            StockQuote(symbol: "SPCX", displayName: "SpaceX", currentPrice: spcxPrice, previousClose: 70, currency: "USD"),
+        ]
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes),
+            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) }
+        )
+
+        await viewModel.refresh(force: true)
+
+        let presentation = try XCTUnwrap(viewModel.mergerParityPresentation)
+        let expected = MergerMarketCapParity.presentation(
+            tslaPrice: tslaPrice,
+            spcxPrice: spcxPrice,
+            tslaOutstanding: IssuerSharesOutstanding.defaultTSLA,
+            spcxOutstanding: IssuerSharesOutstanding.defaultSPCX
+        )
+        XCTAssertEqual(presentation, expected)
+    }
+}
+
+@MainActor
+final class GainsViewModelIssuerOutstandingSyncTests: XCTestCase {
+    private func makeSettings() -> AppSettings {
+        let suiteName = "MuskometerTests-issuer-outstanding-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return AppSettings(defaults: defaults)
+    }
+
+    func testOutstandingAppliedAfterForm4FailureWithoutChangingMessage() async {
+        let settings = makeSettings()
+        let holdingsMock = MockHoldingsSyncService(result: .failure(HoldingsSyncError.invalidResponse))
+        let outstandingMock = MockIssuerOutstandingSyncService(
+            result: ["TSLA": 3_000_000_000, "SPCX": 12_000_000_000]
+        )
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: []),
+            holdingsSyncServiceFactory: { _ in holdingsMock },
+            outstandingSyncServiceFactory: { outstandingMock }
+        )
+
+        await viewModel.syncHoldingsFromSEC()
+
+        XCTAssertEqual(holdingsMock.callCount, 1)
+        XCTAssertEqual(outstandingMock.callCount, 1)
+        XCTAssertTrue(viewModel.holdingsSyncMessage?.contains("SEC sync failed") == true)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 3_000_000_000)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 12_000_000_000)
+        // Ownership counts unchanged by outstanding sync
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+    }
+
+    func testOutstandingEmptyResultDoesNotChangeDefaultsOrForm4SuccessMessage() async {
+        let settings = makeSettings()
+        let syncedAt = Date(timeIntervalSince1970: 1_700_000_200)
+        let holdingsMock = MockHoldingsSyncService(
+            result: .success(
+                HoldingsSyncResult(
+                    sharesBySymbol: ["TSLA": 111, "SPCX": 222],
+                    syncedAt: syncedAt,
+                    sourceDescription: "SEC EDGAR Form 4"
+                )
+            )
+        )
+        let outstandingMock = MockIssuerOutstandingSyncService(result: [:])
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: []),
+            holdingsSyncServiceFactory: { _ in holdingsMock },
+            outstandingSyncServiceFactory: { outstandingMock }
+        )
+
+        await viewModel.syncHoldingsFromSEC()
+
+        XCTAssertEqual(holdingsMock.callCount, 1)
+        XCTAssertEqual(outstandingMock.callCount, 1)
+        XCTAssertTrue(viewModel.holdingsSyncMessage?.contains("Holdings updated from SEC") == true)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 111)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 222)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
+    }
+}
+
+private final class MockIssuerOutstandingSyncService: IssuerOutstandingSyncServiceProtocol, @unchecked Sendable {
+    private(set) var callCount = 0
+    private let result: [String: Int64]
+
+    init(result: [String: Int64]) {
+        self.result = result
+    }
+
+    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: Int64] {
+        callCount += 1
+        return result
     }
 }
 
@@ -3336,7 +3929,7 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
         XCTAssertEqual(tracker.currentZone(for: personID), .belowOneTrillion)
     }
 
-    func testSadMessageUsesLonliestNumberCopy() {
+    func testSadMessageUsesLoneliestNumberCopy() {
         let tracker = makeTracker()
         _ = tracker.update(netWorth: 1_100_000_000_000, personID: personID)
         let event = tracker.update(netWorth: 900_000_000_000, personID: personID)
@@ -3344,7 +3937,8 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
         guard case .fellBelowTrillion(let message) = event else {
             return XCTFail("Expected fellBelowTrillion")
         }
-        XCTAssertEqual(message, "One Trillion Is the Lonliest Number")
+        XCTAssertEqual(message, "One Trillion Is the Loneliest Number")
+        XCTAssertEqual(message, NetWorthMilestoneTracker.belowTrillionMessage)
     }
 
     func testNoCelebrationWhenAlreadyAboveTrillion() {

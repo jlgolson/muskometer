@@ -131,6 +131,11 @@ struct PopoverContentView: View {
                 )
             }
 
+            if viewModel.settings.showMergerParityCard,
+               let presentation = viewModel.mergerParityPresentation {
+                MergerParityCardView(presentation: presentation, animateValues: true)
+            }
+
             if let error = viewModel.errorMessage {
                 Text(error)
                     .font(.caption2)

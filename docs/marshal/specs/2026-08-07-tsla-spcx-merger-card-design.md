@@ -214,6 +214,66 @@ Yahoo chart prices ──────────────► GainsSnapshot q
 | UI | `MergerParityCardView`, `PopoverContentView` |
 | Docs | `HOLDINGS.md` |
 
+## Acceptance criteria
+
+Ship when all of the following hold:
+
+1. Typo string is exactly `One Trillion Is the Loneliest Number` (product + tests).
+2. Main popover shows merger parity card after stock rows when TSLA and SPCX quotes are present and outstanding counts are positive (including **defaults-only** outstanding).
+3. Implied price uses `SPCX Class A price × SPCX A+B outstanding / TSLA outstanding` (or equivalent pure calculator); WASO-only companyfacts must not overwrite the SPCX default.
+4. Form 4 ownership sync still completes and applies without depending on companyfacts success.
+5. `resetToDefaults()` reseeds outstanding to bundled constants; ownership keys remain separate.
+6. Unit tests cover resolver (accept TSLA-style, reject WASO-only, multi-member sum), calculator guards, typo, and outstanding key independence.
+7. `docs/HOLDINGS.md` documents issuer outstanding vs Form 4 ownership and the dual-class mcap convention.
+
+## Risks
+
+| Risk | Mitigation / residual |
+|------|------------------------|
+| Wrong outstanding (esp. SPCX dual-class / WASO) produces a confident wrong implied price | Spec hard-requires A+B point-in-time; reject WASO; pin cover-derived default with accession; unit tests |
+| Companyfacts lag after split/IPO/recap | 24h sync + correct defaults; residual: defaults can go stale until next release updates constants |
+| Users treat “merger” parity as a deal announcement or valuation advice | Title/caption as illustrative parity; existing app disclaimer; HOLDINGS note; non-goal of legal merger modeling |
+| Outstanding keys collide with ownership keys | Separate UserDefaults keys; independent loaders; reset reseeds both intentionally |
+| Companyfacts multi-MB parse cost / flaky SEC | Daily cadence only; walk target concepts; Form 4 path independent |
+| Typo fix regresses via test name or alternate copy paths | Exact string assertion; rename tests that embed misspelling |
+
+## Compliance & messaging
+
+- Card is **illustrative market-cap parity only** — not a merger announcement, fairness opinion, or investment advice.
+- Prefer copy like “If TSLA matched SPCX’s market cap” over language that implies a pending corporate transaction.
+- No new legal surface beyond existing app disclaimer posture; do not weaken `docs/DISCLAIMER.md` language.
+
+## Observability
+
+- Outstanding path is best-effort: failures keep prior/default (no user-facing error toast required for companyfacts-only failure).
+- Optional v1-light: retain last successful outstanding sync timestamp in UserDefaults (not required to surface in UI).
+- Implementer may log parse miss / concept unresolved at debug level; no analytics SDK.
+- Defaults-only vs SEC-updated outstanding need not be distinguished in the popover caption for v1 (HOLDINGS documents the model).
+
+## Rollout
+
+- **Always on** when quote legs + positive outstanding exist — no settings toggle / kill switch in v1 (hide only via missing quotes or bad inputs).
+- Changelog / release notes: mention the card + typo fix when shipping a release that includes this branch.
+- No phased rollout or remote config.
+
+## Dependencies / external contracts
+
+| Contract | Assumption |
+|----------|------------|
+| Yahoo chart quote for `TSLA`, `SPCX` | Existing price path; Class A last for SPCX |
+| SEC companyfacts | `https://data.sec.gov/api/xbrl/companyfacts/CIK{padded}.json` + User-Agent policy already used for EDGAR |
+| Issuer CIKs | TSLA `0001318605`, SPCX `0001181412` on holding specs / map |
+| Point-in-time concepts | `dei:EntityCommonStockSharesOutstanding`, `us-gaap:CommonStockSharesOutstanding` only for mcap resolve |
+| Bundled defaults | Updated in-repo when cover/companyfacts drift materially |
+
+## Alternatives considered
+
+1. **Yahoo marketCap / quoteSummary** — rejected (401 without cookies; SPCX coverage unclear).
+2. **Musk Form 4 stake parity** — rejected (different question; not company mcap).
+3. **WASO as SPCX outstanding** — rejected (~2× undercount vs A+B cover).
+4. **Parse 10-Q HTML cover every sync** — deferred cost higher than pinned default + companyfacts when available; not in v1.
+5. **Separate “Merger” popover panel** — rejected for v1; card on main panel is enough.
+
 ## Deferred
 
 None.

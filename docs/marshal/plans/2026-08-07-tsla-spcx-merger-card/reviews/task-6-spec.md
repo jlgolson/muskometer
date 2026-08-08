@@ -2,7 +2,7 @@
 
 **Role:** spec-reviewer  
 **Task:** 6 (MergerParityCardView + popover placement; design §5 UI, Acceptance 2, Compliance & messaging)  
-**Spec:** `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §5, Error handling (hide rules), Compliance & messaging, Acceptance 2  
+**Spec:** `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §5, Error handling (hide rules), Compliance & messaging, Acceptance 2, Rollout  
 **Plan:** `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md` Task 6  
 **Date:** 2026-08-08  
 
@@ -13,56 +13,66 @@ Design §5 / plan Task 6 require (for this task only):
 | Requirement | Expected |
 |-------------|----------|
 | View | `MergerParityCardView` taking `MergerParityPresentation` (+ optional `animateValues`) |
-| Placement | Main popover `dataView`, **after** `ForEach(snapshot.holdings)` stock rows, before optional error caption |
-| Hide when nil | `if let presentation = viewModel.mergerParityPresentation { … }` — no settings toggle |
-| Always-on when non-nil | Show for defaults-only outstanding when presentation computes (Task 5 wiring) |
-| Title copy | “If TSLA matched SPCX’s market cap” (illustrative parity framing; ASCII apostrophe OK per plan) |
-| Primary | Implied TSLA via `CurrencyFormatter.formatPrice`, large rounded bold monospaced |
-| Caption | SPCX + TSLA market caps via `formatMarketValue` and/or current TSLA price for contrast |
-| Chrome | Same card family as `StockRowView` (padding / corner radius / controlBackground opacity) |
-| Non-goals | No reverse-direction toggle, no settings gear, no navigation |
-| pbxproj | IDs `A1…54` / `A2…54` |
-| Docs | `HOLDINGS.md` deferred to Task 7 |
+| Placement | In `PopoverContentView.dataView`, **after** `ForEach(snapshot.holdings)` stock rows, before error caption |
+| Hide rule | Show only when `viewModel.mergerParityPresentation` is non-nil (`if let`) |
+| Title framing | Illustrative parity: “If TSLA matched SPCX’s market cap” (ASCII `SPCX's` allowed to match popover style) |
+| Primary value | `CurrencyFormatter.formatPrice(impliedTSLAPrice)` — large rounded bold monospaced |
+| Caption | SPCX + TSLA mcaps via `formatMarketValue` + current TSLA price (e.g. `SPCX $X · TSLA now $Y ($Z/sh)`) |
+| Chrome | Same padding / cornerRadius / background opacity family as `StockRowView` |
+| Always-on | No settings toggle / kill switch / reverse-direction control |
+| pbxproj | Fixed IDs `A1…54` / `A2…54` for `MergerParityCardView.swift` |
+
+Out of scope for Task 6 (owned by other tasks): calculator/presentation nil rules (Task 5), HOLDINGS.md (Task 7), reverse-direction, settings outstanding editor.
 
 ## Findings
 
-None.
+No blocking or non-blocking spec gaps for Task 6.
 
-## Compliance checklist
+### Checklist
 
 | Requirement | Status | Evidence |
 |-------------|--------|----------|
 | `MergerParityCardView` exists | Pass | `Muskometer/Views/MergerParityCardView.swift` |
 | Takes `MergerParityPresentation` | Pass | `let presentation: MergerParityPresentation` |
-| Optional `animateValues` | Pass | `var animateValues = false`; popover passes `true` |
-| Placement after stock rows | Pass | In `dataView`: `ForEach(snapshot.holdings)` → then `if let presentation` → then error caption |
-| Before error caption | Pass | Error `Text` is the final conditional after the parity card |
-| Hide when presentation nil | Pass | `if let presentation = viewModel.mergerParityPresentation` only |
-| No settings toggle | Pass | No `AppSettings` / toggle / gear for card visibility |
-| Title framing (illustrative parity) | Pass | `"If TSLA matched SPCX's market cap"` — matches §5 / Compliance (no pending-deal language) |
-| Primary implied price | Pass | `CurrencyFormatter.formatPrice(presentation.impliedTSLAPrice)` with `.title2` rounded bold + `.monospacedDigit()` |
-| Caption mcaps + current price | Pass | `"SPCX \(spcx) · TSLA now \(tsla) (\(price)/sh)"` via `formatMarketValue` ×2 + `formatPrice(currentTSLAPrice)` |
-| Uses presentation fields only | Pass | `impliedTSLAPrice`, `spcxMarketCap`, `tslaMarketCap`, `currentTSLAPrice` |
-| Stock-row chrome family | Pass | `.padding(12)`; `RoundedRectangle(cornerRadius: 10, style: .continuous)` + `controlBackgroundColor` opacity `0.55` (same as `StockRowView`) |
-| Animation pattern when enabled | Pass | `.contentTransition(.numericText())` + `.animation(.smooth(duration: 0.25), value: impliedTSLAPrice)` gated by `animateValues` |
-| No reverse / nav / settings on card | Pass | Presentational `VStack` only |
-| pbxproj IDs 54 | Pass | Build file `A100…54`, fileRef `A200…54`, Views group child, Sources entry |
-| Musk-centric content first | Pass | Ownership + combined + comparison + daily records + stock rows all precede parity card |
+| Optional `animateValues` | Pass | `var animateValues = false`; numericText animation on implied price when true |
+| Placement after stock rows | Pass | `dataView`: `ForEach(snapshot.holdings)` → then `if let presentation = viewModel.mergerParityPresentation { MergerParityCardView(...) }` → then optional error caption |
+| Hide when presentation nil | Pass | Conditional `if let`; no card without presentation |
+| Title framing (illustrative) | Pass | `"If TSLA matched SPCX's market cap"` — parity framing, no pending-deal / merger-announcement language (Compliance) |
+| Primary uses `formatPrice` | Pass | `CurrencyFormatter.formatPrice(presentation.impliedTSLAPrice)` with `.system(.title2, design: .rounded, weight: .bold)` + `.monospacedDigit()` |
+| Caption uses `formatMarketValue` + current price | Pass | `formatMarketValue` for SPCX/TSLA mcaps; `formatPrice` for current TSLA; string `SPCX … · TSLA now … (…/sh)` |
+| Card chrome matches stock rows | Pass | `.padding(12)`; `RoundedRectangle(cornerRadius: 10, style: .continuous)` fill `controlBackgroundColor` opacity `0.55` — same as `StockRowView` |
+| Always-on; no settings toggle | Pass | UI gates only on non-nil presentation; no merger/parity toggle in SettingsView or card; no reverse-direction control |
+| pbxproj IDs `…54` | Pass | `A10000000000000000000054` (PBXBuildFile) + `A20000000000000000000054` (PBXFileReference); in Views group and Sources build phase |
+| Wire passes `animateValues: true` | Pass | Matches plan snippet and stock-row pattern |
 
-## Non-blocking notes
+### Notes (non-blocking)
 
-- Title uses ASCII `SPCX's` rather than the curly apostrophe in the design prose; plan Task 6 explicitly allows matching existing popover ASCII copy style.
-- Caption omits an explicit “illustrative only” disclaimer line; design §5 treats title framing + existing app disclaimer as sufficient for v1 (HOLDINGS note is Task 7).
-- Show/hide correctness for defaults-only and missing quote legs is owned by Task 5 `mergerParityPresentation`; Task 6 correctly binds only to the optional presentation.
+- Title uses ASCII apostrophe in `SPCX's`; plan Task 6 explicitly allows ASCII to match existing popover copy style.
+- Caption does not add a separate “illustrative only” disclaimer line; design §5 + Compliance treat title framing + existing app disclaimer as sufficient for v1 (HOLDINGS note is Task 7).
+- Show/hide for missing quotes or non-positive outstanding is owned by Task 5 `mergerParityPresentation`; Task 6 correctly binds only to the optional presentation (design Rollout: hide via missing quotes/bad inputs, not a toggle).
 
-## VERDICT: APPROVED
+## Spec coverage (Task 6 slice)
+
+| Design / plan item | Covered by Task 6? |
+|--------------------|--------------------|
+| §5 card after stock rows | Yes |
+| §5 title + primary + secondary caption | Yes |
+| §5 native card chrome | Yes |
+| §5 no navigation / settings gear / reverse toggle | Yes |
+| Compliance: illustrative parity copy | Yes |
+| Acceptance 2 (card after stock rows when presentation available) | Yes (UI half; data half is Task 5) |
+| Rollout always-on | Yes |
+
+VERDICT: APPROVED
 
 ## Reviewed files
 
 - `Muskometer/Views/MergerParityCardView.swift` — title, primary price, caption, chrome, optional animation
-- `Muskometer/Views/PopoverContentView.swift` — `dataView` placement after stock rows; nil-gated; no toggle
-- `Muskometer.xcodeproj/project.pbxproj` — IDs `A10000000000000000000054` / `A20000000000000000000054`
-- `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §5 UI, hide rules, Compliance & messaging, Acceptance 2
+- `Muskometer/Views/PopoverContentView.swift` — `dataView` placement after stock rows; nil hide
+- `Muskometer/Views/StockRowView.swift` — chrome / animateValues reference
+- `Muskometer/Views/SettingsView.swift` — no merger-parity settings toggle
+- `Muskometer.xcodeproj/project.pbxproj` — IDs `…54` fileRef + build file
+- `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §5 UI, Compliance & messaging, Acceptance 2, Rollout
 - `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md` Task 6 steps
 
 VERDICT: APPROVED

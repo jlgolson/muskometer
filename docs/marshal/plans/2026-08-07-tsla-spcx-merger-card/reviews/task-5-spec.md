@@ -1,75 +1,44 @@
-# Task 5 Spec Review — Issuer outstanding sync + GainsViewModel presentation
+# Task 5 — Spec review (cold)
 
-**Role:** spec-reviewer  
-**Task:** 5 (IssuerOutstandingSyncService + `mergerParityPresentation`; design §2 sync orthogonality, §4 wiring, Error handling)  
-**Spec:** `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §2, §4, Error handling, Acceptance 2–4  
-**Plan:** `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md` Task 5  
-**Date:** 2026-08-07  
+**Lens:** Plan Task 5 steps + design §2 (orthogonality / sync completeness) + §4 (VM wiring) + Error handling table.  
+**Not reviewed:** prior `task-5-spec.md` / `task-5-quality.md` contents; UI Task 6 placement.
 
-## Scope checked
+## Checklist
 
-Design §2 / §4 / Error handling and plan Task 5 require (for this task only):
-
-| Requirement | Expected |
-|-------------|----------|
-| Service API | `IssuerOutstandingSyncService` with `init(session:)`, `fetchOutstanding(for:) async -> [String: Int64]` |
-| User-Agent | Same SEC pattern as Form 4: `Muskometer/\(AppVersion.short) (info@muskometer.org; https://muskometer.org)` |
-| Fetch | Per-spec `issuerCIKPadded` → companyfacts `CIK{padded}.json`; parse via resolver; skip failures |
-| Delay | ~120ms between requests (Form 4 crawl style) |
-| Orthogonality | Not folded into `HoldingsSyncResult` / ownership completeness; Form 4 must not fail solely because companyfacts fails |
-| Wire path | Best-effort outstanding from `syncHoldingsFromSEC` when Form 4 attempt runs (success, partial, or throw) |
-| Persist | Positive results → `settings.setSharesOutstanding`; failures keep prior/default |
-| Presentation | `mergerParityPresentation` keys live `"TSLA"` / `"SPCX"` quotes + settings outstanding |
-| Defaults-only | Card/presentation still computable when outstanding never companyfacts-synced (bundled defaults) |
-| Hide rules | `nil` only when snapshot/quote legs missing or calculator guards fail — **not** when outstanding is defaults-only |
-| Inject (optional) | Factory / default service for tests |
-| pbxproj | IDs `A1…53` / `A2…53` |
-| Tests | Smoke presentation + orthogonal sync isolation |
-
-Out of scope for Task 5 (deferred to Task 6): `MergerParityCardView`, popover placement, `HOLDINGS.md`.
+| Requirement | Status |
+|-------------|--------|
+| `IssuerOutstandingSyncService` with `init(session:)`, User-Agent matching Form 4, `fetchOutstanding` never throws | Pass |
+| GET `companyfacts/CIK{padded}.json`; resolve via pure resolver; skip failures | Pass |
+| ~120ms delay between issuer requests | Pass |
+| Invoked from `syncHoldingsFromSEC` after Form 4 path (success, partial, or catch) | Pass |
+| Positive results → `setSharesOutstanding`; non-positive not persisted | Pass |
+| Outstanding failure does not rewrite Form 4 `holdingsSyncMessage` | Pass |
+| `mergerParityPresentation` keys `"TSLA"` / `"SPCX"` from snapshot + settings outstanding | Pass |
+| Defaults-only outstanding still yields presentation when both quote legs present | Pass |
+| pbxproj IDs `…53` for service | Pass |
+| Tests cover presentation + Form 4 / outstanding independence | Pass |
 
 ## Findings
 
 None.
 
-## Compliance checklist
+## Notes (non-blocking)
 
-| Requirement | Status | Evidence |
-|-------------|--------|----------|
-| `IssuerOutstandingSyncService` + protocol | Pass | `IssuerOutstandingSyncServiceProtocol.fetchOutstanding(for:)`; concrete class with `init(session: URLSession = .shared)` |
-| User-Agent matches Form 4 / plan | Pass | Identical string to `SECHoldingsSyncService.userAgent` |
-| companyfacts URL + resolver | Pass | `https://data.sec.gov/api/xbrl/companyfacts/CIK\(cikPadded).json` → `CompanyFactsOutstandingResolver.resolveSharesOutstanding` |
-| Skip empty CIK / failures; never throw out of `fetchOutstanding` | Pass | `guard let cik`; private `fetchOutstanding` catch → nil; public method returns partial dict only |
-| Positive shares only in result map | Pass | `shares > 0` before insert; symbol uppercased |
-| ~120ms inter-request delay | Pass | `Task.sleep(for: .milliseconds(120))` when `requestIndex > 0` |
-| Orthogonal to Form 4 result type | Pass | Separate service; not part of `HoldingsSyncResult` or `applyHoldingsSync` |
-| Always attempted after Form 4 attempt path | Pass | `await syncIssuerOutstanding` after `do/catch` in `syncHoldingsFromSEC` (success, partial message, or catch) |
-| Outstanding failure does not rewrite Form 4 message | Pass | No writes to `holdingsSyncMessage` in `syncIssuerOutstanding`; test keeps `"SEC sync failed"` while outstanding applied |
-| Persist via `setSharesOutstanding` | Pass | Loop `where shares > 0` → `settings.setSharesOutstanding` |
-| Empty outstanding result keeps defaults | Pass | `testOutstandingEmptyResultDoesNotChangeDefaultsOrForm4SuccessMessage` |
-| Presentation keys `"TSLA"` / `"SPCX"` | Pass | Exact symbol match on `snapshot.holdings` + `settings.sharesOutstanding(for: "TSLA"|"SPCX")` |
-| Uses `MergerMarketCapParity.presentation` | Pass | Matches plan snippet (prices from quote legs, outstanding from settings) |
-| Defaults-only still computable | Pass | `AppSettings.sharesOutstanding` falls back to `IssuerSharesOutstanding` defaults; `testPresentationUsesDefaultOutstandingWhenUnset` asserts equality with defaults math |
-| Nil without snapshot | Pass | `testPresentationNilWithoutSnapshot` |
-| Prices + settings outstanding wiring | Pass | `testPresentationUsesSnapshotPricesAndSettingsOutstanding` (100/50, 2/4 → implied 100) |
-| Injectability | Pass | `outstandingSyncServiceFactory` default `{ IssuerOutstandingSyncService() }`; mock protocol in tests |
-| pbxproj IDs 53 | Pass | Build file `A100…53`, fileRef `A200…53`, Services group + Sources |
-| Ownership keys untouched by outstanding sync | Pass | Failure-path test asserts Form 4 share counts remain defaults while outstanding updates |
+- Dedicated protocol + `outstandingSyncServiceFactory` satisfy the plan’s optional injectability; mock-backed tests assert outstanding still runs after Form 4 throw and empty companyfacts leave Form 4 success messaging and bundled defaults intact.
+- Service and `AppSettings.setSharesOutstanding` both gate on `> 0`, matching error-table “zero/negative → do not overwrite.”
+- Presentation does not depend on companyfacts success: `settings.sharesOutstanding(for:)` falls back to bundled defaults (covered by `testPresentationUsesDefaultOutstandingWhenUnset`).
 
-## Non-blocking notes
-
-- Presentation nil when only one of TSLA/SPCX is present in the snapshot is implied by the dual `guard` but not covered by a dedicated unit test. Calculator already unit-tested; single-leg hide is straightforward. Optional follow-up.
-- Outstanding runs after the Form 4 block (including after a complete-sync `refresh`). Plan prefers “always try when Form 4 attempt runs”; ordering after Form 4 is correct and keeps Form 4 message semantics isolated.
-
-## VERDICT: APPROVED
+VERDICT: APPROVED
 
 ## Reviewed files
 
-- `Muskometer/Services/IssuerOutstandingSyncService.swift` — companyfacts fetch, User-Agent, delay, non-throwing map, resolver integration
-- `Muskometer/ViewModels/GainsViewModel.swift` — factory inject; `syncHoldingsFromSEC` → `syncIssuerOutstanding`; `mergerParityPresentation` TSLA/SPCX keys + defaults via settings
-- `Muskometer.xcodeproj/project.pbxproj` — IDs `A10000000000000000000053` / `A20000000000000000000053`
-- `MuskometerTests/MuskometerTests.swift` — `GainsViewModelMergerParityPresentationTests`, `GainsViewModelIssuerOutstandingSyncTests`, `MockIssuerOutstandingSyncService`
-- `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §2 orthogonality, §4 wiring, Error handling, Acceptance 2–4
-- `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md` Task 5 steps
+- `Muskometer/Services/IssuerOutstandingSyncService.swift`
+- `Muskometer/ViewModels/GainsViewModel.swift` (`init` factory, `syncHoldingsFromSEC`, `syncIssuerOutstanding`, `mergerParityPresentation`)
+- `Muskometer/Utilities/AppSettings.swift` (`sharesOutstanding(for:)`, `setSharesOutstanding` positive-only — settings surface used by Task 5 wiring)
+- `Muskometer/Models/TrackedPersonProfile.swift` (issuer CIKs on holding specs — fetch input)
+- `Muskometer.xcodeproj/project.pbxproj` (`A100…53` / `A200…53`)
+- `MuskometerTests/MuskometerTests.swift` (`GainsViewModelMergerParityPresentationTests`, `GainsViewModelIssuerOutstandingSyncTests`, `MockIssuerOutstandingSyncService`)
+- Plan Task 5 steps in `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md`
+- Spec §2 orthogonality, §4 wiring, Error handling in `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md`
 
 VERDICT: APPROVED

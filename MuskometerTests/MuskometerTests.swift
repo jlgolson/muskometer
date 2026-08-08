@@ -1263,6 +1263,174 @@ final class MergerMarketCapParityTests: XCTestCase {
     }
 }
 
+final class CompanyFactsOutstandingResolverTests: XCTestCase {
+    private func data(_ json: String) -> Data {
+        Data(json.utf8)
+    }
+
+    func testSingleEntityCommonStockSharesOutstanding() {
+        let json = """
+        {
+          "facts": {
+            "dei": {
+              "EntityCommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-07-16",
+                      "val": 3949547394,
+                      "form": "10-Q",
+                      "filed": "2026-07-23"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            3_949_547_394
+        )
+    }
+
+    func testMultiMemberSameEndFiledSums() {
+        let json = """
+        {
+          "facts": {
+            "dei": {
+              "EntityCommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-07-28",
+                      "val": 100,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    },
+                    {
+                      "end": "2026-07-28",
+                      "val": 200,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            300
+        )
+    }
+
+    func testWASOOnlyReturnsNil() {
+        let json = """
+        {
+          "facts": {
+            "us-gaap": {
+              "WeightedAverageNumberOfSharesOutstandingBasic": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-06-30",
+                      "val": 5860000000,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    }
+                  ]
+                }
+              },
+              "WeightedAverageNumberOfDilutedSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-06-30",
+                      "val": 6000000000,
+                      "form": "10-Q",
+                      "filed": "2026-08-01"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertNil(CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)))
+    }
+
+    func testPrefers10QOverNonPreferredFormWithLaterEndOrFiled() {
+        // 8-K has later end and filed; preferred 10-Q pool must win per form preference.
+        let json = """
+        {
+          "facts": {
+            "dei": {
+              "EntityCommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2026-08-01",
+                      "val": 999,
+                      "form": "8-K",
+                      "filed": "2026-08-05"
+                    },
+                    {
+                      "end": "2026-07-16",
+                      "val": 3949547394,
+                      "form": "10-Q",
+                      "filed": "2026-07-23"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            3_949_547_394
+        )
+    }
+
+    func testFallsBackToCommonStockSharesOutstandingWhenEntityMissing() {
+        let json = """
+        {
+          "facts": {
+            "us-gaap": {
+              "CommonStockSharesOutstanding": {
+                "units": {
+                  "shares": [
+                    {
+                      "end": "2025-12-31",
+                      "val": 111222333,
+                      "form": "10-K",
+                      "filed": "2026-02-01"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+        """
+        XCTAssertEqual(
+            CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
+            111_222_333
+        )
+    }
+
+    func testInvalidJSONReturnsNil() {
+        XCTAssertNil(CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data("not-json")))
+        XCTAssertNil(CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data("{}")))
+    }
+}
+
 final class AppSettingsLaunchAtLoginTests: XCTestCase {
     private func makeDefaults(suiteName: String = "MuskometerTests-launch-\(UUID().uuidString)") -> UserDefaults {
         let defaults = UserDefaults(suiteName: suiteName)!

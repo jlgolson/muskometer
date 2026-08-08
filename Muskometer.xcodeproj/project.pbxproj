@@ -74,6 +74,7 @@
 		A10000000000000000000051 /* MergerMarketCapParity.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000051 /* MergerMarketCapParity.swift */; };
 		A10000000000000000000052 /* CompanyFactsOutstandingResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000052 /* CompanyFactsOutstandingResolver.swift */; };
 		A10000000000000000000053 /* IssuerOutstandingSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000053 /* IssuerOutstandingSyncService.swift */; };
+		A10000000000000000000054 /* MergerParityCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000054 /* MergerParityCardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -148,6 +149,7 @@
 		A20000000000000000000051 /* MergerMarketCapParity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergerMarketCapParity.swift; sourceTree = "<group>"; };
 		A20000000000000000000052 /* CompanyFactsOutstandingResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyFactsOutstandingResolver.swift; sourceTree = "<group>"; };
 		A20000000000000000000053 /* IssuerOutstandingSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuerOutstandingSyncService.swift; sourceTree = "<group>"; };
+		A20000000000000000000054 /* MergerParityCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergerParityCardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -307,6 +309,7 @@
 				A2000000000000000000002F /* MilestoneCelebrationOverlay.swift */,
 				A20000000000000000000030 /* DailyRecordsCardView.swift */,
 				A20000000000000000000033 /* GainSparklineView.swift */,
+				A20000000000000000000054 /* MergerParityCardView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -498,6 +501,7 @@
 				A10000000000000000000051 /* MergerMarketCapParity.swift in Sources */,
 				A10000000000000000000052 /* CompanyFactsOutstandingResolver.swift in Sources */,
 				A10000000000000000000053 /* IssuerOutstandingSyncService.swift in Sources */,
+				A10000000000000000000054 /* MergerParityCardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

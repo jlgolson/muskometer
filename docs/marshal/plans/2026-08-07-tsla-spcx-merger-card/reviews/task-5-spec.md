@@ -71,3 +71,5 @@ None.
 - `MuskometerTests/MuskometerTests.swift` — `GainsViewModelMergerParityPresentationTests`, `GainsViewModelIssuerOutstandingSyncTests`, `MockIssuerOutstandingSyncService`
 - `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §2 orthogonality, §4 wiring, Error handling, Acceptance 2–4
 - `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md` Task 5 steps
+
+VERDICT: APPROVED

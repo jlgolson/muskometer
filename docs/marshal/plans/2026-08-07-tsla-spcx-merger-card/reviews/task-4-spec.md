@@ -66,3 +66,5 @@ None.
 - `MuskometerTests/MuskometerTests.swift` — `CompanyFactsOutstandingResolverTests` (single, multi-member, WASO, form preference, CommonStock fallback, invalid JSON)
 - `docs/marshal/specs/2026-08-07-tsla-spcx-merger-card-design.md` §2 Resolve + Testing
 - `docs/marshal/plans/2026-08-07-tsla-spcx-merger-card.md` Task 4 steps
+
+VERDICT: APPROVED

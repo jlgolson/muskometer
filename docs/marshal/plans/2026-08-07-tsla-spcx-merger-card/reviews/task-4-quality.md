@@ -102,3 +102,5 @@ Task 3’s `…51` (`MergerMarketCapParity`) is also registered — expected und
 - `Muskometer/Services/CompanyFactsOutstandingResolver.swift` — pure resolve, concept priority, form preference, multi-member sum, WASO never read
 - `MuskometerTests/MuskometerTests.swift` — `CompanyFactsOutstandingResolverTests` (single, multi-sum, WASO nil, form preference, us-gaap fallback, invalid JSON)
 - `Muskometer.xcodeproj/project.pbxproj` — IDs `…52`, Services group + Sources
+
+VERDICT: APPROVED

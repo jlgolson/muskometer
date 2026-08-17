@@ -50,3 +50,5 @@
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer-security","task":0,"round":1,"ts":"2026-08-17T20:12:22.617925Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer-concurrency","task":0,"round":1,"ts":"2026-08-17T20:12:22.618468Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer-persistence","task":0,"round":1,"ts":"2026-08-17T20:12:22.618608Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"pre-merge-reviewer","task":0,"round":2,"ts":"2026-08-17T20:53:54.498886Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"pre-merge-reviewer","task":0,"round":2,"ts":"2026-08-17T20:54:00.662347Z"}

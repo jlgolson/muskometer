@@ -354,6 +354,14 @@ final class AppSettings {
                             defaults.set(String(migrated), forKey: key)
                         }
                         counts[spec.symbol] = migrated
+                    } else if spec.symbol == "TSLA" {
+                        // Old bundled TSLA default → current Form 4 last direct common.
+                        let legacyTSLADefault: Int64 = 699_580_882
+                        let migrated = value == legacyTSLADefault ? spec.defaultShareCount : value
+                        if migrated != value {
+                            defaults.set(String(migrated), forKey: key)
+                        }
+                        counts[spec.symbol] = migrated
                     } else {
                         counts[spec.symbol] = value
                     }

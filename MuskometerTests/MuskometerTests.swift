@@ -1029,8 +1029,8 @@ final class AppSettingsTests: XCTestCase {
 
         let settings = AppSettings(defaults: defaults)
 
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
-        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 5_116_475_230)
         XCTAssertEqual(settings.selectedPersonID, TrackedPersonProfile.musk.id)
         XCTAssertTrue(settings.showMenuBarIcon)
         XCTAssertTrue(settings.showMergerParityCard)
@@ -1187,8 +1187,8 @@ final class IssuerSharesOutstandingTests: XCTestCase {
 
         XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
-        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 5_116_475_230)
     }
 
     func testMigrateStoredOutstandingRewritesPriorSPCXCoverDefault() {
@@ -1657,8 +1657,8 @@ final class GainsViewModelIssuerOutstandingSyncTests: XCTestCase {
         XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 3_000_000_000)
         XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 12_000_000_000)
         // Ownership counts unchanged by outstanding sync
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
-        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 5_116_475_230)
     }
 
     func testOutstandingEmptyResultDoesNotChangeDefaultsOrForm4SuccessMessage() async {
@@ -2037,20 +2037,34 @@ final class MenuBarDisplayModeTests: XCTestCase {
 }
 
 final class SPCXHoldingsTests: XCTestCase {
+    private let sellableDefault: Int64 = 5_116_475_230
+
+    func testDefaultShareCountIsSellableOwnership() {
+        XCTAssertEqual(SPCXHoldings.defaultShareCount, sellableDefault)
+    }
+
     func testMigratesLegacyScaledDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), sellableDefault)
     }
 
     func testMigratesLegacySingleRowParse() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), sellableDefault)
+    }
+
+    func testMigratesLegacyMisparseLastRow() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(7_402_770), sellableDefault)
     }
 
     func testMigratesLegacyPartialAggregateDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), sellableDefault)
     }
 
-    func testLeavesAggregatedShareCountUntouched() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), 6_068_734_060)
+    func testMigratesPriorBundledDefaultWithPerformanceRSUs() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), sellableDefault)
+    }
+
+    func testLeavesSellableDefaultAndUnknownUntouched() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(5_116_475_230), 5_116_475_230)
         XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_514), 6_068_547_514)
     }
 
@@ -2084,6 +2098,59 @@ final class SPCXHoldingsTests: XCTestCase {
 
         XCTAssertEqual(settings.shareCount(for: "SPCX"), customCount)
         XCTAssertEqual(defaults.string(forKey: "shareCount_SPCX"), String(customCount))
+    }
+
+    func testAppSettingsRewritesLegacyTSLAFingerprintUnderNewKey() {
+        let suiteName = "MuskometerTests-tsla-legacy-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(String(699_580_882), forKey: "shareCount_TSLA")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_TSLA"), String(710_172_677))
+    }
+
+    func testAppSettingsLeavesCurrentTSLADefaultUntouched() {
+        let suiteName = "MuskometerTests-tsla-current-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(String(710_172_677), forKey: "shareCount_TSLA")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_TSLA"), String(710_172_677))
+    }
+
+    func testAppSettingsLeavesCustomTSLAShareCountUntouched() {
+        let suiteName = "MuskometerTests-tsla-custom-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(String(123_456), forKey: "shareCount_TSLA")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 123_456)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_TSLA"), String(123_456))
+    }
+
+    func testEmptySuiteReturnsNewTSLADefault() {
+        let suiteName = "MuskometerTests-tsla-empty-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
     }
 }
 

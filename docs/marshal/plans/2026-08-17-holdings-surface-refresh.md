@@ -702,7 +702,7 @@ None.
 
 ## Tracker
 
-(unanchored — filled after Linear file)
+Resolves: ART-1162
 
 ## Self-review
 

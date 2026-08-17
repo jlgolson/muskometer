@@ -27,3 +27,11 @@
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"implementer","task":7,"round":null,"ts":"2026-08-17T11:59:50.653156Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"spec-reviewer","task":7,"round":null,"ts":"2026-08-17T12:00:01.185817Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":7,"round":null,"ts":"2026-08-17T12:00:01.336122Z"}
+{"kind":"integration","scope":"2026-08-17-holdings-surface-refresh","task":8,"round":null,"commit":"31f13621660e23df4a842625dc48485fff9fd1e8","base":"5e1a3cd548ef655ed62f2f521feb52f579c15a04","ts":"2026-08-17T12:15:23.587338Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"implementer","task":8,"round":null,"ts":"2026-08-17T12:15:23.587954Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"spec-reviewer","task":8,"round":null,"ts":"2026-08-17T12:15:36.693654Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":8,"round":null,"ts":"2026-08-17T12:15:36.839216Z"}
+{"kind":"integration","scope":"2026-08-17-holdings-surface-refresh","task":8,"round":null,"commit":"49d9a40c57cc7ad5cb7424eeaa7626644b20d26b","base":"31f13621660e23df4a842625dc48485fff9fd1e8","ts":"2026-08-17T12:24:27.260312Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"implementer","task":8,"round":null,"ts":"2026-08-17T12:24:27.260687Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"spec-reviewer","task":8,"round":null,"ts":"2026-08-17T12:24:39.552898Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":8,"round":null,"ts":"2026-08-17T12:25:14.589464Z"}

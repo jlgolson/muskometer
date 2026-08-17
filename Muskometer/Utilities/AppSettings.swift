@@ -374,7 +374,11 @@ final class AppSettings {
                 if let stored = defaults.string(forKey: key),
                    let value = Int64(stored),
                    value > 0 {
-                    counts[normalized] = value
+                    let migrated = IssuerSharesOutstanding.migrateStoredOutstanding(value, symbol: normalized)
+                    if migrated != value {
+                        defaults.set(String(migrated), forKey: key)
+                    }
+                    counts[normalized] = migrated
                 }
             }
         }

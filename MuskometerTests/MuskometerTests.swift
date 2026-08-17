@@ -1098,7 +1098,7 @@ final class IssuerSharesOutstandingTests: XCTestCase {
 
     func testBundledDefaultsAndKeys() {
         XCTAssertEqual(IssuerSharesOutstanding.defaultTSLA, 3_949_547_394)
-        XCTAssertEqual(IssuerSharesOutstanding.defaultSPCX, 13_181_779_945)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultSPCX, 13_571_069_199)
         XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "tsla"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
@@ -1189,6 +1189,62 @@ final class IssuerSharesOutstandingTests: XCTestCase {
         XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
         XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
         XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+    }
+
+    func testMigrateStoredOutstandingRewritesPriorSPCXCoverDefault() {
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_181_779_945, symbol: "SPCX"),
+            13_571_069_199
+        )
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_181_779_945, symbol: "spcx"),
+            13_571_069_199
+        )
+    }
+
+    func testMigrateStoredOutstandingLeavesOtherValues() {
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(8_888_888_888, symbol: "SPCX"),
+            8_888_888_888
+        )
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_571_069_199, symbol: "SPCX"),
+            13_571_069_199
+        )
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_181_779_945, symbol: "TSLA"),
+            13_181_779_945
+        )
+    }
+
+    func testLoadRemigratesPriorSPCXCoverOutstandingAndPersists() {
+        let suiteName = "MuskometerTests-outstanding-migrate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(String(13_181_779_945), forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX"))
+        defaults.set(String(8_888_888_888), forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA"))
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 13_571_069_199)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 8_888_888_888)
+        XCTAssertEqual(
+            defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX")),
+            String(13_571_069_199)
+        )
+        XCTAssertEqual(
+            defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")),
+            String(8_888_888_888)
+        )
+    }
+
+    func testMissingOutstandingKeyReturnsNewBundledDefault() {
+        let (settings, defaults) = makeSettings()
+
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX")))
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")))
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 13_571_069_199)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 3_949_547_394)
     }
 }
 

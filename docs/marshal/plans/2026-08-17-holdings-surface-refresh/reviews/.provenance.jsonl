@@ -41,3 +41,5 @@
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":9,"round":null,"ts":"2026-08-17T12:32:35.588053Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"spec-reviewer","task":10,"round":null,"ts":"2026-08-17T12:39:57.099887Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":10,"round":null,"ts":"2026-08-17T12:39:57.244733Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-holistic-conformance","task":0,"round":null,"ts":"2026-08-17T12:48:04.911423Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-holistic-quality","task":0,"round":null,"ts":"2026-08-17T12:48:05.079297Z"}

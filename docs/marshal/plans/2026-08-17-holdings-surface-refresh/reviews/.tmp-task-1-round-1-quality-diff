@@ -1,0 +1,31 @@
+diff --git a/Muskometer/Utilities/SPCXOwnershipCalculator.swift b/Muskometer/Utilities/SPCXOwnershipCalculator.swift
+index 4707a82..6216026 100644
+--- a/Muskometer/Utilities/SPCXOwnershipCalculator.swift
++++ b/Muskometer/Utilities/SPCXOwnershipCalculator.swift
+@@ -3,8 +3,9 @@ import Foundation
+ /// Aggregates Elon Musk's SpaceX (SPCX) beneficial ownership from SEC Form 4 ownership XML.
+ ///
+ /// SpaceX filings split holdings across Class A, Class B, preferred series,
+-/// and trusts. We sum the latest per-trust rows, convert
+-/// preferred per filing footnotes, and add restricted Class B cited in remarks.
++/// options, and trusts. We sum the latest per-trust rows, convert preferred
++/// per filing footnotes, and count vested option underlying shares. Remarks
++/// performance/restricted awards are ignored (not sellable until milestones).
+ enum SPCXOwnershipCalculator {
+     static func totalPublicShares(from xml: String) -> Int64? {
+         var buckets: [BucketKey: Int64] = [:]
+diff --git a/MuskometerTests/MuskometerTests.swift b/MuskometerTests/MuskometerTests.swift
+index 1d51054..32142a6 100644
+--- a/MuskometerTests/MuskometerTests.swift
++++ b/MuskometerTests/MuskometerTests.swift
+@@ -2346,7 +2346,9 @@ final class Form4OwnershipParserTests: XCTestCase {
+         let result = parser.parse()
+ 
+         XCTAssertNil(result["TSLA"])
+-        XCTAssertEqual(result["SPCX"], 1_507_402_770)
++        // Table only: Class A 7_402_770 + Class B 1_000_000_000. Remarks restricted
++        // shares are not sellable ownership and must not be added.
++        XCTAssertEqual(result["SPCX"], 1_007_402_770)
+     }
+ }
+ 

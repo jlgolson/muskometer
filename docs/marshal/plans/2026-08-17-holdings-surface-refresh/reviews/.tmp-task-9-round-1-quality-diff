@@ -1,0 +1,200 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 1a00a58..49f4957 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,26 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
+ 
+ ## [Unreleased]
+ 
++## [0.1.5] - 2026-08-17
++
++Sellable ownership seeds, Cursor outstanding bump, 2028 NYSE calendar, comparison-caption removal, marketing surface refresh.
++
++### Changed
++
++- **Ownership seeds** — TSLA default **710,172,677** (Form 4 `0001104659-26-075213` last direct common); SPCX default **5,116,475,230** (Form 4 `0001628280-26-044069` last-row-wins Class A+B **4,766,475,230** + vested option underlying **350,000,000**)
++- **SPCX calculator** — count vested option underlying shares 1:1; ignore remarks-only performance/restricted awards (no 1.302B CEO award addend)
++- **Fingerprint remigration** — prior SPCX performance-RSU totals (`6,068,734,060`, `6,068,547,515`, older fingerprints) and TSLA `699,580,882` rewrite to the new seeds on load; SPCX outstanding fingerprint `13,181,779,945` rewrites to **13,571,069,199**
++- **Issuer outstanding** — SPCX bundled A+B is 10-Q cover plus Cursor 8-K Class A issuance (`0001628280-26-056945` item (i) 389,289,254); TSLA outstanding unchanged
++- **Market calendar** — NYSE holidays and early closes extended through **2028** (official table; no New Year’s Day 2028 session holiday)
++- **Docs / Settings** — HOLDINGS sellable-ownership rule and accessions; Settings holdings caption (daily Form 4 + best-effort outstanding); README **⌘⇧C**; PRIVACY remaining prefs; ARCHITECTURE notes comparison is gone
++- **Marketing** — `app-capture` / `app-preview` / `og-image` and site copy match the current popover (single Copy, 9:30 next-open, parity card; no Post to X, no comparison line, no “minute by minute, every day”)
++- **Version** — marketing **0.1.5**, build **26**
++
++### Removed
++
++- **Comparison captions** — `ComparisonCaptionView`, comparison library/selector/history store, VM debounce API; leftover `comparisonHistoryEntries` UserDefaults keys cleared on settings load and Reset
++- **`MergerParityPresentation.currentTSLAPrice`** — unused field after earlier caption tighten
++
+ ## [0.1.4] - 2026-08-08
+ 
+ Merger market-cap parity card, RTH-only refresh, and small copy fix.
+diff --git a/Muskometer.xcodeproj/project.pbxproj b/Muskometer.xcodeproj/project.pbxproj
+index e47367f..cb945c6 100644
+--- a/Muskometer.xcodeproj/project.pbxproj
++++ b/Muskometer.xcodeproj/project.pbxproj
+@@ -553,7 +553,7 @@
+ 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
+ 				CODE_SIGN_STYLE = Automatic;
+ 				COMBINE_HIDPI_IMAGES = YES;
+-				CURRENT_PROJECT_VERSION = 25;
++				CURRENT_PROJECT_VERSION = 26;
+ 				DEVELOPMENT_TEAM = "";
+ 				ENABLE_HARDENED_RUNTIME = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+@@ -564,7 +564,7 @@
+ 					"$(inherited)",
+ 					"@executable_path/../Frameworks",
+ 				);
+-				MARKETING_VERSION = 0.1.4;
++				MARKETING_VERSION = 0.1.5;
+ 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
+ 				PRODUCT_MODULE_NAME = Muskometer;
+ 				PRODUCT_NAME = Muskometer;
+@@ -581,7 +581,7 @@
+ 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
+ 				CODE_SIGN_STYLE = Automatic;
+ 				COMBINE_HIDPI_IMAGES = YES;
+-				CURRENT_PROJECT_VERSION = 25;
++				CURRENT_PROJECT_VERSION = 26;
+ 				DEVELOPMENT_TEAM = "";
+ 				ENABLE_HARDENED_RUNTIME = YES;
+ 				GENERATE_INFOPLIST_FILE = NO;
+@@ -592,7 +592,7 @@
+ 					"$(inherited)",
+ 					"@executable_path/../Frameworks",
+ 				);
+-				MARKETING_VERSION = 0.1.4;
++				MARKETING_VERSION = 0.1.5;
+ 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
+ 				PRODUCT_MODULE_NAME = Muskometer;
+ 				PRODUCT_NAME = Muskometer;
+@@ -606,11 +606,11 @@
+ 			buildSettings = {
+ 				BUNDLE_LOADER = "$(TEST_HOST)";
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 25;
++				CURRENT_PROJECT_VERSION = 26;
+ 				DEVELOPMENT_TEAM = "";
+ 				GENERATE_INFOPLIST_FILE = YES;
+ 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+-				MARKETING_VERSION = 0.1.4;
++				MARKETING_VERSION = 0.1.5;
+ 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				SWIFT_EMIT_LOC_STRINGS = NO;
+@@ -624,11 +624,11 @@
+ 			buildSettings = {
+ 				BUNDLE_LOADER = "$(TEST_HOST)";
+ 				CODE_SIGN_STYLE = Automatic;
+-				CURRENT_PROJECT_VERSION = 25;
++				CURRENT_PROJECT_VERSION = 26;
+ 				DEVELOPMENT_TEAM = "";
+ 				GENERATE_INFOPLIST_FILE = YES;
+ 				MACOSX_DEPLOYMENT_TARGET = 14.0;
+-				MARKETING_VERSION = 0.1.4;
++				MARKETING_VERSION = 0.1.5;
+ 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
+ 				PRODUCT_NAME = "$(TARGET_NAME)";
+ 				SWIFT_EMIT_LOC_STRINGS = NO;
+diff --git a/README.md b/README.md
+index 744cf3f..d8546c0 100644
+--- a/README.md
++++ b/README.md
+@@ -12,7 +12,7 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
+ 
+ ### Download
+ 
+-1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.4.dmg` (or the newest release asset)
++1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.5.dmg` (or the newest release asset)
+ 2. Open the DMG, drag **Muskometer** to **Applications**
+ 3. **First launch:** right-click **Muskometer** → **Open** → **Open** (unsigned build — macOS will trust it after that once)
+ 
+diff --git a/SECURITY.md b/SECURITY.md
+index 605ff74..03b0852 100644
+--- a/SECURITY.md
++++ b/SECURITY.md
+@@ -46,7 +46,7 @@ We'll acknowledge receipt and work on a fix. This is a solo side project — ple
+ 
+ | Version | Supported | Notes |
+ |---------|-----------|-------|
+-| 0.1.x   | ✅        | Current public release line (0.1.4) |
++| 0.1.x   | ✅        | Current public release line (0.1.5) |
+ | < 0.1   | ❌        | Pre-release / not distributed |
+ 
+ ---
+diff --git a/docs/INSTALL.md b/docs/INSTALL.md
+index b5dd9d9..32267e1 100644
+--- a/docs/INSTALL.md
++++ b/docs/INSTALL.md
+@@ -3,7 +3,7 @@
+ ## Download
+ 
+ 1. Go to **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)**.
+-2. Download the latest **`Muskometer-0.1.4.dmg`** (or the newest `Muskometer-<version>.dmg` on the releases page).
++2. Download the latest **`Muskometer-0.1.5.dmg`** (or the newest `Muskometer-<version>.dmg` on the releases page).
+ 3. Open the DMG and drag **Muskometer** into **Applications**.
+ 4. Eject the disk image.
+ 
+diff --git a/docs/RELEASE.md b/docs/RELEASE.md
+index d24c0f8..48d9728 100644
+--- a/docs/RELEASE.md
++++ b/docs/RELEASE.md
+@@ -2,9 +2,9 @@
+ 
+ Guide for maintainers shipping builds to [GitHub Releases](https://github.com/jlgolson/muskometer/releases).
+ 
+-## Primary path: unsigned DMG (current: v0.1.4)
++## Primary path: unsigned DMG (current: v0.1.5)
+ 
+-**This is what we ship today.** No Apple Developer Program ($99) required. Examples below use **0.1.4**; substitute the version you are shipping.
++**This is what we ship today.** No Apple Developer Program ($99) required. Examples below use **0.1.5**; substitute the version you are shipping.
+ 
+ ```bash
+ ./scripts/package-dmg.sh
+@@ -21,26 +21,26 @@ No signing or notarization. Tell users to **right-click → Open** on first laun
+ 
+ ### Tag and publish
+ 
+-1. Confirm `MARKETING_VERSION` matches the release (e.g. `0.1.4`) in the Xcode project / `Info.plist`.
++1. Confirm `MARKETING_VERSION` matches the release (e.g. `0.1.5`) in the Xcode project / `Info.plist`.
+ 2. Run `./scripts/package-dmg.sh`.
+ 3. Tag and push:
+ 
+ ```bash
+-git tag v0.1.4
+-git push origin v0.1.4
++git tag v0.1.5
++git push origin v0.1.5
+ ```
+ 
+ 4. Create the GitHub Release and attach the artifacts:
+ 
+ ```bash
+-gh release create v0.1.4 \
+-  dist/Muskometer-0.1.4.dmg \
+-  dist/Muskometer-0.1.4.zip \
+-  --title "Muskometer 0.1.4" \
++gh release create v0.1.5 \
++  dist/Muskometer-0.1.5.dmg \
++  dist/Muskometer-0.1.5.zip \
++  --title "Muskometer 0.1.5" \
+   --notes "See CHANGELOG.md. Unsigned DMG — right-click → Open on first launch."
+ ```
+ 
+-Or use the [New release](https://github.com/jlgolson/muskometer/releases/new) UI: choose tag `v0.1.4`, title **Muskometer 0.1.4**, attach `dist/Muskometer-0.1.4.dmg` (and optionally the `.zip`).
++Or use the [New release](https://github.com/jlgolson/muskometer/releases/new) UI: choose tag `v0.1.5`, title **Muskometer 0.1.5**, attach `dist/Muskometer-0.1.5.dmg` (and optionally the `.zip`).
+ 
+ ---
+ 
+@@ -156,8 +156,8 @@ cp Config/Release.xcconfig.example Config/Release.xcconfig
+ 
+ Update in Xcode or in `Muskometer.xcodeproj` / `Info.plist`:
+ 
+-- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.4`)
+-- `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `25`)
++- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.5`)
++- `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `26`)
+ 
+ Commit the version bump before tagging.
+ 

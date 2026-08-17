@@ -76,13 +76,15 @@ struct MarketHoursService: MarketHoursServiceProtocol {
     }
 
     /// NYSE early-close days → regular-session end as minutes since midnight ET.
-    /// Covers the same years as the full-holiday set (2026–2027). Extend annually.
+    /// Covers the same years as the full-holiday set (2026–2028). Extend annually.
     /// Source: NYSE Holidays & Trading Hours (day after Thanksgiving, Christmas Eve when applicable).
     private static let earlyCloses: [String: Int] = [
         "2026-11-27": SessionMinutes.earlyClose, // day after Thanksgiving
         "2026-12-24": SessionMinutes.earlyClose, // Christmas Eve
         "2027-11-26": SessionMinutes.earlyClose, // day after Thanksgiving
         // 2027-12-24 is a full holiday (Christmas observed); no Christmas Eve early close in 2027.
+        "2028-07-03": SessionMinutes.earlyClose, // day before Independence Day
+        "2028-11-24": SessionMinutes.earlyClose, // day after Thanksgiving
     ]
 
     private let calendar: Calendar
@@ -230,7 +232,10 @@ struct MarketHoursService: MarketHoursServiceProtocol {
             "2026-11-26", "2026-12-25",
             "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26",
             "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
-            "2027-11-25", "2027-12-24"
+            "2027-11-25", "2027-12-24",
+            "2028-01-17", "2028-02-21", "2028-04-14", "2028-05-29",
+            "2028-06-19", "2028-07-04", "2028-09-04", "2028-11-23",
+            "2028-12-25"
         ]
 
         return holidays.contains(dayKey(for: date))

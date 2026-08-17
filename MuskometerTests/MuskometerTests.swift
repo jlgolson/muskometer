@@ -195,6 +195,44 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertTrue(service.isMarketOpen(at: notHoliday))
     }
 
+    func test2028MLKIsClosedAndNextDayOpen() throws {
+        let mlk = try EasternTestDates.date(year: 2028, month: 1, day: 17, hour: 11)
+        let nextDay = try EasternTestDates.date(year: 2028, month: 1, day: 18, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: mlk))
+        XCTAssertTrue(service.isMarketOpen(at: nextDay))
+    }
+
+    func test2028HasNoObservedNewYearsClose() throws {
+        let jan3 = try EasternTestDates.date(year: 2028, month: 1, day: 3, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertTrue(service.isMarketOpen(at: jan3))
+    }
+
+    func test2028GoodFridayAndIndependenceDayAreClosed() throws {
+        let goodFriday = try EasternTestDates.date(year: 2028, month: 4, day: 14, hour: 11)
+        let july4 = try EasternTestDates.date(year: 2028, month: 7, day: 4, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: goodFriday))
+        XCTAssertFalse(service.isMarketOpen(at: july4))
+    }
+
+    func test2028July3EarlyClose() throws {
+        let morning = try EasternTestDates.date(year: 2028, month: 7, day: 3, hour: 11)
+        let afternoon = try EasternTestDates.date(year: 2028, month: 7, day: 3, hour: 14)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertTrue(service.isMarketOpen(at: morning))
+        XCTAssertFalse(service.isMarketOpen(at: afternoon))
+    }
+
+    func test2028ThanksgivingAndDayAfterEarlyClose() throws {
+        let thanksgiving = try EasternTestDates.date(year: 2028, month: 11, day: 23, hour: 11)
+        let dayAfter = try EasternTestDates.date(year: 2028, month: 11, day: 24, hour: 14)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: thanksgiving))
+        XCTAssertFalse(service.isMarketOpen(at: dayAfter))
+    }
+
     func testNextOpenAfterHoursIsRegularOpenNotPreMarket() throws {
         var components = DateComponents()
         components.year = 2026

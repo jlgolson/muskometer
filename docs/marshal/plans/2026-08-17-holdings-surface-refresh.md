@@ -3,6 +3,7 @@ slug: 2026-08-17-holdings-surface-refresh
 plan_date: 2026-08-17
 spec_path: docs/marshal/specs/2026-08-17-holdings-surface-refresh-design.md
 gate: review
+tracker_intake: ART-1162
 ---
 
 # Holdings surface refresh Implementation Plan

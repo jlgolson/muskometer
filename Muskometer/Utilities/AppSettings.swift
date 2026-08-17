@@ -265,6 +265,9 @@ final class AppSettings {
         } else {
             self.updateDeliveryMode = .notifyOnly
         }
+
+        // Drop leftover history keys from the removed caption feature on load.
+        Self.removeLegacyCaptionHistoryKeys(defaults: defaults)
     }
 
     private static func loadLastHoldingsSyncDate(personID: String, defaults: UserDefaults) -> Date? {
@@ -515,8 +518,18 @@ final class AppSettings {
         GainThresholdNotificationService.resetPersistedState(for: personID, defaults: defaults)
         NetWorthMilestoneTracker.resetPersistedState(for: personID, defaults: defaults)
         IntradayGainSampleStore.resetPersistedState(for: personID, defaults: defaults)
-        ComparisonHistoryStore.resetPersistedState(for: personID, defaults: defaults)
         DailyRecordTracker.resetPersistedState(for: personID, defaults: defaults)
+        removeLegacyCaptionHistoryKeys(defaults: defaults)
+    }
+
+    /// Deletes leftover UserDefaults keys from the removed caption feature.
+    private static func removeLegacyCaptionHistoryKeys(defaults: UserDefaults) {
+        defaults.removeObject(forKey: "comparisonHistoryEntries")
+        var personIDs = Set(TrackedPersonProfile.registry.map(\.id))
+        personIDs.insert(TrackedPersonProfile.musk.id)
+        for personID in personIDs {
+            defaults.removeObject(forKey: "comparisonHistoryEntries_\(personID)")
+        }
     }
 
     @discardableResult

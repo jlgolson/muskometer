@@ -43,10 +43,8 @@
 		A10000000000000000000025 /* ShareImageExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* ShareImageExporter.swift */; };
 		A10000000000000000000026 /* ShareFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* ShareFormat.swift */; };
 		A10000000000000000000027 /* ShareShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000027 /* ShareShortcutController.swift */; };
-		A1000000000000000000002B /* ComparisonLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002B /* ComparisonLine.swift */; };
 		A1000000000000000000002C /* DailyGainRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002C /* DailyGainRecord.swift */; };
 		A1000000000000000000002D /* NetWorthMilestone.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002D /* NetWorthMilestone.swift */; };
-		A1000000000000000000002E /* ComparisonCaptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002E /* ComparisonCaptionView.swift */; };
 		A1000000000000000000002F /* MilestoneCelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002F /* MilestoneCelebrationOverlay.swift */; };
 		A10000000000000000000030 /* DailyRecordsCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000030 /* DailyRecordsCardView.swift */; };
 		A10000000000000000000031 /* GainSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000031 /* GainSample.swift */; };
@@ -57,8 +55,6 @@
 		A10000000000000000000037 /* DailyRecordTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* DailyRecordTracker.swift */; };
 		A10000000000000000000038 /* GainNotificationThreshold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* GainNotificationThreshold.swift */; };
 		A10000000000000000000039 /* GainThresholdNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* GainThresholdNotificationService.swift */; };
-		A1000000000000000000003A /* ComparisonHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003A /* ComparisonHistoryStore.swift */; };
-		A1000000000000000000003B /* ComparisonLineSelector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003B /* ComparisonLineSelector.swift */; };
 		A1000000000000000000003C /* NetWorthMilestoneTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003C /* NetWorthMilestoneTracker.swift */; };
 		A1000000000000000000003D /* MarketStatusFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* MarketStatusFormatter.swift */; };
 		A1000000000000000000003E /* UpdateDeliveryMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003E /* UpdateDeliveryMode.swift */; };
@@ -118,10 +114,8 @@
 		A20000000000000000000025 /* ShareImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImageExporter.swift; sourceTree = "<group>"; };
 		A20000000000000000000026 /* ShareFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareFormat.swift; sourceTree = "<group>"; };
 		A20000000000000000000027 /* ShareShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareShortcutController.swift; sourceTree = "<group>"; };
-		A2000000000000000000002B /* ComparisonLine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonLine.swift; sourceTree = "<group>"; };
 		A2000000000000000000002C /* DailyGainRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyGainRecord.swift; sourceTree = "<group>"; };
 		A2000000000000000000002D /* NetWorthMilestone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthMilestone.swift; sourceTree = "<group>"; };
-		A2000000000000000000002E /* ComparisonCaptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonCaptionView.swift; sourceTree = "<group>"; };
 		A2000000000000000000002F /* MilestoneCelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MilestoneCelebrationOverlay.swift; sourceTree = "<group>"; };
 		A20000000000000000000030 /* DailyRecordsCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRecordsCardView.swift; sourceTree = "<group>"; };
 		A20000000000000000000031 /* GainSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSample.swift; sourceTree = "<group>"; };
@@ -132,8 +126,6 @@
 		A20000000000000000000037 /* DailyRecordTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRecordTracker.swift; sourceTree = "<group>"; };
 		A20000000000000000000038 /* GainNotificationThreshold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainNotificationThreshold.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* GainThresholdNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainThresholdNotificationService.swift; sourceTree = "<group>"; };
-		A2000000000000000000003A /* ComparisonHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonHistoryStore.swift; sourceTree = "<group>"; };
-		A2000000000000000000003B /* ComparisonLineSelector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComparisonLineSelector.swift; sourceTree = "<group>"; };
 		A2000000000000000000003C /* NetWorthMilestoneTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthMilestoneTracker.swift; sourceTree = "<group>"; };
 		A2000000000000000000003D /* MarketStatusFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketStatusFormatter.swift; sourceTree = "<group>"; };
 		A2000000000000000000003E /* UpdateDeliveryMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateDeliveryMode.swift; sourceTree = "<group>"; };
@@ -251,7 +243,6 @@
 				A20000000000000000000014 /* MenuBarDisplayMode.swift */,
 				A20000000000000000000023 /* TrackedPersonProfile.swift */,
 				A20000000000000000000026 /* ShareFormat.swift */,
-				A2000000000000000000002B /* ComparisonLine.swift */,
 				A2000000000000000000002C /* DailyGainRecord.swift */,
 				A2000000000000000000002D /* NetWorthMilestone.swift */,
 				A20000000000000000000031 /* GainSample.swift */,
@@ -276,8 +267,6 @@
 				A20000000000000000000032 /* IntradayGainSampleStore.swift */,
 				A20000000000000000000037 /* DailyRecordTracker.swift */,
 				A20000000000000000000039 /* GainThresholdNotificationService.swift */,
-				A2000000000000000000003A /* ComparisonHistoryStore.swift */,
-				A2000000000000000000003B /* ComparisonLineSelector.swift */,
 				A2000000000000000000003C /* NetWorthMilestoneTracker.swift */,
 				A2000000000000000000003F /* UpdateChecking.swift */,
 				A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */,
@@ -305,7 +294,6 @@
 				A20000000000000000000021 /* SettingsContentHeightKey.swift */,
 				A20000000000000000000022 /* AboutView.swift */,
 				A20000000000000000000024 /* ShareCardView.swift */,
-				A2000000000000000000002E /* ComparisonCaptionView.swift */,
 				A2000000000000000000002F /* MilestoneCelebrationOverlay.swift */,
 				A20000000000000000000030 /* DailyRecordsCardView.swift */,
 				A20000000000000000000033 /* GainSparklineView.swift */,
@@ -472,10 +460,8 @@
 				A10000000000000000000025 /* ShareImageExporter.swift in Sources */,
 				A10000000000000000000026 /* ShareFormat.swift in Sources */,
 				A10000000000000000000027 /* ShareShortcutController.swift in Sources */,
-				A1000000000000000000002B /* ComparisonLine.swift in Sources */,
 				A1000000000000000000002C /* DailyGainRecord.swift in Sources */,
 				A1000000000000000000002D /* NetWorthMilestone.swift in Sources */,
-				A1000000000000000000002E /* ComparisonCaptionView.swift in Sources */,
 				A1000000000000000000002F /* MilestoneCelebrationOverlay.swift in Sources */,
 				A10000000000000000000030 /* DailyRecordsCardView.swift in Sources */,
 				A10000000000000000000031 /* GainSample.swift in Sources */,
@@ -485,8 +471,6 @@
 				A10000000000000000000037 /* DailyRecordTracker.swift in Sources */,
 				A10000000000000000000038 /* GainNotificationThreshold.swift in Sources */,
 				A10000000000000000000039 /* GainThresholdNotificationService.swift in Sources */,
-				A1000000000000000000003A /* ComparisonHistoryStore.swift in Sources */,
-				A1000000000000000000003B /* ComparisonLineSelector.swift in Sources */,
 				A1000000000000000000003C /* NetWorthMilestoneTracker.swift in Sources */,
 				A1000000000000000000003D /* MarketStatusFormatter.swift in Sources */,
 				A1000000000000000000003E /* UpdateDeliveryMode.swift in Sources */,

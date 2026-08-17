@@ -43,3 +43,10 @@
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":10,"round":null,"ts":"2026-08-17T12:39:57.244733Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-holistic-conformance","task":0,"round":null,"ts":"2026-08-17T12:48:04.911423Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-holistic-quality","task":0,"round":null,"ts":"2026-08-17T12:48:05.079297Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"pre-merge-reviewer","task":0,"round":1,"ts":"2026-08-17T12:57:53.473843Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer","task":0,"round":null,"ts":"2026-08-17T20:11:46.026289Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer","task":0,"round":null,"ts":"2026-08-17T20:11:46.185980Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer","task":0,"round":null,"ts":"2026-08-17T20:11:46.354667Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer-security","task":0,"round":1,"ts":"2026-08-17T20:12:22.617925Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer-concurrency","task":0,"round":1,"ts":"2026-08-17T20:12:22.618468Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"objective-reviewer-persistence","task":0,"round":1,"ts":"2026-08-17T20:12:22.618608Z"}

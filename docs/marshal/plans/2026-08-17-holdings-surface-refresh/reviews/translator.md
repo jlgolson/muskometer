@@ -5,9 +5,9 @@
 **Spec:** `docs/marshal/specs/2026-08-17-holdings-surface-refresh-design.md`  
 **Date:** 2026-08-17
 
-Method: plan and referenced sources read cold first (four produces sections), then the design opened and compared.
+Method: plan read cold first (four produces sections), then the design opened and compared.
 
-Cold hypotheses before opening the spec: a plan like this would most plausibly be wrong by (1) inventing new Swift compile units the design did not ask for, (2) dropping a leftover (calculator rule, TSLA remigration, outstanding remigration, 2028 rows, comparison sweep, marketing PNGs, version tick), (3) using different pinned integers, (4) hiding comparison instead of deleting it, (5) leaving non-goals as tasks (13G, strike ledger, 8-K HTML parse, Sparkle, git-tag/DMG), or (6) verifying something narrower than `scripts/verify.sh`. Those are checked after Part A.
+Cold hypotheses before opening the spec: a plan like this would most plausibly be wrong by (1) inventing new Swift compile units the design did not ask for, (2) dropping a leftover (calculator rule, TSLA remigration, outstanding remigration, 2028 rows, comparison sweep, marketing PNGs, version tick), (3) using different pinned integers, (4) hiding comparison instead of deleting it, (5) leaving non-goals as tasks (13G, strike ledger, 8-K HTML parse, Sparkle, git-tag/DMG), (6) verifying something narrower than `scripts/verify.sh`, or (7) Task 7 HOLDINGS steps omitting the strike-mark sentence or the four named accessions. Those are checked after Part A.
 
 ---
 
@@ -38,7 +38,7 @@ The product tree loses four files: `Muskometer/Models/ComparisonLine.swift`, `Mu
 | `project.pbxproj` | Delete comparison IDs; `MARKETING_VERSION` `0.1.5`; `CURRENT_PROJECT_VERSION` `26` (four pairs) |
 | `MuskometerTests.swift` | Calculator/option/remarks tests; 2028 calendar; remigration; delete four comparison test types; parity asserts |
 | Marketing: `docs/screenshots/{app-capture,app-preview,og-image}.png`, `render-popover.html`, `render-og.html`, `docs/index.html`, `docs/README.md` | Post-change popover mock; no Post to X / comparison / 4:00 AM; RTH lede |
-| Docs: `docs/HOLDINGS.md`, `docs/ARCHITECTURE.md`, `README.md`, `docs/PRIVACY.md`, `CHANGELOG.md`, `docs/INSTALL.md`, `docs/RELEASE.md`, `SECURITY.md` | Seeds, 2028 table, ⌘⇧C, prefs, 0.1.5 strings, dated CHANGELOG |
+| Docs: `docs/HOLDINGS.md`, `docs/ARCHITECTURE.md`, `README.md`, `docs/PRIVACY.md`, `CHANGELOG.md`, `docs/INSTALL.md`, `docs/RELEASE.md`, `SECURITY.md` | Seeds, strike-mark + four accessions, 2028 table, ⌘⇧C, prefs, 0.1.5 strings, dated CHANGELOG |
 | `scripts/verify.sh` | Fail on `Post to X` / `comparison caption` in site HTML |
 
 ### 3. What new behaviors will the system have?
@@ -51,7 +51,7 @@ NYSE tables include 2028 holidays (no observed New Year’s close) and early clo
 
 The popover no longer shows “today’s loss equals / today’s gain could…”. Comparison library, selector, history store, VM debounce, and leftover `comparisonHistoryEntries` / `comparisonHistoryEntries_<id>` keys are gone (swept on load and Reset). No replacement caption or toggle.
 
-Public PNGs and site copy match the post-change chrome: one Copy control, 9:30 next-open, parity card, no Post to X, no comparison line, no “minute by minute, every day.” Shipping identity is **0.1.5 / build 26**. `MergerParityPresentation` no longer carries `currentTSLAPrice`. README lists ⌘⇧C. Settings/PRIVACY/HOLDINGS/ARCHITECTURE match the new numbers and remaining prefs.
+Public PNGs and site copy match the post-change chrome: one Copy control, 9:30 next-open, parity card, no Post to X, no comparison line, no “minute by minute, every day.” Shipping identity is **0.1.5 / build 26**. `MergerParityPresentation` no longer carries `currentTSLAPrice`. README lists ⌘⇧C. Settings/PRIVACY/HOLDINGS/ARCHITECTURE match the new numbers and remaining prefs. HOLDINGS states 350M options marked at the Class A last (Class B 1:1), ~$2.94B unpaid strike ignored, and names accessions `0001104659-26-075213`, `0001628280-26-044069`, `0001628280-26-052535`, `0001628280-26-056945`.
 
 ### 4. What is the plan explicitly NOT doing?
 
@@ -71,7 +71,7 @@ Not tasked / non-goals: Schedule 13G/13D (do not seed **6,418,547,515**); subtra
 | 2028 holidays/early closes + ARCHITECTURE table | Design §3; AC6 |
 | Delete four comparison sources, VM/calendar, tests, pbxproj IDs, key sweep | Design §4 + §7; Goals; Upgrade contract; AC7 |
 | Marketing PNGs, HTML mock, site lede, verify.sh grep | Design §5; Testing; AC8 |
-| Settings holdings caption, README ⌘⇧C, PRIVACY prefs, HOLDINGS aggregation/outstanding table | Design §6; Problem polish; AC9 |
+| Settings holdings caption, README ⌘⇧C, PRIVACY prefs, HOLDINGS aggregation/outstanding/strike-mark/four accessions | Design §1 last para; §2 HOLDINGS table; §6; Compliance; AC9 |
 | Drop `currentTSLAPrice` | Design §6 dead field; AC10 |
 | Version 0.1.5 / build 26, current-release strings, CHANGELOG 0.1.5 | Design §6 version tick; Goals; Rollout; AC11 |
 | `verify.sh` production path | Acceptance AC12; Testing; Scale & Validation |
@@ -79,20 +79,15 @@ Not tasked / non-goals: Schedule 13G/13D (do not seed **6,418,547,515**); subtra
 
 Task graph vs design: T1 calculator → T4 seeds; T3 outstanding; T2 calendar; T5 comparison; T6 dead field; T7 docs after 3/4/5; T8 marketing after 5; T1–8 → T9 version/CHANGELOG → T10 verify. Ready-set 1, 2, 3, 5, 6 matches independent leftovers.
 
-Hypothesis check: (1) no required new Swift files — matches §7. (2) every leftover has a task. (3) pinned integers match the spec table. (4) deletion not hide. (5) non-goals not tasked. (6) Task 10 is the same `MUSKOMETER_SKIP_LIVE_YAHOO=1 ./scripts/verify.sh` as CI.
+Hypothesis check: (1) no required new Swift files — matches §7. (2) every leftover has a task. (3) pinned integers match the spec table. (4) deletion not hide. (5) non-goals not tasked. (6) Task 10 is the same `MUSKOMETER_SKIP_LIVE_YAHOO=1 ./scripts/verify.sh` as CI. (7) Task 7 HOLDINGS now states the Class A last / ignored-strike sentence and names all four accessions.
 
 ### Spec sections with no plan item
 
 Process / non-deliverable sections that correctly have no implementer task: Problem framing, Current architecture, Risks (accepted), Observability (“none”), Open questions (“none remaining”), Rollback, Alternatives considered, Dependencies/external contracts (evidence only), Deferred (none), Scale & Validation (N/A except Task 10).
 
-Functional / docs requirements inside tasked sections that the **plan steps do not restate**:
+`AppVersion.short` / SEC User-Agent already read `MARKETING_VERSION` via Info.plist; spec §6’s “do not hardcode a second source” is a non-change and is correctly un-tasked. Design §4 “any DEVELOPING/ARCHITECTURE mention of the selector”: Task 7 covers ARCHITECTURE; `docs/DEVELOPING.md` currently has no selector/comparison mention, so the DEVELOPING half is vacuously satisfied.
 
-| Spec item | Where | Plan |
-|-----------|-------|------|
-| HOLDINGS must say 350M options are marked at the Class A last (Class B 1:1) and ~$2.94B unpaid strike is ignored | Design §1 last paragraph before migration | Task 7 names 350M options and excluded 1.302B awards; does not say to document mark-at-last or ignored strike |
-| HOLDINGS must name accessions for the TSLA Form 4, SPCX Form 4, July 28 10-Q cover, **and** the Cursor 8-K item (i) | Compliance & messaging | Task 7 names only Cursor `0001628280-26-056945`. July 28 10-Q accession already lives in today’s HOLDINGS table; TSLA `0001104659-26-075213` and SPCX `0001628280-26-044069` are not in the Task 7 checklist |
-
-Design §4 “any DEVELOPING/ARCHITECTURE mention of the selector”: Task 7 covers ARCHITECTURE; `docs/DEVELOPING.md` currently has no selector/comparison mention, so the DEVELOPING half is vacuously satisfied and is not a live gap.
+No functional / docs requirement inside tasked sections is left off a task checklist.
 
 ### Plan items with no spec backing
 
@@ -104,18 +99,15 @@ No task implements a non-goal.
 
 ## Part C — Verdict summary
 
-The ten tasks are a faithful decomposition of Design §§1–7, Goals, Testing, Acceptance 1–12, Upgrade contract, and the version/rollout tick. New-file set is empty except an optional HTML mock. Comparison is deleted. Integers match. Non-goals stay out.
-
-Two HOLDINGS documentation sentences from spec §1 and Compliance are not on the Task 7 checklist. An implementer who follows only the plan steps (and spec §6’s shorter HOLDINGS bullet) can ship HOLDINGS without the strike-mark sentence and without naming the TSLA and SPCX Form 4 accessions.
+The ten tasks are a faithful decomposition of Design §§1–7, Goals, Testing, Acceptance 1–12, Upgrade contract, Compliance messaging, and the version/rollout tick. New-file set is empty except an optional HTML mock. Comparison is deleted. Integers match. Non-goals stay out. Task 7 HOLDINGS steps now carry the §1 strike-mark sentence and the Compliance four-accession naming.
 
 ## Findings
 
-- [docs/marshal/plans/2026-08-17-holdings-surface-refresh.md:Task 7] coverage-gap: Task 7 HOLDINGS steps omit spec §1 mark-at-Class-A-last and ignored ~$2.94B strike sentence
-- [docs/marshal/plans/2026-08-17-holdings-surface-refresh.md:Task 7] coverage-gap: Task 7 HOLDINGS steps name only the Cursor 8-K accession; Compliance also requires TSLA Form 4, SPCX Form 4, and July 28 10-Q cover accessions
+None.
 
-VERDICT: NEEDS_FIXES: Task 7 HOLDINGS steps omit spec §1 strike-mark sentence and Compliance four-accession naming
+VERDICT: APPROVED
 
-Reviewed-files: docs/marshal/plans/2026-08-17-holdings-surface-refresh.md, docs/marshal/specs/2026-08-17-holdings-surface-refresh-design.md, Muskometer/Utilities/SPCXOwnershipCalculator.swift, Muskometer/Utilities/SPCXHoldings.swift, Muskometer/Utilities/IssuerSharesOutstanding.swift, Muskometer/Utilities/AppSettings.swift, Muskometer/Models/TrackedPersonProfile.swift, Muskometer/Services/MarketHoursService.swift, Muskometer/ViewModels/GainsViewModel.swift, Muskometer/Views/PopoverContentView.swift, docs/HOLDINGS.md, docs/DEVELOPING.md, docs/ARCHITECTURE.md
+Reviewed-files: docs/marshal/plans/2026-08-17-holdings-surface-refresh.md, docs/marshal/specs/2026-08-17-holdings-surface-refresh-design.md, docs/HOLDINGS.md, docs/DEVELOPING.md, docs/ARCHITECTURE.md, Muskometer/Utilities/AppVersion.swift
 
 reviewed-content-sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
 

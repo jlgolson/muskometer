@@ -15,3 +15,7 @@
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"implementer","task":4,"round":null,"ts":"2026-08-17T11:39:46.055039Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"spec-reviewer","task":4,"round":null,"ts":"2026-08-17T11:39:58.437358Z"}
 {"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":4,"round":null,"ts":"2026-08-17T11:39:58.583175Z"}
+{"kind":"integration","scope":"2026-08-17-holdings-surface-refresh","task":5,"round":null,"commit":"55a0205b3da112583209d6de5dd5f0559c8b8a5f","base":"1949e2f8e66a7d39a9426dd6c8ef29f367a1ef30","ts":"2026-08-17T11:47:55.466211Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"implementer","task":5,"round":null,"ts":"2026-08-17T11:47:55.478550Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"spec-reviewer","task":5,"round":null,"ts":"2026-08-17T11:48:08.624776Z"}
+{"kind":"dispatch","scope":"2026-08-17-holdings-surface-refresh","role":"code-quality-reviewer","task":5,"round":null,"ts":"2026-08-17T11:48:08.772242Z"}

@@ -332,7 +332,7 @@ struct SettingsView: View {
                 }
             }
 
-            Text("Holdings check SEC Form 4 filings once per day. Prices refresh separately.")
+            Text("Form 4 ownership syncs daily; issuer outstanding is best-effort on the same cadence (companyfacts — SPCX often stays on the cover/Cursor default). Prices refresh separately.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

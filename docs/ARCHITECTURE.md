@@ -37,11 +37,11 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 paperGain = shareCount × (currentPrice − previousClose)
 ```
 
-- **TSLA** — ownership from SEC Form 4 (direct beneficial-ownership row).
-- **SPCX** — ownership aggregates Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent).
+- **TSLA** — ownership from SEC Form 4 (last direct common-stock post-transaction amount).
+- **SPCX** — sellable ownership: last-row-wins Class A+B tables plus vested option underlying shares; unvested performance RSUs in remarks are excluded (~5.116B Class A-equivalent default).
 - **Quotes** — TSLA and SPCX use identical Yahoo fetch, session, and price-selection logic. See [HOLDINGS.md](HOLDINGS.md).
 
-Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
+Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot. The popover no longer shows comparison captions (the “today’s loss equals / today’s gain could…” block and its selector/history path were removed).
 
 ### Market-cap parity (orthogonal)
 

@@ -9,9 +9,14 @@ Preferences are stored in **UserDefaults** under the app bundle ID (`org.muskome
 - TSLA and SPCX share counts (including SEC-synced ownership defaults)
 - Issuer shares outstanding for market-cap parity (company totals, separate from ownership)
 - Menu bar display mode, trend icon preference, and market-cap parity card toggle
+- Share format (copy image card vs text summary)
+- Update-notify flag (and delivery mode) for available GitHub releases
 - Auto-refresh interval
 - Launch-at-login setting
 - Last SEC holdings sync timestamp
+- Daily-record extremes (best/worst session paper gains and related day keys)
+- Intraday sparkline samples (combined paper-gain series for the latest RTH session)
+- Gain-threshold notification IDs and per-threshold state
 
 No database, no cloud sync, no third-party SDKs.
 
@@ -43,7 +48,7 @@ Muskometer is not directed at children and does not knowingly collect personal i
 
 ## Changes
 
-If this policy changes materially, it will be updated in this repository. The current public release is **0.1.4**.
+If this policy changes materially, it will be updated in this repository. The current public release is **0.1.5**.
 
 ## Contact
 

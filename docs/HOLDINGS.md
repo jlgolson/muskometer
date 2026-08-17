@@ -4,16 +4,23 @@ Muskometer tracks Musk's paper gains on **TSLA** and **SPCX** using SEC-reported
 
 ## Share counts
 
-Share counts come from Elon Musk's **SEC Form 4** filings. The app checks EDGAR once per day and walks recent Form 4 accessions until it finds counts for both tickers.
+Share counts come from Elon Musk's **SEC Form 4** filings. The app checks EDGAR once per day and walks recent Form 4 accessions until it finds counts for both tickers. Defaults below are **sellable ownership** (what he owns and could theoretically sell), not the full 13d-3 voting package.
 
 | Ticker | Default (until SEC sync) | How it's derived |
 |--------|--------------------------|------------------|
-| **TSLA** | 699,580,882 | Direct beneficial-ownership row from Form 4 XML |
-| **SPCX** | 6,068,734,060 | Aggregated Class A-equivalent ownership from Form 4 XML |
+| **TSLA** | 710,172,677 | Last direct (`D`) common-stock post-transaction amount from Form 4 `0001104659-26-075213` (period 2026-06-16) |
+| **SPCX** | 5,116,475,230 | Form 4 `0001628280-26-044069`: last-row-wins Class A+B tables **4,766,475,230** + vested option underlying **350,000,000** |
 
-**SPCX aggregation** — SpaceX filings split holdings across Class A, Class B, preferred series, and trusts. Muskometer sums the latest per-trust rows, converts preferred series to Class A-equivalent (series A/B preferred × 50 per filing footnotes), and adds restricted Class B cited in filing remarks.
+**SPCX aggregation (sellable ownership)** — SpaceX filings split holdings across Class A, Class B, preferred series, trusts, and derivative tables. Muskometer:
 
-**Partial sync** — If only one ticker is found in the filings checked, the app keeps prior counts and records the attempt so auto-retry waits ~24h (not every quote refresh). Network failures use the same backoff. You can also tap **Sync holdings from SEC** in Settings to force a retry immediately.
+- Takes **last-row-wins** Class A and Class B common per `(title, nature)` (1:1).
+- Converts leftover preferred series to Class A-equivalent (series A/B preferred × 50 per filing footnotes; IPO conversion already zeroed preferred on the June 17 filing).
+- **Adds** vested option underlying shares when `securityTitle` contains `"option"` (the live row is **350,000,000** Class B, Form 4 F8 / Form 3 F4: fully vested and exercisable, strike $8.3998, expire 2031-02-11).
+- **Does not** add unvested performance-based restricted Class B named only in remarks (SpaceX CEO Award **1,000,000,000** + AI CEO Award **302,072,285** ≈ **1.302B** total). Those can be voted but are not sellable until milestones and continued employment.
+
+The 350M options are marked at the Class A last price (Class B converts 1:1). Unpaid strike (~$8.3998 × 350M ≈ **$2.94B**) is **ignored** — paper gain is `shares × Δprice` with the same path as common stock; strike is a constant and does not change the daily swing.
+
+**Partial sync** — If only one ticker is found in the filings checked, the app keeps prior counts and records the attempt so auto-retry waits ~24h (not every quote refresh). Network failures use the same backoff. You can also tap **Sync from SEC now** in Settings to force a retry immediately.
 
 **Overrides** — TSLA and SPCX share counts can be edited manually in Settings; overrides persist until the next successful SEC sync updates them.
 
@@ -45,7 +52,9 @@ These paths are independent: Form 4 ownership never writes issuer outstanding, a
 | Ticker | Default outstanding | Derivation |
 |--------|---------------------|------------|
 | **TSLA** | 3,949,547,394 | `dei:EntityCommonStockSharesOutstanding`, end 2026-07-16 (10-Q / companyfacts) |
-| **SPCX** | 13,181,779,945 | 10-Q cover as of 2026-07-28: Class A 7,696,293,669 + Class B 5,485,486,276 (accession `0001628280-26-052535`) |
+| **SPCX** | 13,571,069,199 | July 28 10-Q cover Class A 7,696,293,669 + Class B 5,485,486,276 (accession `0001628280-26-052535`) **plus** Cursor merger Class A issued 389,289,254 (8-K `0001628280-26-056945`, item (i); filed 2026-08-14). New Class A = 8,085,582,923; A+B = **13,571,069,199**. Item (ii)/(iii) RSU/option lines are not included. |
+
+SPCX companyfacts for CIK `0001181412` still only exposes WASO (rejected for mcap), so outstanding sync often cannot update SpaceX and the cover+Cursor default stays in place until a later cover or point-in-time concept appears.
 
 Settings → Reset to defaults reseeds both ownership and outstanding to bundled values. Weighted-average / EPS share counts (WASO) are **rejected** for mcap — if companyfacts only exposes those, the app keeps the prior or cover default.
 

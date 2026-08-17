@@ -37,11 +37,11 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
 paperGain = shareCount × (currentPrice − previousClose)
 ```
 
-- **TSLA** — ownership from SEC Form 4 (direct beneficial-ownership row).
-- **SPCX** — ownership aggregates Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent).
+- **TSLA** — ownership from SEC Form 4 (last direct common-stock post-transaction amount).
+- **SPCX** — sellable ownership: last-row-wins Class A+B tables plus vested option underlying shares; unvested performance RSUs in remarks are excluded (~5.116B Class A-equivalent default).
 - **Quotes** — TSLA and SPCX use identical Yahoo fetch, session, and price-selection logic. See [HOLDINGS.md](HOLDINGS.md).
 
-Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
+Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot. The popover no longer shows comparison captions (the “today’s loss equals / today’s gain could…” block and its selector/history path were removed).
 
 ### Market-cap parity (orthogonal)
 
@@ -115,21 +115,23 @@ Force refresh (`⌘R`) bypasses the in-flight guard and increments a generation 
 
 ## Market holidays
 
-`MarketHoursService` treats US equity market holidays as a **hardcoded date set** in `MarketHoursService.swift` covering **2026 and 2027** only (NYSE-style calendar: New Year's Day, MLK Day, Presidents' Day, Good Friday, Memorial Day, Juneteenth, Independence Day observed, Labor Day, Thanksgiving, Christmas).
+`MarketHoursService` treats US equity market holidays as a **hardcoded date set** in `MarketHoursService.swift` covering **2026 through 2028** (NYSE-style calendar: New Year's Day, MLK Day, Presidents' Day, Good Friday, Memorial Day, Juneteenth, Independence Day observed, Labor Day, Thanksgiving, Christmas). January 1, 2028 is a Saturday; NYSE does not observe a New Year’s close that year.
 
 ### Early closes
 
-The same service keeps a small **early-close map** (date → regular-session end as minutes since midnight ET) for 2026–2027. Typical close is **13:00 ET** (1:00 PM):
+The same service keeps a small **early-close map** (date → regular-session end as minutes since midnight ET) for 2026–2028. Typical close is **13:00 ET** (1:00 PM):
 
 | Date | Reason |
 |------|--------|
 | 2026-11-27 | Day after Thanksgiving |
 | 2026-12-24 | Christmas Eve |
 | 2027-11-26 | Day after Thanksgiving |
+| 2028-07-03 | Day before Independence Day |
+| 2028-11-24 | Day after Thanksgiving |
 
 On early-close days, regular session ends at the early hour (not 16:00); everything after is **closed** (RTH-only — no post-market refresh). Daily records finalize at regular close (or early close). Without this map, afternoon hours on early-close days would be treated as regular session (wrong refresh cadence).
 
-This is intentional for v0.1.0 — no external holiday API. **Maintainers must extend holidays and early closes annually** (or replace them with a maintained data source) so refresh timing and "market open" status stay correct after 2027.
+This is intentional for v0.1.0 — no external holiday API. **Maintainers must extend holidays and early closes annually** (or replace them with a maintained data source) so refresh timing and "market open" status stay correct after 2028.
 
 ## Sandbox & storage
 

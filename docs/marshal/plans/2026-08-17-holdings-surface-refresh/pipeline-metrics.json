@@ -1,0 +1,252 @@
+{
+  "schema_version": 1,
+  "slug": "2026-08-17-holdings-surface-refresh",
+  "run_segments": {
+    "prior_segment_count": 0,
+    "headline_dispatch_count": 12
+  },
+  "skipped_newer_schema_count": 0,
+  "coding_vs_review": {
+    "implementer_latency_ms": 2113635.6,
+    "implementer_count": 12,
+    "reviewer_latency_ms": 0.0,
+    "reviewer_count": 0
+  },
+  "economics": {
+    "total_cost": 0.0,
+    "null_economics_dispatch_count": 12,
+    "tokens_read": 0,
+    "tokens_written": 0,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "cache_hit_ratio": 0.0,
+    "no_cache_list_price_baseline_note": "no-cache list-price baseline: the 0 cache-read token(s) would be billed at full list input price with caching disabled (counterfactual on real token counts, not a fabrication)"
+  },
+  "catch_ledger": {
+    "by_gate": [
+      {
+        "role": "spec-reviewer",
+        "catch_count": 0,
+        "findings": []
+      },
+      {
+        "role": "code-quality-reviewer",
+        "catch_count": 0,
+        "findings": []
+      },
+      {
+        "role": "plan-correctness",
+        "catch_count": 0,
+        "findings": []
+      },
+      {
+        "role": "holistic",
+        "catch_count": 0,
+        "findings": []
+      },
+      {
+        "role": "execution-holistic",
+        "catch_count": 0,
+        "findings": []
+      },
+      {
+        "role": "spec-correctness",
+        "catch_count": 0,
+        "findings": []
+      }
+    ],
+    "by_severity": {},
+    "by_category": {},
+    "persisted_from_prior_round_count": 0,
+    "unstructured_verdict_count": 0
+  },
+  "marginal_cost_of_catches": [],
+  "concurrency": {
+    "sum_latency_ms": 2113635.6,
+    "execution_wallclock_seconds": 6679.4,
+    "concurrency_factor": 0.316,
+    "execution_start_estimated": false
+  },
+  "dispatches": [
+    {
+      "dispatch_id": "4bf027e2-6b4e-42eb-b5e8-6362a1847ab9-task-1",
+      "role": "implementer",
+      "task_id": "1",
+      "round": 1,
+      "latency_ms": 237399.2508747615,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "17c0c491-43dc-401a-b96b-596c6d808916-task-1",
+      "role": "implementer",
+      "task_id": "1",
+      "round": 2,
+      "latency_ms": 115342.81587507576,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "fd6839e9-455f-430f-bcb4-115621ac3531-task-2",
+      "role": "implementer",
+      "task_id": "2",
+      "round": 1,
+      "latency_ms": 167855.1648329012,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "ba357a68-d7cd-4df3-bf6c-669c59f668ab-task-3",
+      "role": "implementer",
+      "task_id": "3",
+      "round": 1,
+      "latency_ms": 115020.06979240105,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "77f9ed67-5d39-4a31-8f39-f81ab4d9a26c-task-4",
+      "role": "implementer",
+      "task_id": "4",
+      "round": 1,
+      "latency_ms": 140540.6920001842,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "6387e05e-2d56-4f79-af7a-d648981b5a06-task-5",
+      "role": "implementer",
+      "task_id": "5",
+      "round": 1,
+      "latency_ms": 196412.5209157355,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "bdc12707-1eee-4a74-91ec-7eef2e8414da-task-6",
+      "role": "implementer",
+      "task_id": "6",
+      "round": 1,
+      "latency_ms": 60580.851749982685,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "db6bd9c0-161d-4a75-929f-ba7ed3615612-task-7",
+      "role": "implementer",
+      "task_id": "7",
+      "round": 1,
+      "latency_ms": 119520.22870909423,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "f80f4c0c-6eb3-4be9-aca6-90308bced465-task-8",
+      "role": "implementer",
+      "task_id": "8",
+      "round": 1,
+      "latency_ms": 519250.2704160288,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "f7a4fb38-27eb-4c2c-accb-e0f6ca26ffbb-task-8",
+      "role": "implementer",
+      "task_id": "8",
+      "round": 2,
+      "latency_ms": 92814.9963337928,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "4416bd8b-b4c5-4655-8e2e-5c92d8a5b6d0-task-9",
+      "role": "implementer",
+      "task_id": "9",
+      "round": 1,
+      "latency_ms": 153669.4087907672,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    },
+    {
+      "dispatch_id": "cc8a10bc-9469-4cbc-9245-bbb559f5ddbd-task-10",
+      "role": "implementer",
+      "task_id": "10",
+      "round": 1,
+      "latency_ms": 195229.29241601378,
+      "exit_status": "error",
+      "cost_estimate": null,
+      "cost_model_recognized": null,
+      "tokens_read": null,
+      "tokens_written": null,
+      "cache_read_tokens": null,
+      "cache_write_tokens": null,
+      "economics_captured": false
+    }
+  ]
+}

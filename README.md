@@ -12,7 +12,7 @@ A lightweight native macOS menu bar app that tracks Elon Musk's daily **paper ga
 
 ### Download
 
-1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.4.dmg` (or the newest release asset)
+1. **[GitHub Releases](https://github.com/jlgolson/muskometer/releases)** — download the latest `Muskometer-0.1.5.dmg` (or the newest release asset)
 2. Open the DMG, drag **Muskometer** to **Applications**
 3. **First launch:** right-click **Muskometer** → **Open** → **Open** (unsigned build — macOS will trust it after that once)
 
@@ -46,6 +46,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 | Shortcut | Action |
 |----------|--------|
 | **⌘R** | Refresh quotes |
+| **⌘⇧C** | Copy share (image or text per Settings) |
 | **⌘,** | Open Settings |
 | **Esc** | Close standalone Settings window (not the in-popover settings sheet) |
 
@@ -55,7 +56,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
 No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk. See **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**.
 
 **Where do share counts come from?**  
-**Ownership** for TSLA and SPCX comes from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). **Issuer outstanding** for the market-cap parity card comes from SEC companyfacts (with cover defaults) and is separate from ownership. Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
+**Ownership** for TSLA and SPCX comes from Musk’s SEC Form 4 filings. SPCX aggregates last-row-wins Class A/B tables plus vested option underlying shares into sellable Class A-equivalent counts (about **5.116 billion** by default; unvested performance awards are excluded). **Issuer outstanding** for the market-cap parity card comes from SEC companyfacts (with cover+Cursor defaults) and is separate from ownership. Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
 
 **When does the number update?**  
 Quotes auto-refresh only during the **regular US session** (9:30 AM–4:00 PM ET, or early close) using your Settings interval (60–120s, default 90s). Pre-market and post-market are treated as closed. Overnight and on weekends the app sleeps until the next regular open (minimum 60s), then refreshes immediately when the session starts; the label shows the last regular close until then (use **Refresh** or **⌘R** to update manually).

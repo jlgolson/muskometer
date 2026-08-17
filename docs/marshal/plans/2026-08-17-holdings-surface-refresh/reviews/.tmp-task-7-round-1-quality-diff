@@ -1,0 +1,125 @@
+diff --git a/Muskometer/Views/SettingsView.swift b/Muskometer/Views/SettingsView.swift
+index 983307e..31069a3 100644
+--- a/Muskometer/Views/SettingsView.swift
++++ b/Muskometer/Views/SettingsView.swift
+@@ -332,7 +332,7 @@ struct SettingsView: View {
+                 }
+             }
+ 
+-            Text("Holdings check SEC Form 4 filings once per day. Prices refresh separately.")
++            Text("Form 4 ownership syncs daily; issuer outstanding is best-effort on the same cadence (companyfacts — SPCX often stays on the cover/Cursor default). Prices refresh separately.")
+                 .font(.caption)
+                 .foregroundStyle(.secondary)
+ 
+diff --git a/README.md b/README.md
+index 277cf23..744cf3f 100644
+--- a/README.md
++++ b/README.md
+@@ -46,6 +46,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
+ | Shortcut | Action |
+ |----------|--------|
+ | **⌘R** | Refresh quotes |
++| **⌘⇧C** | Copy share (image or text per Settings) |
+ | **⌘,** | Open Settings |
+ | **Esc** | Close standalone Settings window (not the in-popover settings sheet) |
+ 
+@@ -55,7 +56,7 @@ Select the **Muskometer** scheme, **My Mac**, press **⌘R**.
+ No. Muskometer shows illustrative *paper gains* (share count × price change) for entertainment. It is not investment advice, tax guidance, or a real-time trading tool. Not affiliated with Tesla, SpaceX, or Elon Musk. See **[docs/DISCLAIMER.md](docs/DISCLAIMER.md)**.
+ 
+ **Where do share counts come from?**  
+-**Ownership** for TSLA and SPCX comes from Musk’s SEC Form 4 filings. SPCX aggregates Class A/B trust lines and filing remarks into Class A-equivalent shares (about **6 billion** by default). **Issuer outstanding** for the market-cap parity card comes from SEC companyfacts (with cover defaults) and is separate from ownership. Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
++**Ownership** for TSLA and SPCX comes from Musk’s SEC Form 4 filings. SPCX aggregates last-row-wins Class A/B tables plus vested option underlying shares into sellable Class A-equivalent counts (about **5.116 billion** by default; unvested performance awards are excluded). **Issuer outstanding** for the market-cap parity card comes from SEC companyfacts (with cover+Cursor defaults) and is separate from ownership. Live quotes from Yahoo Finance. See **[docs/HOLDINGS.md](docs/HOLDINGS.md)**.
+ 
+ **When does the number update?**  
+ Quotes auto-refresh only during the **regular US session** (9:30 AM–4:00 PM ET, or early close) using your Settings interval (60–120s, default 90s). Pre-market and post-market are treated as closed. Overnight and on weekends the app sleeps until the next regular open (minimum 60s), then refreshes immediately when the session starts; the label shows the last regular close until then (use **Refresh** or **⌘R** to update manually).
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index 8a9a597..1389849 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -37,11 +37,11 @@ Muskometer is a native macOS **menu bar utility** built with SwiftUI (`MenuBarEx
+ paperGain = shareCount × (currentPrice − previousClose)
+ ```
+ 
+-- **TSLA** — ownership from SEC Form 4 (direct beneficial-ownership row).
+-- **SPCX** — ownership aggregates Class A/B trust lines plus restricted shares from SEC Form 4 filing remarks (~6B Class A-equivalent).
++- **TSLA** — ownership from SEC Form 4 (last direct common-stock post-transaction amount).
++- **SPCX** — sellable ownership: last-row-wins Class A+B tables plus vested option underlying shares; unvested performance RSUs in remarks are excluded (~5.116B Class A-equivalent default).
+ - **Quotes** — TSLA and SPCX use identical Yahoo fetch, session, and price-selection logic. See [HOLDINGS.md](HOLDINGS.md).
+ 
+-Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot.
++Combined gain is the sum across holdings. Menu bar display mode (dollars vs percent, combined vs split) is a view-layer concern over the same snapshot. The popover no longer shows comparison captions (the “today’s loss equals / today’s gain could…” block and its selector/history path were removed).
+ 
+ ### Market-cap parity (orthogonal)
+ 
+diff --git a/docs/HOLDINGS.md b/docs/HOLDINGS.md
+index 1a1fac3..fea7b49 100644
+--- a/docs/HOLDINGS.md
++++ b/docs/HOLDINGS.md
+@@ -4,16 +4,23 @@ Muskometer tracks Musk's paper gains on **TSLA** and **SPCX** using SEC-reported
+ 
+ ## Share counts
+ 
+-Share counts come from Elon Musk's **SEC Form 4** filings. The app checks EDGAR once per day and walks recent Form 4 accessions until it finds counts for both tickers.
++Share counts come from Elon Musk's **SEC Form 4** filings. The app checks EDGAR once per day and walks recent Form 4 accessions until it finds counts for both tickers. Defaults below are **sellable ownership** (what he owns and could theoretically sell), not the full 13d-3 voting package.
+ 
+ | Ticker | Default (until SEC sync) | How it's derived |
+ |--------|--------------------------|------------------|
+-| **TSLA** | 699,580,882 | Direct beneficial-ownership row from Form 4 XML |
+-| **SPCX** | 6,068,734,060 | Aggregated Class A-equivalent ownership from Form 4 XML |
++| **TSLA** | 710,172,677 | Last direct (`D`) common-stock post-transaction amount from Form 4 `0001104659-26-075213` (period 2026-06-16) |
++| **SPCX** | 5,116,475,230 | Form 4 `0001628280-26-044069`: last-row-wins Class A+B tables **4,766,475,230** + vested option underlying **350,000,000** |
+ 
+-**SPCX aggregation** — SpaceX filings split holdings across Class A, Class B, preferred series, and trusts. Muskometer sums the latest per-trust rows, converts preferred series to Class A-equivalent (series A/B preferred × 50 per filing footnotes), and adds restricted Class B cited in filing remarks.
++**SPCX aggregation (sellable ownership)** — SpaceX filings split holdings across Class A, Class B, preferred series, trusts, and derivative tables. Muskometer:
+ 
+-**Partial sync** — If only one ticker is found in the filings checked, the app keeps prior counts and records the attempt so auto-retry waits ~24h (not every quote refresh). Network failures use the same backoff. You can also tap **Sync holdings from SEC** in Settings to force a retry immediately.
++- Takes **last-row-wins** Class A and Class B common per `(title, nature)` (1:1).
++- Converts leftover preferred series to Class A-equivalent (series A/B preferred × 50 per filing footnotes; IPO conversion already zeroed preferred on the June 17 filing).
++- **Adds** vested option underlying shares when `securityTitle` contains `"option"` (the live row is **350,000,000** Class B, Form 4 F8 / Form 3 F4: fully vested and exercisable, strike $8.3998, expire 2031-02-11).
++- **Does not** add unvested performance-based restricted Class B named only in remarks (SpaceX CEO Award **1,000,000,000** + AI CEO Award **302,072,285** ≈ **1.302B** total). Those can be voted but are not sellable until milestones and continued employment.
++
++The 350M options are marked at the Class A last price (Class B converts 1:1). Unpaid strike (~$8.3998 × 350M ≈ **$2.94B**) is **ignored** — paper gain is `shares × Δprice` with the same path as common stock; strike is a constant and does not change the daily swing.
++
++**Partial sync** — If only one ticker is found in the filings checked, the app keeps prior counts and records the attempt so auto-retry waits ~24h (not every quote refresh). Network failures use the same backoff. You can also tap **Sync from SEC now** in Settings to force a retry immediately.
+ 
+ **Overrides** — TSLA and SPCX share counts can be edited manually in Settings; overrides persist until the next successful SEC sync updates them.
+ 
+@@ -45,7 +52,9 @@ These paths are independent: Form 4 ownership never writes issuer outstanding, a
+ | Ticker | Default outstanding | Derivation |
+ |--------|---------------------|------------|
+ | **TSLA** | 3,949,547,394 | `dei:EntityCommonStockSharesOutstanding`, end 2026-07-16 (10-Q / companyfacts) |
+-| **SPCX** | 13,181,779,945 | 10-Q cover as of 2026-07-28: Class A 7,696,293,669 + Class B 5,485,486,276 (accession `0001628280-26-052535`) |
++| **SPCX** | 13,571,069,199 | July 28 10-Q cover Class A 7,696,293,669 + Class B 5,485,486,276 (accession `0001628280-26-052535`) **plus** Cursor merger Class A issued 389,289,254 (8-K `0001628280-26-056945`, item (i); filed 2026-08-14). New Class A = 8,085,582,923; A+B = **13,571,069,199**. Item (ii)/(iii) RSU/option lines are not included. |
++
++SPCX companyfacts for CIK `0001181412` still only exposes WASO (rejected for mcap), so outstanding sync often cannot update SpaceX and the cover+Cursor default stays in place until a later cover or point-in-time concept appears.
+ 
+ Settings → Reset to defaults reseeds both ownership and outstanding to bundled values. Weighted-average / EPS share counts (WASO) are **rejected** for mcap — if companyfacts only exposes those, the app keeps the prior or cover default.
+ 
+diff --git a/docs/PRIVACY.md b/docs/PRIVACY.md
+index 18a4813..bd3b4c4 100644
+--- a/docs/PRIVACY.md
++++ b/docs/PRIVACY.md
+@@ -9,9 +9,14 @@ Preferences are stored in **UserDefaults** under the app bundle ID (`org.muskome
+ - TSLA and SPCX share counts (including SEC-synced ownership defaults)
+ - Issuer shares outstanding for market-cap parity (company totals, separate from ownership)
+ - Menu bar display mode, trend icon preference, and market-cap parity card toggle
++- Share format (copy image card vs text summary)
++- Update-notify flag (and delivery mode) for available GitHub releases
+ - Auto-refresh interval
+ - Launch-at-login setting
+ - Last SEC holdings sync timestamp
++- Daily-record extremes (best/worst session paper gains and related day keys)
++- Intraday sparkline samples (combined paper-gain series for the latest RTH session)
++- Gain-threshold notification IDs and per-threshold state
+ 
+ No database, no cloud sync, no third-party SDKs.
+ 
+@@ -43,7 +48,7 @@ Muskometer is not directed at children and does not knowingly collect personal i
+ 
+ ## Changes
+ 
+-If this policy changes materially, it will be updated in this repository. The current public release is **0.1.4**.
++If this policy changes materially, it will be updated in this repository. The current public release is **0.1.5**.
+ 
+ ## Contact
+ 

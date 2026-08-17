@@ -111,4 +111,30 @@ PY
 fi
 
 echo ""
+echo "=== 6. Marketing HTML must not advertise removed surfaces ==="
+# Spec §5 / Task 8: site + screenshot HTML mocks must not mention Post to X or
+# comparison captions after the 0.1.5 popover refresh.
+MARKETING_HTML=(
+  "$ROOT/docs/index.html"
+  "$ROOT/docs/screenshots"/render-*.html
+)
+MARKETING_FAIL=0
+for f in "${MARKETING_HTML[@]}"; do
+  if [[ ! -f "$f" ]]; then
+    echo "FAIL: expected marketing file missing: $f"
+    MARKETING_FAIL=1
+    continue
+  fi
+  if grep -Eiq 'Post to X|comparison caption' "$f"; then
+    echo "FAIL: forbidden marketing string in $f"
+    grep -Ein 'Post to X|comparison caption' "$f" || true
+    MARKETING_FAIL=1
+  fi
+done
+if [[ "$MARKETING_FAIL" -ne 0 ]]; then
+  exit 1
+fi
+echo "PASS: no Post to X / comparison caption in docs marketing HTML"
+
+echo ""
 echo "=== All automated checks passed ==="

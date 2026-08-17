@@ -113,7 +113,6 @@ struct PopoverContentView: View {
         VStack(alignment: .leading, spacing: 12) {
             ownershipCard(snapshot)
             combinedCard(snapshot)
-            ComparisonCaptionView(line: viewModel.comparisonLine)
 
             if hasDailyRecords {
                 DailyRecordsCardView(

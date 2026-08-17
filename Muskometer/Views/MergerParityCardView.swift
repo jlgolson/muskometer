@@ -52,8 +52,7 @@ struct MergerParityCardView_Previews: PreviewProvider {
             presentation: MergerParityPresentation(
                 impliedTSLAPrice: 1_250.40,
                 tslaMarketCap: 1_100_000_000_000,
-                spcxMarketCap: 1_400_000_000_000,
-                currentTSLAPrice: 420.60
+                spcxMarketCap: 1_400_000_000_000
             ),
             animateValues: true
         )

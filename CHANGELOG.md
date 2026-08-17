@@ -6,6 +6,26 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-08-17
+
+Sellable ownership seeds, Cursor outstanding bump, 2028 NYSE calendar, comparison-caption removal, marketing surface refresh.
+
+### Changed
+
+- **Ownership seeds** — TSLA default **710,172,677** (Form 4 `0001104659-26-075213` last direct common); SPCX default **5,116,475,230** (Form 4 `0001628280-26-044069` last-row-wins Class A+B **4,766,475,230** + vested option underlying **350,000,000**)
+- **SPCX calculator** — count vested option underlying shares 1:1; ignore remarks-only performance/restricted awards (no 1.302B CEO award addend)
+- **Fingerprint remigration** — prior SPCX performance-RSU totals (`6,068,734,060`, `6,068,547,515`, older fingerprints) and TSLA `699,580,882` rewrite to the new seeds on load; SPCX outstanding fingerprint `13,181,779,945` rewrites to **13,571,069,199**
+- **Issuer outstanding** — SPCX bundled A+B is 10-Q cover plus Cursor 8-K Class A issuance (`0001628280-26-056945` item (i) 389,289,254); TSLA outstanding unchanged
+- **Market calendar** — NYSE holidays and early closes extended through **2028** (official table; no New Year’s Day 2028 session holiday)
+- **Docs / Settings** — HOLDINGS sellable-ownership rule and accessions; Settings holdings caption (daily Form 4 + best-effort outstanding); README **⌘⇧C**; PRIVACY remaining prefs; ARCHITECTURE notes comparison is gone
+- **Marketing** — `app-capture` / `app-preview` / `og-image` and site copy match the current popover (single Copy, 9:30 next-open, parity card; no Post to X, no comparison line, no “minute by minute, every day”)
+- **Version** — marketing **0.1.5**, build **26**
+
+### Removed
+
+- **Comparison captions** — `ComparisonCaptionView`, comparison library/selector/history store, VM debounce API; leftover `comparisonHistoryEntries` UserDefaults keys cleared on settings load and Reset
+- **`MergerParityPresentation.currentTSLAPrice`** — unused field after earlier caption tighten
+
 ## [0.1.4] - 2026-08-08
 
 Merger market-cap parity card, RTH-only refresh, and small copy fix.

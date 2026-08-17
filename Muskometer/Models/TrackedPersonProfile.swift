@@ -42,7 +42,7 @@ struct TrackedPersonProfile: Identifiable, Sendable, Equatable {
                 id: "tsla",
                 symbol: "TSLA",
                 displayName: "Tesla",
-                defaultShareCount: 699_580_882,
+                defaultShareCount: 710_172_677,
                 parseStrategy: .directBeneficial,
                 issuerCIKPadded: "0001318605"
             ),
@@ -50,7 +50,7 @@ struct TrackedPersonProfile: Identifiable, Sendable, Equatable {
                 id: "spcx",
                 symbol: "SPCX",
                 displayName: "SpaceX",
-                defaultShareCount: 6_068_734_060,
+                defaultShareCount: 5_116_475_230,
                 parseStrategy: .spcxAggregate,
                 issuerCIKPadded: "0001181412"
             )

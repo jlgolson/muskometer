@@ -1,0 +1,6 @@
+Important: Combined today in render-capture.html is still +$4.4B after SPCX shares were updated.
+TSLA row -$22.6B + SPCX row +$22.8B = +$0.2B, not +$4.4B.
+Fix: set combined to +$0.2B / +0.02% (or raise SPCX daily gain so rows sum to +$4.4B).
+Regenerate app-capture.png, app-preview.png, og-image.png from the updated HTML.
+Do not leave combined at +$4.4B with SPCX at +$22.8B.
+Optional: tighten index.html lede (worth appears twice). Optional: leftover app-capture.jpg is not the shipped PNG.

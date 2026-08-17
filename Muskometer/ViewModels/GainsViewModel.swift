@@ -18,7 +18,6 @@ final class GainsViewModel {
         hasCompletedFirstTradingDay: false
     )
     private(set) var intradaySamples: [GainSample] = []
-    private(set) var comparisonLine: ComparisonLine?
     private(set) var activeMilestone: NetWorthMilestone?
     private(set) var trillionEasterEggMessage: String?
     private(set) var enabledNotificationThresholdIDs: Set<String>
@@ -35,14 +34,11 @@ final class GainsViewModel {
     private let dailyRecordTracker: DailyRecordTracker
     private let gainThresholdNotificationService: GainThresholdNotificationService
     private let intradayGainSampleStore: IntradayGainSampleStore
-    private let comparisonLineSelector: ComparisonLineSelector
     private let netWorthMilestoneTracker: NetWorthMilestoneTracker
-    private let tradingDayCalendar: TradingDayCalendar
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
     private var hasStarted = false
     private var lastSideEffectPersonID: String?
-    private var lastComparisonStateByPerson: [String: (dayKey: String, bucket: Int, isGain: Bool)] = [:]
     private let dateProvider: () -> Date
 
     init(
@@ -54,9 +50,7 @@ final class GainsViewModel {
         dailyRecordTracker: DailyRecordTracker? = nil,
         gainThresholdNotificationService: GainThresholdNotificationService? = nil,
         intradayGainSampleStore: IntradayGainSampleStore? = nil,
-        comparisonLineSelector: ComparisonLineSelector? = nil,
         netWorthMilestoneTracker: NetWorthMilestoneTracker? = nil,
-        tradingDayCalendar: TradingDayCalendar = TradingDayCalendar(),
         dateProvider: @escaping () -> Date = { .now },
         updateCoordinator: UpdateCoordinator? = nil
     ) {
@@ -69,9 +63,7 @@ final class GainsViewModel {
         self.dailyRecordTracker = dailyRecordTracker ?? DailyRecordTracker()
         self.gainThresholdNotificationService = gainThresholdNotificationService ?? GainThresholdNotificationService()
         self.intradayGainSampleStore = intradayGainSampleStore ?? IntradayGainSampleStore()
-        self.comparisonLineSelector = comparisonLineSelector ?? ComparisonLineSelector()
         self.netWorthMilestoneTracker = netWorthMilestoneTracker ?? NetWorthMilestoneTracker()
-        self.tradingDayCalendar = tradingDayCalendar
         self.dateProvider = dateProvider
         self.enabledNotificationThresholdIDs = self.gainThresholdNotificationService.enabledThresholdIDs(
             for: settings.selectedPersonID
@@ -385,8 +377,6 @@ final class GainsViewModel {
         intradaySamples = intradayGainSampleStore.loadSamples(for: personID)
         gainThresholdNotificationService.resetRuntimeState(for: personID)
         dailyRecordTracker.resetRuntimeState(for: personID)
-        lastComparisonStateByPerson.removeValue(forKey: personID)
-        comparisonLine = nil
         activeMilestone = nil
         trillionEasterEggMessage = nil
         dailyRecordsSnapshot = dailyRecordTracker.snapshot(for: personID)
@@ -454,8 +444,6 @@ final class GainsViewModel {
         )
         intradaySamples = intradayGainSampleStore.loadSamples(for: personID)
 
-        updateComparisonLineIfNeeded(for: snapshot, personID: personID)
-
         if let event = netWorthMilestoneTracker.update(
             netWorth: snapshot.combinedMarketValue,
             personID: personID,
@@ -485,34 +473,8 @@ final class GainsViewModel {
     }
 
     private func reloadPersonScopedDisplayState(for personID: String) {
-        comparisonLine = nil
         intradayGainSampleStore.reloadFromDefaults(for: personID)
         intradaySamples = intradayGainSampleStore.loadSamples(for: personID)
-        lastComparisonStateByPerson.removeValue(forKey: personID)
-    }
-
-    private func updateComparisonLineIfNeeded(for snapshot: GainsSnapshot, personID: String) {
-        let magnitude = abs(snapshot.combinedPaperGain)
-        guard magnitude > 0 else {
-            comparisonLine = nil
-            return
-        }
-
-        let dayKey = tradingDayCalendar.dayKey(for: snapshot.lastUpdated)
-        let bucket = Int(magnitude / 10_000_000_000)
-        let isGain = snapshot.combinedPaperGain > 0
-        let lastState = lastComparisonStateByPerson[personID]
-
-        guard lastState?.dayKey != dayKey || lastState?.bucket != bucket || lastState?.isGain != isGain else {
-            return
-        }
-
-        comparisonLine = comparisonLineSelector.selectLine(
-            for: snapshot.combinedPaperGain,
-            personID: personID,
-            on: snapshot.lastUpdated
-        )
-        lastComparisonStateByPerson[personID] = (dayKey: dayKey, bucket: bucket, isGain: isGain)
     }
 
     /// Reloads display samples from the store for the selected person.

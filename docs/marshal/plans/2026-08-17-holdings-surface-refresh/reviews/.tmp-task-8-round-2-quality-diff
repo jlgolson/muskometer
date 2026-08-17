@@ -1,0 +1,54 @@
+diff --git a/docs/index.html b/docs/index.html
+index a7012be..cec6351 100644
+--- a/docs/index.html
++++ b/docs/index.html
+@@ -21,7 +21,7 @@
+       <div class="badge">macOS menu bar · MIT licensed</div>
+       <h1>Muskometer</h1>
+       <p class="tagline">What's Elon up to today?</p>
+-      <p class="lede">See what <strong>Elon Musk's</strong> shares in <strong>Tesla</strong> and <strong>SpaceX</strong> are worth — glanceable menu-bar worth and paper gain during the regular US session. Green days, red days, billion-dollar swings.</p>
++      <p class="lede">Glanceable menu-bar paper gain on <strong>Elon Musk's</strong> <strong>Tesla</strong> and <strong>SpaceX</strong> stakes during the regular US session. Green days, red days, billion-dollar swings.</p>
+       <div class="cta-row">
+         <a class="btn primary" href="https://github.com/jlgolson/muskometer/releases" rel="noopener">Download for macOS</a>
+         <a class="btn ghost" href="https://github.com/jlgolson/muskometer" rel="noopener">Star on GitHub</a>
+diff --git a/docs/screenshots/app-capture.jpg b/docs/screenshots/app-capture.jpg
+deleted file mode 100644
+index 82c3c0d..0000000
+Binary files a/docs/screenshots/app-capture.jpg and /dev/null differ
+diff --git a/docs/screenshots/app-capture.png b/docs/screenshots/app-capture.png
+index f7857bb..3b8a75e 100644
+Binary files a/docs/screenshots/app-capture.png and b/docs/screenshots/app-capture.png differ
+diff --git a/docs/screenshots/app-preview.png b/docs/screenshots/app-preview.png
+index 48e9cbc..c50c5ee 100644
+Binary files a/docs/screenshots/app-preview.png and b/docs/screenshots/app-preview.png differ
+diff --git a/docs/screenshots/og-image.png b/docs/screenshots/og-image.png
+index 2bff9c3..361a096 100644
+Binary files a/docs/screenshots/og-image.png and b/docs/screenshots/og-image.png differ
+diff --git a/docs/screenshots/render-capture.html b/docs/screenshots/render-capture.html
+index 5121ebd..0bf9391 100644
+--- a/docs/screenshots/render-capture.html
++++ b/docs/screenshots/render-capture.html
+@@ -295,8 +295,8 @@
+ 
+       <section class="card combined">
+         <div class="label">Combined today</div>
+-        <div class="combined-value">+$4.4B</div>
+-        <div class="combined-pct">+0.40%</div>
++        <div class="combined-value">+$0.2B</div>
++        <div class="combined-pct">+0.02%</div>
+         <div class="status-row">
+           <span class="status-dot" aria-hidden="true"></span>
+           <span>As of 4:00 PM EDT on July 2</span>
+diff --git a/docs/screenshots/render-popover.html b/docs/screenshots/render-popover.html
+index 111f026..71469aa 100644
+--- a/docs/screenshots/render-popover.html
++++ b/docs/screenshots/render-popover.html
+@@ -69,7 +69,7 @@
+         <span>File</span>
+         <span>Edit</span>
+       </div>
+-      <div class="menubar-gain">+$4.4B</div>
++      <div class="menubar-gain">+$0.2B</div>
+     </div>
+ 
+     <img

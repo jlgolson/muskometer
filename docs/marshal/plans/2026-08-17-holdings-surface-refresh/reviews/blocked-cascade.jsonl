@@ -1,0 +1,2 @@
+{"event":"blocked","task_id":1,"blocked_reason":"L1 execute-runner is a Grok nested subagent; spawn_subagent is not in the tool list and workflow launch is refused (top-level only). Cannot dispatch implementer. Native Agent-tool path unavailable.","downstream_blocked":[2,3,4,5,6,7,8,9,10],"in_flight":[],"timestamp":"2026-08-17T11:03:20.350650Z"}
+{"event":"resolved","task_id":1,"timestamp":"2026-08-17T11:04:49.077057Z","note":"top-level Seam-1 external_cli_dispatch grok"}

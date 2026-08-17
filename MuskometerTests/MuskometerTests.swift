@@ -195,6 +195,44 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertTrue(service.isMarketOpen(at: notHoliday))
     }
 
+    func test2028MLKIsClosedAndNextDayOpen() throws {
+        let mlk = try EasternTestDates.date(year: 2028, month: 1, day: 17, hour: 11)
+        let nextDay = try EasternTestDates.date(year: 2028, month: 1, day: 18, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: mlk))
+        XCTAssertTrue(service.isMarketOpen(at: nextDay))
+    }
+
+    func test2028HasNoObservedNewYearsClose() throws {
+        let jan3 = try EasternTestDates.date(year: 2028, month: 1, day: 3, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertTrue(service.isMarketOpen(at: jan3))
+    }
+
+    func test2028GoodFridayAndIndependenceDayAreClosed() throws {
+        let goodFriday = try EasternTestDates.date(year: 2028, month: 4, day: 14, hour: 11)
+        let july4 = try EasternTestDates.date(year: 2028, month: 7, day: 4, hour: 11)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: goodFriday))
+        XCTAssertFalse(service.isMarketOpen(at: july4))
+    }
+
+    func test2028July3EarlyClose() throws {
+        let morning = try EasternTestDates.date(year: 2028, month: 7, day: 3, hour: 11)
+        let afternoon = try EasternTestDates.date(year: 2028, month: 7, day: 3, hour: 14)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertTrue(service.isMarketOpen(at: morning))
+        XCTAssertFalse(service.isMarketOpen(at: afternoon))
+    }
+
+    func test2028ThanksgivingAndDayAfterEarlyClose() throws {
+        let thanksgiving = try EasternTestDates.date(year: 2028, month: 11, day: 23, hour: 11)
+        let dayAfter = try EasternTestDates.date(year: 2028, month: 11, day: 24, hour: 14)
+        let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: thanksgiving))
+        XCTAssertFalse(service.isMarketOpen(at: dayAfter))
+    }
+
     func testNextOpenAfterHoursIsRegularOpenNotPreMarket() throws {
         var components = DateComponents()
         components.year = 2026
@@ -991,8 +1029,8 @@ final class AppSettingsTests: XCTestCase {
 
         let settings = AppSettings(defaults: defaults)
 
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
-        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 5_116_475_230)
         XCTAssertEqual(settings.selectedPersonID, TrackedPersonProfile.musk.id)
         XCTAssertTrue(settings.showMenuBarIcon)
         XCTAssertTrue(settings.showMergerParityCard)
@@ -1060,7 +1098,7 @@ final class IssuerSharesOutstandingTests: XCTestCase {
 
     func testBundledDefaultsAndKeys() {
         XCTAssertEqual(IssuerSharesOutstanding.defaultTSLA, 3_949_547_394)
-        XCTAssertEqual(IssuerSharesOutstanding.defaultSPCX, 13_181_779_945)
+        XCTAssertEqual(IssuerSharesOutstanding.defaultSPCX, 13_571_069_199)
         XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "tsla"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(IssuerSharesOutstanding.defaultOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
@@ -1149,8 +1187,64 @@ final class IssuerSharesOutstandingTests: XCTestCase {
 
         XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
-        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 5_116_475_230)
+    }
+
+    func testMigrateStoredOutstandingRewritesPriorSPCXCoverDefault() {
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_181_779_945, symbol: "SPCX"),
+            13_571_069_199
+        )
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_181_779_945, symbol: "spcx"),
+            13_571_069_199
+        )
+    }
+
+    func testMigrateStoredOutstandingLeavesOtherValues() {
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(8_888_888_888, symbol: "SPCX"),
+            8_888_888_888
+        )
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_571_069_199, symbol: "SPCX"),
+            13_571_069_199
+        )
+        XCTAssertEqual(
+            IssuerSharesOutstanding.migrateStoredOutstanding(13_181_779_945, symbol: "TSLA"),
+            13_181_779_945
+        )
+    }
+
+    func testLoadRemigratesPriorSPCXCoverOutstandingAndPersists() {
+        let suiteName = "MuskometerTests-outstanding-migrate-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults.set(String(13_181_779_945), forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX"))
+        defaults.set(String(8_888_888_888), forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA"))
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 13_571_069_199)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 8_888_888_888)
+        XCTAssertEqual(
+            defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX")),
+            String(13_571_069_199)
+        )
+        XCTAssertEqual(
+            defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")),
+            String(8_888_888_888)
+        )
+    }
+
+    func testMissingOutstandingKeyReturnsNewBundledDefault() {
+        let (settings, defaults) = makeSettings()
+
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "SPCX")))
+        XCTAssertNil(defaults.string(forKey: IssuerSharesOutstanding.userDefaultsKey(for: "TSLA")))
+        XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 13_571_069_199)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 3_949_547_394)
     }
 }
 
@@ -1169,7 +1263,6 @@ final class MergerMarketCapParityTests: XCTestCase {
         XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
         XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
         XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
-        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
     }
 
     func testZeroOrNegativeInputsReturnNil() {
@@ -1284,7 +1377,6 @@ final class MergerMarketCapParityTests: XCTestCase {
         XCTAssertEqual(presentation.spcxMarketCap, expectedSPCXMcap, accuracy: 1.0)
         XCTAssertEqual(presentation.tslaMarketCap, expectedTSLAMcap, accuracy: 1.0)
         XCTAssertEqual(presentation.impliedTSLAPrice, expectedImplied, accuracy: 1e-6)
-        XCTAssertEqual(presentation.currentTSLAPrice, tslaPrice, accuracy: 1e-9)
 
         // Sanity: with ~3.3× more SPCX shares at $80 vs TSLA at $250, implied is in hundreds–thousands.
         XCTAssertGreaterThan(presentation.impliedTSLAPrice, 100)
@@ -1501,7 +1593,6 @@ final class GainsViewModelMergerParityPresentationTests: XCTestCase {
         let presentation = try XCTUnwrap(viewModel.mergerParityPresentation)
         // spcx mcap 200 / tsla shares 2 → implied 100; tsla mcap 200
         XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
-        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
         XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
         XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
     }
@@ -1563,8 +1654,8 @@ final class GainsViewModelIssuerOutstandingSyncTests: XCTestCase {
         XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), 3_000_000_000)
         XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), 12_000_000_000)
         // Ownership counts unchanged by outstanding sync
-        XCTAssertEqual(settings.shareCount(for: "TSLA"), 699_580_882)
-        XCTAssertEqual(settings.shareCount(for: "SPCX"), 6_068_734_060)
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(settings.shareCount(for: "SPCX"), 5_116_475_230)
     }
 
     func testOutstandingEmptyResultDoesNotChangeDefaultsOrForm4SuccessMessage() async {
@@ -1943,20 +2034,34 @@ final class MenuBarDisplayModeTests: XCTestCase {
 }
 
 final class SPCXHoldingsTests: XCTestCase {
+    private let sellableDefault: Int64 = 5_116_475_230
+
+    func testDefaultShareCountIsSellableOwnership() {
+        XCTAssertEqual(SPCXHoldings.defaultShareCount, sellableDefault)
+    }
+
     func testMigratesLegacyScaledDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(60_685_475), sellableDefault)
     }
 
     func testMigratesLegacySingleRowParse() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(842_091_670), sellableDefault)
+    }
+
+    func testMigratesLegacyMisparseLastRow() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(7_402_770), sellableDefault)
     }
 
     func testMigratesLegacyPartialAggregateDefault() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), 6_068_734_060)
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_515), sellableDefault)
     }
 
-    func testLeavesAggregatedShareCountUntouched() {
-        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), 6_068_734_060)
+    func testMigratesPriorBundledDefaultWithPerformanceRSUs() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_734_060), sellableDefault)
+    }
+
+    func testLeavesSellableDefaultAndUnknownUntouched() {
+        XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(5_116_475_230), 5_116_475_230)
         XCTAssertEqual(SPCXHoldings.migrateStoredShareCount(6_068_547_514), 6_068_547_514)
     }
 
@@ -1991,6 +2096,59 @@ final class SPCXHoldingsTests: XCTestCase {
         XCTAssertEqual(settings.shareCount(for: "SPCX"), customCount)
         XCTAssertEqual(defaults.string(forKey: "shareCount_SPCX"), String(customCount))
     }
+
+    func testAppSettingsRewritesLegacyTSLAFingerprintUnderNewKey() {
+        let suiteName = "MuskometerTests-tsla-legacy-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(String(699_580_882), forKey: "shareCount_TSLA")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_TSLA"), String(710_172_677))
+    }
+
+    func testAppSettingsLeavesCurrentTSLADefaultUntouched() {
+        let suiteName = "MuskometerTests-tsla-current-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(String(710_172_677), forKey: "shareCount_TSLA")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_TSLA"), String(710_172_677))
+    }
+
+    func testAppSettingsLeavesCustomTSLAShareCountUntouched() {
+        let suiteName = "MuskometerTests-tsla-custom-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(String(123_456), forKey: "shareCount_TSLA")
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 123_456)
+        XCTAssertEqual(defaults.string(forKey: "shareCount_TSLA"), String(123_456))
+    }
+
+    func testEmptySuiteReturnsNewTSLADefault() {
+        let suiteName = "MuskometerTests-tsla-empty-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let settings = AppSettings(defaults: defaults)
+
+        XCTAssertEqual(settings.shareCount(for: "TSLA"), 710_172_677)
+    }
 }
 
 final class SPCXOwnershipCalculatorTests: XCTestCase {
@@ -2014,6 +2172,11 @@ final class SPCXOwnershipCalculatorTests: XCTestCase {
                     <postTransactionAmounts><sharesOwnedFollowingTransaction><value>186545</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
                     <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
                 </nonDerivativeHolding>
+                <nonDerivativeTransaction>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>0</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeTransaction>
             </nonDerivativeTable>
             <derivativeTable>
                 <derivativeHolding>
@@ -2031,12 +2194,50 @@ final class SPCXOwnershipCalculatorTests: XCTestCase {
                     <postTransactionAmounts><sharesOwnedFollowingTransaction><value>900495</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
                     <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Musk 2017 Sprinkling Trust</value></natureOfOwnership></ownershipNature>
                 </derivativeHolding>
+                <derivativeHolding>
+                    <securityTitle><value>Option to Buy (Class B Common Stock)</value></securityTitle>
+                    <underlyingSecurityShares><value>350000000</value></underlyingSecurityShares>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>350000000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership>
+                </derivativeHolding>
             </derivativeTable>
             <remarks>does not include 1302072285 shares of restricted Class B Common Stock</remarks>
         </ownershipDocument>
         """
 
-        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 6_068_734_060)
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 5_116_475_230)
+    }
+
+    func testOptionTitleCountsUnderlyingShares() {
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <derivativeTable>
+                <derivativeHolding>
+                    <securityTitle><value>Option to Buy</value></securityTitle>
+                    <underlyingSecurityShares><value>100</value></underlyingSecurityShares>
+                </derivativeHolding>
+            </derivativeTable>
+        </ownershipDocument>
+        """
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 100)
+    }
+
+    func testRemarksPerformanceSharesAreNotAdded() {
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <nonDerivativeTable>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>1000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+            </nonDerivativeTable>
+            <remarks>does not include 1302072285 shares of restricted Class B Common Stock</remarks>
+        </ownershipDocument>
+        """
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 1000)
     }
 
     func testUsesLatestRowNotMaxWhenLaterRowHasLowerShares() {
@@ -2265,7 +2466,9 @@ final class Form4OwnershipParserTests: XCTestCase {
         let result = parser.parse()
 
         XCTAssertNil(result["TSLA"])
-        XCTAssertEqual(result["SPCX"], 1_507_402_770)
+        // Table only: Class A 7_402_770 + Class B 1_000_000_000. Remarks restricted
+        // shares are not sellable ownership and must not be added.
+        XCTAssertEqual(result["SPCX"], 1_007_402_770)
     }
 }
 
@@ -3658,216 +3861,6 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
     }
 }
 
-final class ComparisonLibraryTests: XCTestCase {
-    func testLibraryHasAtLeastFiveHundredEntries() {
-        XCTAssertGreaterThanOrEqual(ComparisonLibrary.entries.count, 500)
-    }
-
-    func testEntriesUseTenBillionBuckets() {
-        let bucketStarts = Set(ComparisonLibrary.entries.map { Int($0.minMagnitude / 1_000_000_000) })
-        XCTAssertTrue(bucketStarts.contains(0))
-        XCTAssertTrue(bucketStarts.contains(10))
-        XCTAssertTrue(bucketStarts.contains(20))
-        XCTAssertTrue(bucketStarts.contains(30))
-        XCTAssertTrue(bucketStarts.contains(40))
-        XCTAssertTrue(bucketStarts.contains(50))
-        XCTAssertTrue(bucketStarts.contains(60))
-        XCTAssertTrue(bucketStarts.contains(70))
-    }
-
-    func testEachBucketHasAtLeastFiftyEntries() {
-        let buckets: [(min: Double, max: Double)] = [
-            (0, 10), (10, 20), (20, 30), (30, 40),
-            (40, 50), (50, 60), (60, 70), (70, 1_000),
-        ]
-        for bucket in buckets {
-            let minMag = bucket.min * 1_000_000_000
-            let maxMag = bucket.max * 1_000_000_000
-            let count = ComparisonLibrary.entries.filter {
-                $0.minMagnitude == minMag && $0.maxMagnitude == maxMag
-            }.count
-            XCTAssertGreaterThanOrEqual(
-                count,
-                50,
-                "Bucket \(Int(bucket.min))–\(Int(bucket.max))B too thin (\(count))"
-            )
-        }
-    }
-
-    func testCandidatesMatchMagnitudeBucket() {
-        let candidates = ComparisonLibrary.candidates(forMagnitude: 15_000_000_000)
-        XCTAssertFalse(candidates.isEmpty)
-        XCTAssertTrue(candidates.allSatisfy { $0.minMagnitude == 10_000_000_000 && $0.maxMagnitude == 20_000_000_000 })
-    }
-
-    func testLinePrefixesGainAndLoss() {
-        let entry = ComparisonLibrary.entries.first!
-        XCTAssertTrue(entry.line(forGain: 5_000_000_000).text.hasPrefix("Today's gain "))
-        XCTAssertTrue(entry.line(forGain: -5_000_000_000).text.hasPrefix("Today's loss "))
-        XCTAssertTrue(entry.line(forGain: 0).text.hasPrefix("Today's move "))
-    }
-
-    func testPolarityAwareBodiesForSpendMetaphors() throws {
-        let debt = try XCTUnwrap(ComparisonLibrary.entries.first { $0.id == "econ-11" })
-        let gainLine = debt.line(forGain: 15_000_000_000)
-        let lossLine = debt.line(forGain: -15_000_000_000)
-
-        XCTAssertTrue(gainLine.text.contains("could wipe out the student debt"))
-        XCTAssertTrue(lossLine.text.contains("equals the student debt"))
-        XCTAssertFalse(lossLine.text.contains("could wipe out"))
-        XCTAssertEqual(gainLine.highlight, "400,000")
-        XCTAssertEqual(lossLine.highlight, "400,000")
-    }
-
-    func testStreamingEntryHasLossSafeCopy() throws {
-        let entry = try XCTUnwrap(ComparisonLibrary.entries.first { $0.id == "ent-60" })
-        let gainLine = entry.line(forGain: 65_000_000_000)
-        let lossLine = entry.line(forGain: -65_000_000_000)
-
-        XCTAssertTrue(gainLine.text.contains("could run every major streaming service at a loss"))
-        XCTAssertTrue(lossLine.text.contains("matches a quarter of operating losses"))
-        XCTAssertFalse(lossLine.text.contains("could run every major streaming service at a loss"))
-    }
-
-    func testPolaritySafeEntriesShareBody() throws {
-        let entry = try XCTUnwrap(ComparisonLibrary.entries.first { $0.id == "econ-01" })
-        XCTAssertEqual(entry.gainText, entry.lossText)
-        let gainBody = entry.line(forGain: 5_000_000_000).text
-        let lossBody = entry.line(forGain: -5_000_000_000).text
-        XCTAssertTrue(gainBody.hasSuffix(entry.gainText))
-        XCTAssertTrue(lossBody.hasSuffix(entry.lossText))
-    }
-
-    func testLossBodiesAvoidSpendVerbsWhenGainUsesThem() {
-        let spendPatterns = [
-            "could wipe out", "could fund", "could pay", "could buy", "could bankroll",
-            "would buy", "would pay for", "would fund", "would cover", "could acquire",
-            "could produce", "could launch", "could build", "could modernize", "could rebuild",
-            "could vaccinate", "could reforest", "could rewild", "could restore", "could tunnel",
-            "could bury", "could lay", "could repave", "could fuel", "could seed",
-            "could underwrite", "could zero out", "could erase", "could end", "could run every",
-        ]
-        for entry in ComparisonLibrary.entries where entry.gainText != entry.lossText {
-            for pattern in spendPatterns {
-                XCTAssertFalse(
-                    entry.lossText.contains(pattern),
-                    "\(entry.id) lossText still spends: \(entry.lossText)"
-                )
-            }
-        }
-    }
-
-    func testHighlightsAppearInCorrespondingBodies() {
-        for entry in ComparisonLibrary.entries {
-            if let h = entry.gainHighlight {
-                XCTAssertTrue(entry.gainText.contains(h), "\(entry.id) gainHighlight missing from gainText")
-            }
-            if let h = entry.lossHighlight {
-                XCTAssertTrue(entry.lossText.contains(h), "\(entry.id) lossHighlight missing from lossText")
-            }
-        }
-    }
-
-    func testEntryIDsAreUnique() {
-        let ids = ComparisonLibrary.entries.map(\.id)
-        XCTAssertEqual(ids.count, Set(ids).count)
-    }
-
-    func testSports01UsesSportsCategory() {
-        let entry = ComparisonLibrary.entries.first { $0.id == "sports-01" }
-        XCTAssertNotNil(entry)
-        XCTAssertEqual(entry?.category, .sports)
-    }
-}
-
-final class ComparisonHistoryStoreTests: XCTestCase {
-    private var easternCalendar: TradingDayCalendar!
-
-    override func setUp() {
-        let eastern = EasternTestDates.eastern
-        easternCalendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
-    }
-
-    func testExcludesEntriesUsedWithinSevenDays() throws {
-        let suiteName = "MuskometerTests-comparison-history-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-
-        var store = ComparisonHistoryStore(defaults: defaults, calendar: easternCalendar)
-        let dayOne = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        let dayThree = try EasternTestDates.date(year: 2026, month: 7, day: 2, hour: 11)
-
-        store.recordUse(entryID: "econ-10", personID: "musk", on: dayOne)
-
-        XCTAssertTrue(store.recentlyUsedEntryIDs(personID: "musk", on: dayThree).contains("econ-10"))
-    }
-
-    func testDropsEntriesOlderThanSevenDays() throws {
-        let suiteName = "MuskometerTests-comparison-history-old-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-
-        var store = ComparisonHistoryStore(defaults: defaults, calendar: easternCalendar)
-        let oldDay = try EasternTestDates.date(year: 2026, month: 6, day: 20, hour: 11)
-        let currentDay = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-
-        store.recordUse(entryID: "econ-10", personID: "musk", on: oldDay)
-
-        XCTAssertFalse(store.recentlyUsedEntryIDs(personID: "musk", on: currentDay).contains("econ-10"))
-    }
-}
-
-@MainActor
-final class ComparisonLineSelectorTests: XCTestCase {
-    func testReturnsNilForZeroGain() {
-        let selector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 1))
-        XCTAssertNil(selector.selectLine(for: 0, personID: "musk"))
-    }
-
-    func testSelectsLineFromMatchingBucket() {
-        let suiteName = "MuskometerTests-comparison-select-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-
-        let eastern = EasternTestDates.eastern
-        let calendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
-        let store = ComparisonHistoryStore(defaults: defaults, calendar: calendar)
-        let selector = ComparisonLineSelector(
-            historyStore: store,
-            randomizer: SeededComparisonRandomizer(seed: 42)
-        )
-
-        let line = selector.selectLine(for: 15_000_000_000, personID: "musk")
-
-        XCTAssertNotNil(line)
-        XCTAssertTrue(line?.text.hasPrefix("Today's gain ") ?? false)
-    }
-
-    func testAvoidsRecentlyUsedEntries() throws {
-        let suiteName = "MuskometerTests-comparison-avoid-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-
-        let eastern = EasternTestDates.eastern
-        let calendar = TradingDayCalendar(calendar: EasternTestDates.calendar(), timeZone: eastern)
-        var store = ComparisonHistoryStore(defaults: defaults, calendar: calendar)
-        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-
-        let bucketEntries = ComparisonLibrary.candidates(forMagnitude: 15_000_000_000)
-        for entry in bucketEntries {
-            store.recordUse(entryID: entry.id, personID: "musk", on: date)
-        }
-
-        let selector = ComparisonLineSelector(
-            historyStore: store,
-            randomizer: SeededComparisonRandomizer(seed: 7)
-        )
-
-        let line = selector.selectLine(for: 15_000_000_000, personID: "musk", on: date)
-        XCTAssertNotNil(line)
-    }
-}
-
 @MainActor
 final class NetWorthMilestoneTrackerTests: XCTestCase {
     private func makeTracker(suiteName: String = "MuskometerTests-milestone-\(UUID().uuidString)") -> NetWorthMilestoneTracker {
@@ -3990,150 +3983,6 @@ final class ShareShortcutMatcherTests: XCTestCase {
         XCTAssertTrue(ShareShortcutController.shouldConsumeEvent(.succeeded))
         XCTAssertTrue(ShareShortcutController.shouldConsumeEvent(.debounced))
         XCTAssertFalse(ShareShortcutController.shouldConsumeEvent(.failed))
-    }
-}
-
-@MainActor
-final class GainsViewModelComparisonDebounceTests: XCTestCase {
-    private let personID = TrackedPersonProfile.musk.id
-
-    private func makeSettings() -> AppSettings {
-        let suiteName = "MuskometerTests-comparison-debounce-\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        return AppSettings(defaults: defaults)
-    }
-
-    private func quotes(producingCombinedGain gain: Double) -> [StockQuote] {
-        let tslaShares = 100.0
-        let tslaDelta = gain / tslaShares
-
-        return [
-            StockQuote(
-                symbol: "TSLA",
-                displayName: "Tesla",
-                currentPrice: 100 + tslaDelta,
-                previousClose: 100,
-                currency: "USD"
-            ),
-            StockQuote(
-                symbol: "SPCX",
-                displayName: "SpaceX",
-                currentPrice: 50,
-                previousClose: 50,
-                currency: "USD"
-            ),
-        ]
-    }
-
-    func testComparisonLineOnlyUpdatesOnDayOrBucketChange() async {
-        let settings = makeSettings()
-        settings.setShareCount(100, for: "TSLA")
-        settings.setShareCount(100, for: "SPCX")
-
-        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: 15_000_000_000))
-        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
-        let viewModel = GainsViewModel(
-            settings: settings,
-            stockService: stockService,
-            comparisonLineSelector: comparisonSelector
-        )
-
-        await viewModel.refresh(force: true)
-        let firstLine = viewModel.comparisonLine
-        XCTAssertNotNil(firstLine)
-
-        stockService.quotes = quotes(producingCombinedGain: 16_000_000_000)
-        await viewModel.refresh(force: true)
-        XCTAssertEqual(viewModel.comparisonLine?.text, firstLine?.text)
-
-        stockService.quotes = quotes(producingCombinedGain: 25_000_000_000)
-        await viewModel.refresh(force: true)
-        XCTAssertNotEqual(viewModel.comparisonLine?.text, firstLine?.text)
-    }
-
-    func testComparisonLineUpdatesOnSignChange() async throws {
-        let settings = makeSettings()
-        settings.setShareCount(100, for: "TSLA")
-        settings.setShareCount(100, for: "SPCX")
-
-        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: -15_000_000_000))
-        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
-        let viewModel = GainsViewModel(
-            settings: settings,
-            stockService: stockService,
-            comparisonLineSelector: comparisonSelector
-        )
-
-        await viewModel.refresh(force: true)
-        let lossLine = try XCTUnwrap(viewModel.comparisonLine)
-        XCTAssertTrue(lossLine.text.hasPrefix("Today's loss "))
-
-        stockService.quotes = quotes(producingCombinedGain: 15_000_000_000)
-        await viewModel.refresh(force: true)
-        let gainLine = try XCTUnwrap(viewModel.comparisonLine)
-        XCTAssertTrue(gainLine.text.hasPrefix("Today's gain "))
-        XCTAssertNotEqual(gainLine.text, lossLine.text)
-    }
-
-    func testComparisonLineUpdatesOnDayChange() async throws {
-        let settings = makeSettings()
-        settings.setShareCount(100, for: "TSLA")
-        settings.setShareCount(100, for: "SPCX")
-
-        let dayOne = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        let dayTwo = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 11)
-        var currentDate = dayOne
-
-        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: 15_000_000_000))
-        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
-        let viewModel = GainsViewModel(
-            settings: settings,
-            stockService: stockService,
-            comparisonLineSelector: comparisonSelector,
-            dateProvider: { currentDate }
-        )
-
-        await viewModel.refresh(force: true)
-        let firstLine = try XCTUnwrap(viewModel.comparisonLine)
-
-        currentDate = dayTwo
-        await viewModel.refresh(force: true)
-        XCTAssertNotEqual(viewModel.comparisonLine?.text, firstLine.text)
-    }
-
-    func testComparisonDebounceIsPerPerson() async throws {
-        let settings = makeSettings()
-        settings.setShareCount(100, for: "TSLA")
-        settings.setShareCount(100, for: "SPCX")
-
-        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
-        var currentDate = date
-
-        let stockService = MutableMockStockService(quotes: quotes(producingCombinedGain: 15_000_000_000))
-        let comparisonSelector = ComparisonLineSelector(randomizer: SeededComparisonRandomizer(seed: 99))
-        let viewModel = GainsViewModel(
-            settings: settings,
-            stockService: stockService,
-            comparisonLineSelector: comparisonSelector,
-            dateProvider: { currentDate }
-        )
-
-        await viewModel.refresh(force: true)
-        let muskLine = try XCTUnwrap(viewModel.comparisonLine)
-
-        stockService.quotes = quotes(producingCombinedGain: 16_000_000_000)
-        await viewModel.refresh(force: true)
-        XCTAssertEqual(viewModel.comparisonLine?.text, muskLine.text)
-
-        settings.selectedPersonID = "other"
-        stockService.quotes = quotes(producingCombinedGain: 15_000_000_000)
-        await viewModel.refresh(force: true)
-        let otherLine = try XCTUnwrap(viewModel.comparisonLine)
-
-        stockService.quotes = quotes(producingCombinedGain: 16_000_000_000)
-        await viewModel.refresh(force: true)
-        XCTAssertEqual(viewModel.comparisonLine?.text, otherLine.text)
     }
 }
 

@@ -59,7 +59,7 @@ Related polish that belongs in the same cycle (same files / same docs pass):
 - **Ownership seeds:** `TrackedPersonProfile.musk.holdingSpecs[].defaultShareCount` + `SPCXHoldings.defaultShareCount`. `AppSettings.shareCount(for:)` uses stored `shareCount_<SYM>` else the spec default. `SPCXHoldings.migrateStoredShareCount` remigrates fingerprints already under the new key.
 - **Outstanding seeds:** `IssuerSharesOutstanding.defaultTSLA` / `defaultSPCX`. `sharesOutstanding(for:)` uses stored `sharesOutstanding_<SYM>` else bundled default. No fingerprint remigration today. Companyfacts path (`IssuerOutstandingSyncService` + `CompanyFactsOutstandingResolver`) rejects WASO; SPCX companyfacts is WASO-only as of 2026-08-17.
 - **Calendar:** `MarketHoursService` holiday `Set<String>` + `earlyCloses` map; tests in `MarketHoursServiceTests` (Good Friday 2027, early close, next-open 9:30).
-- **Comparison:** `ComparisonLine.swift` (library + `ComparisonLine` + polarity helpers), `ComparisonLineSelector`, `ComparisonHistoryStore` (`comparisonHistoryEntries` / `comparisonHistoryEntries_<personID>`), `ComparisonCaptionView`, `GainsViewModel.comparisonLine` + `lastComparisonStateByPerson` + `updateComparisonLineIfNeeded`. Wired in `PopoverContentView` after the combined card. Share card does **not** render captions. pbxproj IDs `A200…2B/2E/3A/3B`.
+- **Comparison:** `ComparisonLine.swift` (library + `ComparisonLine` + polarity helpers), `ComparisonLineSelector` (owns `SeededComparisonRandomizer`), `ComparisonHistoryStore` (`comparisonHistoryEntries` / `comparisonHistoryEntries_<personID>`), `ComparisonCaptionView`, `GainsViewModel.comparisonLine` + `lastComparisonStateByPerson` + `updateComparisonLineIfNeeded`. Wired in `PopoverContentView` after the combined card. Share card does **not** render captions. pbxproj IDs `A200…2B/2E/3A/3B`. Comparison tests live **inside** `MuskometerTests/MuskometerTests.swift` (`ComparisonLibraryTests`, `ComparisonHistoryStoreTests`, `ComparisonLineSelectorTests`, `GainsViewModelComparisonDebounceTests`), not separate files.
 - **Marketing:** `docs/screenshots/{app-capture,app-preview,og-image}.png`, `render-popover.html` (composites capture under a fake menu bar), `render-og.html`, `docs/index.html`.
 
 ## Design
@@ -158,7 +158,7 @@ Remove the feature completely. After this cycle the popover goes combined card �
 **Strip from survivors:**
 
 - `PopoverContentView`: the `ComparisonCaptionView` line.
-- `GainsViewModel`: `comparisonLine`, `comparisonLineSelector`, `lastComparisonStateByPerson`, `updateComparisonLineIfNeeded`, constructor parameter, calls in `processSnapshotSideEffects` / `reloadPersistedDisplayState` / `reloadPersonScopedDisplayState`.
+- `GainsViewModel`: `comparisonLine`, `comparisonLineSelector`, `lastComparisonStateByPerson`, `updateComparisonLineIfNeeded`, constructor parameter, calls in `processSnapshotSideEffects` / `reloadPersistedDisplayState` / `reloadPersonScopedDisplayState`. After that strip, `tradingDayCalendar` is only used to debounce captions — **delete the stored property and constructor parameter** so the type does not keep a dead dependency.
 - `AppSettings.resetPersistedState`: drop the `ComparisonHistoryStore.resetPersistedState` call. In its place, **delete leftover keys** `comparisonHistoryEntries` and `comparisonHistoryEntries_musk` (and, if a non-musk personID is ever selected, `comparisonHistoryEntries_<id>`) so Reset and a one-shot load-time sweep do not leave dead prefs. A tiny private helper on `AppSettings` is enough; do not keep the store type just for key names.
 
 **Delete tests:** `ComparisonLibraryTests`, `ComparisonHistoryStoreTests`, `ComparisonLineSelectorTests`, `GainsViewModelComparisonDebounceTests`, and any helper types they uniquely own (`SeededComparisonRandomizer` if unused elsewhere).
@@ -230,9 +230,39 @@ TDD against existing suites:
 
 None beyond existing debug logging. No new user-facing error paths.
 
+## Open questions
+
+None remaining. Live popover capture vs HTML mock (HTML mock accepted), the 1.75M vested-RSU undercount (excluded), and remigrating the exact old bundled defaults (yes, fingerprint-only) are decided in Design, Non-goals, and Risks.
+
+## Upgrade / persisted-state contract
+
+`AppSettings` init is the upgrade hook. No migration UI, no version gate.
+
+| Situation | Ownership | Outstanding | Comparison history |
+|-----------|-----------|-------------|--------------------|
+| Fresh install / no keys | New spec defaults | New bundled defaults (`sharesOutstanding(for:)` fallback) | No keys written |
+| Upgrade; stored equals an old fingerprint listed in §1–§2 | Rewrite to the new integer | SPCX `13_181_779_945` → `13_571_069_199` only | Keys `comparisonHistoryEntries` and `comparisonHistoryEntries_<personID>` deleted on load and on Reset |
+| Upgrade; stored is any other positive value (manual override, later Form 4, future companyfacts) | Leave stored | Leave stored | Same sweep |
+| Reset to defaults | Reseed both ownership defaults | Reseed both outstanding defaults | Sweep leftover keys |
+
+Remigration is **idempotent** (running twice is a no-op once the stored value is the new integer). It is **not automatically reversible**.
+
+## Rollback
+
+- **Binary revert** (ship previous build): the old binary’s migrator may rewrite SPCX `6_068_547_515` *up* to `6_068_734_060` again (today’s bug). Tesla `710_172_677` and outstanding `13_571_069_199` are unknown to the old binary and are left stored (old `shareCount(for:)` / `sharesOutstanding(for:)` return stored values when present). Comparison UI returns; history keys stay empty until new captions are selected.
+- **Data revert** is not provided. Users who want old seeds after a binary revert can Reset (old binary reseeds old defaults) or edit Settings share counts.
+- **Git revert** of this branch restores source, tests, and marketing PNGs. UserDefaults on installed Macs are unchanged by git.
+
+## Compliance & messaging
+
+- Ownership copy stays “Form 4 / Class A-equivalent”; outstanding copy stays “issuer shares for the parity card only.” HOLDINGS must name accessions for the TSLA Form 4, SPCX Form 4, July 28 10-Q cover, and the Cursor 8-K item (i) Class A issuance.
+- Do not describe the Cursor bump as a change in Musk’s stake.
+- Entertainment disclaimer (`docs/DISCLAIMER.md`) is unchanged. Screenshots and HTML mocks are illustrative product UI, not live quotes; they may be used on muskometer.org and OG cards.
+- After comparison deletion, site features must not advertise comparison captions. No new legal surface.
+
 ## Rollout
 
-Ship on the feature branch; CHANGELOG under **Unreleased**. No settings flag, no phased rollout. Comparison disappearance is immediate on upgrade. Ownership/outstanding fingerprint migrations run on next `AppSettings` init (app launch).
+Ship on the feature branch; CHANGELOG under **Unreleased**. No settings flag, no phased rollout. Comparison disappearance is immediate on upgrade. Ownership/outstanding fingerprint migrations and the comparison-key sweep run on next `AppSettings` init (app launch). See **Upgrade / persisted-state contract** and **Rollback**.
 
 ## Dependencies / external contracts
 

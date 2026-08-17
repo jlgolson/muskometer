@@ -41,15 +41,16 @@ Related polish that belongs in the same cycle (same files / same docs pass):
 - Extend the hardcoded NYSE holiday + early-close tables through **2028** from the official calendar (including the published “no New Year’s 2028” rule).
 - Delete the comparison-caption feature end-to-end (UI, library, persistence, tests, pbxproj, docs, site blurb). Leftover UserDefaults keys are removed on Reset and on settings load.
 - Replace marketing PNGs + site copy so the public surface matches the post-change popover (no Post to X, no comparison line, 9:30 next open, parity card present).
-- Docs: HOLDINGS numbers, ARCHITECTURE 2028 table, README ⌘⇧C, Settings holdings caption, PRIVACY prefs, CHANGELOG Unreleased.
+- Docs: HOLDINGS numbers, ARCHITECTURE 2028 table, README ⌘⇧C, Settings holdings caption, PRIVACY prefs, CHANGELOG **0.1.5**.
 - Drop unused `currentTSLAPrice` from the parity presentation struct.
+- Tick the shipping version: **`MARKETING_VERSION` 0.1.4 → 0.1.5** and **`CURRENT_PROJECT_VERSION` 25 → 26** everywhere those values name the current release. This cycle is the update; a version that stays at 0.1.4 would mis-identify the build.
 
 ## Non-goals
 
 - Reading Schedule 13G / 13D. Daily sync stays Form 4 / 4A only. The Aug 13 13G (`0001104659-26-095936`) 6,418,547,515 figure is the June Form 4 package **plus 350M options**; options stay excluded.
 - Runtime 8-K / 10-Q HTML cover parsing. Cursor issuance is a **pinned default bump**, same pattern as today’s cover-derived SPCX outstanding.
 - Adding the 1,752,426 vested-RSU Class A line from the same 8-K (withholding-uncertain) or the assumed unvested RSUs (~29.1M) / options (~44.4M). Those are not point-in-time common outstanding.
-- Changing Yahoo `includePrePost`, Sparkle wiring, or `MARKETING_VERSION` / `CURRENT_PROJECT_VERSION`. Leave the app at **0.1.4 / build 25** until a separate release tick.
+- Changing Yahoo `includePrePost` or wiring Sparkle. The version tick **is** in scope (0.1.5 / build 26); cutting a GitHub Release / DMG is still a maintainer step after merge (`docs/RELEASE.md`), not this PR’s job.
 - Replacing the hardcoded calendar with a network holiday API.
 - Multi-person UI. Comparison deletion is Musk-path only in practice (`registry` is still `[.musk]`).
 - Live AppKit screenshot of a running menu-bar popover as a CI requirement. A faithful HTML reconstruction + regen of the three PNGs is an accepted implementation.
@@ -163,7 +164,7 @@ Remove the feature completely. After this cycle the popover goes combined card �
 
 **Delete tests:** `ComparisonLibraryTests`, `ComparisonHistoryStoreTests`, `ComparisonLineSelectorTests`, `GainsViewModelComparisonDebounceTests`, and any helper types they uniquely own (`SeededComparisonRandomizer` if unused elsewhere).
 
-**Docs / site:** remove “comparison captions” from `docs/index.html` features blurb and any DEVELOPING/ARCHITECTURE mention of the selector. CHANGELOG **Unreleased** records the removal. Historical 0.1.1/0.1.2 CHANGELOG entries stay as history.
+**Docs / site:** remove “comparison captions” from `docs/index.html` features blurb and any DEVELOPING/ARCHITECTURE mention of the selector. CHANGELOG **0.1.5** records the removal. Historical 0.1.1/0.1.2 CHANGELOG entries stay as history.
 
 Share image path is already caption-free; no ShareCard change required beyond not growing a caption.
 
@@ -185,8 +186,13 @@ Implementation: a checked-in HTML mock of the popover (evolve `render-popover.ht
 
 - **README** keyboard table: add **⌘⇧C** → copy share (image or text per Settings). Keep ⌘R / ⌘, / Esc.
 - **Settings Holdings** caption: one sentence that Form 4 ownership syncs daily **and** issuer outstanding is best-effort on the same cadence (companyfacts; SPCX often stays on the cover/Cursor default).
-- **PRIVACY.md** “What stays on your Mac”: add share format, update-notify flag, daily-record extremes, sparkline samples, gain-threshold IDs. Do **not** list comparison history after deletion. Outstanding stays listed. Do not bump the “current public release is 0.1.4” line.
-- **CHANGELOG Unreleased:** ownership seed + migration invert, SPCX outstanding Cursor bump, 2028 calendar, comparison removal, screenshot/docs pass, unused `currentTSLAPrice` drop.
+- **PRIVACY.md** “What stays on your Mac”: add share format, update-notify flag, daily-record extremes, sparkline samples, gain-threshold IDs. Do **not** list comparison history after deletion. Outstanding stays listed. “Current public release” becomes **0.1.5**.
+- **CHANGELOG:** promote the Unreleased notes to **`## [0.1.5] - 2026-08-17`** (ownership seeds + migration invert, SPCX outstanding Cursor bump, 2028 calendar, comparison removal, screenshot/docs pass, unused `currentTSLAPrice` drop, version/build tick). Leave `## [Unreleased]` empty above it.
+- **Version / build tick (required):**
+  - `Muskometer.xcodeproj/project.pbxproj`: all four `MARKETING_VERSION` lines `0.1.4` → `0.1.5`; all four `CURRENT_PROJECT_VERSION` lines `25` → `26` (app + test, Debug + Release).
+  - Current-release strings: README download example, `docs/INSTALL.md` DMG name, `docs/RELEASE.md` “current: v0.1.4” / examples that name the shipping version, `docs/PRIVACY.md` “current public release”, `SECURITY.md` “Current public release line”.
+  - `AppVersion.short` / SEC User-Agent pick up 0.1.5 from `MARKETING_VERSION` — do not hardcode a second source.
+  - Do **not** git-tag or attach `dist/` artifacts in this cycle.
 - **`MergerParityPresentation`:** remove `currentTSLAPrice`. Update calculator, preview, and tests that assert passthrough (`MuskometerTests` ~1172, ~1287, ~1504; `MergerParityCardView` preview).
 
 ### 7. pbxproj
@@ -204,7 +210,9 @@ Remove the four comparison `PBXBuildFile` / `PBXFileReference` / group children 
 7. App target does not compile `ComparisonLine` / `ComparisonCaptionView` / `ComparisonLineSelector` / `ComparisonHistoryStore`. Popover has no comparison view. `GainsViewModel` has no `comparisonLine` API.
 8. `docs/screenshots/app-capture.png` (and the two derivatives) visually match the post-change popover rules in §5. `docs/index.html` and `render-og.html` do not say “minute by minute, every day” or advertise comparison captions. No “Post to X” string in `docs/` HTML.
 9. README lists ⌘⇧C. PRIVACY lists the remaining prefs. HOLDINGS and ARCHITECTURE numbers/tables match §2–§3.
-10. `MergerParityPresentation` has no `currentTSLAPrice`. `MUSKOMETER_SKIP_LIVE_YAHOO=1 ./scripts/verify.sh` passes.
+10. `MergerParityPresentation` has no `currentTSLAPrice`.
+11. `MARKETING_VERSION` is `0.1.5` and `CURRENT_PROJECT_VERSION` is `26` in all four pbxproj assignments. README / INSTALL / RELEASE (current-release examples) / PRIVACY / SECURITY name **0.1.5**. CHANGELOG has a `0.1.5` section dated 2026-08-17.
+12. `MUSKOMETER_SKIP_LIVE_YAHOO=1 ./scripts/verify.sh` passes.
 
 ## Testing strategy
 
@@ -232,7 +240,7 @@ None beyond existing debug logging. No new user-facing error paths.
 
 ## Open questions
 
-None remaining. Live popover capture vs HTML mock (HTML mock accepted), the 1.75M vested-RSU undercount (excluded), and remigrating the exact old bundled defaults (yes, fingerprint-only) are decided in Design, Non-goals, and Risks.
+None remaining. Live popover capture vs HTML mock (HTML mock accepted), the 1.75M vested-RSU undercount (excluded), remigrating the exact old bundled defaults (yes, fingerprint-only), and the version tick (**0.1.5 / build 26**, not a later separate release) are decided in Design, Non-goals, and Risks.
 
 ## Upgrade / persisted-state contract
 
@@ -251,7 +259,7 @@ Remigration is **idempotent** (running twice is a no-op once the stored value is
 
 - **Binary revert** (ship previous build): the old binary’s migrator may rewrite SPCX `6_068_547_515` *up* to `6_068_734_060` again (today’s bug). Tesla `710_172_677` and outstanding `13_571_069_199` are unknown to the old binary and are left stored (old `shareCount(for:)` / `sharesOutstanding(for:)` return stored values when present). Comparison UI returns; history keys stay empty until new captions are selected.
 - **Data revert** is not provided. Users who want old seeds after a binary revert can Reset (old binary reseeds old defaults) or edit Settings share counts.
-- **Git revert** of this branch restores source, tests, and marketing PNGs. UserDefaults on installed Macs are unchanged by git.
+- **Git revert** of this branch restores source, tests, marketing PNGs, and the 0.1.4 / build 25 version strings. UserDefaults on installed Macs are unchanged by git.
 
 ## Compliance & messaging
 
@@ -262,7 +270,7 @@ Remigration is **idempotent** (running twice is a no-op once the stored value is
 
 ## Rollout
 
-Ship on the feature branch; CHANGELOG under **Unreleased**. No settings flag, no phased rollout. Comparison disappearance is immediate on upgrade. Ownership/outstanding fingerprint migrations and the comparison-key sweep run on next `AppSettings` init (app launch). See **Upgrade / persisted-state contract** and **Rollback**.
+Ship on the feature branch as **0.1.5 (build 26)**. CHANGELOG gets a dated **0.1.5** section. No settings flag, no phased rollout. Comparison disappearance is immediate on upgrade. Ownership/outstanding fingerprint migrations and the comparison-key sweep run on next `AppSettings` init (app launch). Cutting the GitHub Release / unsigned DMG is the existing maintainer path after merge — not a commit in this cycle. See **Upgrade / persisted-state contract** and **Rollback**.
 
 ## Dependencies / external contracts
 
@@ -285,6 +293,7 @@ SEC fetches used User-Agent `Muskometer/0.1.4 (info@muskometer.org; https://musk
 3. **Runtime 8-K HTML parse for outstanding** — rejected (non-goal; WASO-only companyfacts already forced cover defaults). Pin the Cursor integer.
 4. **Keep comparison library, hide the view** — rejected. Operator asked to toss it; a 4,500-line unused library is the wrong leftover.
 5. **Split into four PRs** — rejected. Operator explicitly wants one cycle to amortize marshal harness overhead.
+6. **Leave MARKETING_VERSION at 0.1.4 until a later release PR** — rejected. Operator: this cycle *is* the update; marketing version and build must go up (0.1.5 / 26).
 
 ## Deferred
 

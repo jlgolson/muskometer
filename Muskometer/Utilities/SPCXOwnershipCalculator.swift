@@ -27,13 +27,14 @@ enum SPCXOwnershipCalculator {
             classAEquivalent += classAEquivalentShares(securityTitle: key.title, shares: shares)
         }
 
-        classAEquivalent += restrictedShares(from: xml)
         return classAEquivalent > 0 ? classAEquivalent : nil
     }
 
     private static func classAEquivalentShares(securityTitle: String, shares: Int64) -> Int64 {
         let title = securityTitle.lowercased()
-        if title.contains("option") { return 0 }
+        // Vested options count 1:1 (underlying shares). Unvested performance
+        // awards live only in remarks and are not added.
+        if title.contains("option") { return shares }
         if title.contains("class a common") { return shares }
         if title.contains("class b common") { return shares }
         if title.contains("series a preferred") || title.contains("series b preferred") {
@@ -43,19 +44,6 @@ enum SPCXOwnershipCalculator {
             return shares * 50
         }
         return 0
-    }
-
-    private static func restrictedShares(from xml: String) -> Int64 {
-        let haystack = extractBlock(named: "remarks", from: xml) ?? xml
-        let pattern = #"(?:does not include|not include)[^0-9]*([0-9][0-9,]*)[^0-9]*shares"#
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return 0 }
-        let range = NSRange(haystack.startIndex..<haystack.endIndex, in: haystack)
-        guard let match = regex.firstMatch(in: haystack, range: range),
-              let numberRange = Range(match.range(at: 1), in: haystack) else {
-            return 0
-        }
-        let digits = haystack[numberRange].filter(\.isWholeNumber)
-        return Int64(digits) ?? 0
     }
 
     private struct OwnershipBlock {

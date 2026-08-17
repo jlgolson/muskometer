@@ -2014,6 +2014,11 @@ final class SPCXOwnershipCalculatorTests: XCTestCase {
                     <postTransactionAmounts><sharesOwnedFollowingTransaction><value>186545</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
                     <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
                 </nonDerivativeHolding>
+                <nonDerivativeTransaction>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>0</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeTransaction>
             </nonDerivativeTable>
             <derivativeTable>
                 <derivativeHolding>
@@ -2031,12 +2036,50 @@ final class SPCXOwnershipCalculatorTests: XCTestCase {
                     <postTransactionAmounts><sharesOwnedFollowingTransaction><value>900495</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
                     <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Musk 2017 Sprinkling Trust</value></natureOfOwnership></ownershipNature>
                 </derivativeHolding>
+                <derivativeHolding>
+                    <securityTitle><value>Option to Buy (Class B Common Stock)</value></securityTitle>
+                    <underlyingSecurityShares><value>350000000</value></underlyingSecurityShares>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>350000000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>D</value></directOrIndirectOwnership>
+                </derivativeHolding>
             </derivativeTable>
             <remarks>does not include 1302072285 shares of restricted Class B Common Stock</remarks>
         </ownershipDocument>
         """
 
-        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 6_068_734_060)
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 5_116_475_230)
+    }
+
+    func testOptionTitleCountsUnderlyingShares() {
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <derivativeTable>
+                <derivativeHolding>
+                    <securityTitle><value>Option to Buy</value></securityTitle>
+                    <underlyingSecurityShares><value>100</value></underlyingSecurityShares>
+                </derivativeHolding>
+            </derivativeTable>
+        </ownershipDocument>
+        """
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 100)
+    }
+
+    func testRemarksPerformanceSharesAreNotAdded() {
+        let xml = """
+        <ownershipDocument>
+            <issuer><issuerTradingSymbol>SPCX</issuerTradingSymbol></issuer>
+            <nonDerivativeTable>
+                <nonDerivativeHolding>
+                    <securityTitle><value>Class A Common Stock</value></securityTitle>
+                    <postTransactionAmounts><sharesOwnedFollowingTransaction><value>1000</value></sharesOwnedFollowingTransaction></postTransactionAmounts>
+                    <ownershipNature><directOrIndirectOwnership><value>I</value></directOrIndirectOwnership><natureOfOwnership><value>By Trust</value></natureOfOwnership></ownershipNature>
+                </nonDerivativeHolding>
+            </nonDerivativeTable>
+            <remarks>does not include 1302072285 shares of restricted Class B Common Stock</remarks>
+        </ownershipDocument>
+        """
+        XCTAssertEqual(SPCXOwnershipCalculator.totalPublicShares(from: xml), 1000)
     }
 
     func testUsesLatestRowNotMaxWhenLaterRowHasLowerShares() {

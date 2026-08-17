@@ -1263,7 +1263,6 @@ final class MergerMarketCapParityTests: XCTestCase {
         XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
         XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
         XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
-        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
     }
 
     func testZeroOrNegativeInputsReturnNil() {
@@ -1378,7 +1377,6 @@ final class MergerMarketCapParityTests: XCTestCase {
         XCTAssertEqual(presentation.spcxMarketCap, expectedSPCXMcap, accuracy: 1.0)
         XCTAssertEqual(presentation.tslaMarketCap, expectedTSLAMcap, accuracy: 1.0)
         XCTAssertEqual(presentation.impliedTSLAPrice, expectedImplied, accuracy: 1e-6)
-        XCTAssertEqual(presentation.currentTSLAPrice, tslaPrice, accuracy: 1e-9)
 
         // Sanity: with ~3.3× more SPCX shares at $80 vs TSLA at $250, implied is in hundreds–thousands.
         XCTAssertGreaterThan(presentation.impliedTSLAPrice, 100)
@@ -1595,7 +1593,6 @@ final class GainsViewModelMergerParityPresentationTests: XCTestCase {
         let presentation = try XCTUnwrap(viewModel.mergerParityPresentation)
         // spcx mcap 200 / tsla shares 2 → implied 100; tsla mcap 200
         XCTAssertEqual(presentation.impliedTSLAPrice, 100, accuracy: 1e-9)
-        XCTAssertEqual(presentation.currentTSLAPrice, 100, accuracy: 1e-9)
         XCTAssertEqual(presentation.spcxMarketCap, 200, accuracy: 1e-9)
         XCTAssertEqual(presentation.tslaMarketCap, 200, accuracy: 1e-9)
     }

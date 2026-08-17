@@ -5,7 +5,6 @@ struct MergerParityPresentation: Equatable, Sendable {
     let impliedTSLAPrice: Double
     let tslaMarketCap: Double
     let spcxMarketCap: Double
-    let currentTSLAPrice: Double
 }
 
 /// Pure market-cap parity math: what TSLA’s share price would be if TSLA’s
@@ -45,8 +44,7 @@ enum MergerMarketCapParity {
         return MergerParityPresentation(
             impliedTSLAPrice: impliedTSLAPrice,
             tslaMarketCap: tslaMarketCap,
-            spcxMarketCap: spcxMarketCap,
-            currentTSLAPrice: tslaPrice
+            spcxMarketCap: spcxMarketCap
         )
     }
 }

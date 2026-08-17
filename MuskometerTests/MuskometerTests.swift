@@ -2346,7 +2346,9 @@ final class Form4OwnershipParserTests: XCTestCase {
         let result = parser.parse()
 
         XCTAssertNil(result["TSLA"])
-        XCTAssertEqual(result["SPCX"], 1_507_402_770)
+        // Table only: Class A 7_402_770 + Class B 1_000_000_000. Remarks restricted
+        // shares are not sellable ownership and must not be added.
+        XCTAssertEqual(result["SPCX"], 1_007_402_770)
     }
 }
 

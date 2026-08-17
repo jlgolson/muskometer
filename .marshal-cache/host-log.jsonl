@@ -1,0 +1,12 @@
+{"ts": "2026-08-17T11:11:14.665173Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 33029}
+{"ts": "2026-08-17T11:11:16.389016Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 33737}
+{"ts": "2026-08-17T11:11:25.637610Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 33985}
+{"ts": "2026-08-17T11:11:27.378223Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 34691}
+{"ts": "2026-08-17T11:11:49.370802Z", "host": "grok", "tool": "Edit", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 35186}
+{"ts": "2026-08-17T11:11:50.311836Z", "host": "grok", "tool": "Edit", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 35657}
+{"ts": "2026-08-17T11:11:52.622409Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 35895}
+{"ts": "2026-08-17T11:11:53.998657Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 36607}
+{"ts": "2026-08-17T11:12:11.599699Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 36927}
+{"ts": "2026-08-17T11:12:12.904874Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 37640}
+{"ts": "2026-08-17T11:12:20.131501Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 37882}
+{"ts": "2026-08-17T11:12:21.438305Z", "host": "grok", "tool": "Bash", "event": "pre_tool_use", "decision": "allow", "reason": "", "pid": 38586}

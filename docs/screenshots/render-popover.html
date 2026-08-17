@@ -2,11 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <title>Muskometer menu-bar preview</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Text", sans-serif;
-      background: linear-gradient(160deg, #1a2744 0%, #0d0d0f 45%, #111 100%);
+      /* Solid fill (not CSS gradient) — WKWebView headless snapshots glitch on gradients. */
+      background: #0f1520;
       padding: 48px;
       width: 920px;
       color: #f5f5f7;
@@ -74,8 +76,7 @@
       class="popover-shot"
       src="app-capture.png"
       width="360"
-      height="884"
-      alt="Muskometer popover"
+      alt="Muskometer popover with ownership, sparkline, single Copy control, records, TSLA and SPCX rows, and market-cap parity card"
     >
   </div>
 </body>

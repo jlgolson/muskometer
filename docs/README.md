@@ -7,9 +7,12 @@ Static landing page for Muskometer, served from this `/docs` folder.
 | `index.html` | Landing page |
 | `styles.css` | Styles |
 | `favicon.png` | Favicon |
-| `screenshots/app-preview.png` | Landing page screenshot |
+| `screenshots/app-capture.png` | Popover capture (source for preview/OG composites) |
+| `screenshots/app-preview.png` | Landing page screenshot (menu bar + popover) |
 | `screenshots/og-image.png` | Open Graph / Twitter card image |
-| `screenshots/render-*.html` | Source mocks to regenerate PNGs (Chrome headless) |
+| `screenshots/render-capture.html` | Faithful HTML mock of the 0.1.5 popover (source of `app-capture.png`) |
+| `screenshots/render-popover.html` | Menu-bar scene compositing `app-capture.png` → `app-preview.png` |
+| `screenshots/render-og.html` | Open Graph layout compositing `app-preview.png` → `og-image.png` |
 | `CNAME` | Custom domain (`muskometer.org`) |
 
 ## Prerequisites
@@ -94,17 +97,45 @@ DNS propagation can take from a few minutes up to 48 hours.
 
 ## Regenerate screenshots
 
-Replace `screenshots/app-capture.png` with a fresh popover screenshot from the app, then:
+PNGs are the shipped artifact. HTML under `screenshots/render-*.html` is the reviewable
+source. Prefer regenerating from the HTML mock (matches the post-0.1.4 popover: single
+**Copy** control, **9:30** next-open, market-cap **parity card**, no Post to X, no
+comparison caption). A live AppKit capture of the running popover is welcome but not
+required.
+
+From the repo root, with Google Chrome installed:
 
 ```bash
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-"$CHROME" --headless=new --hide-scrollbars --window-size=920,1240 \
-  --screenshot=docs/screenshots/app-preview.png \
-  "file://$PWD/docs/screenshots/render-popover.html"
-"$CHROME" --headless=new --hide-scrollbars --window-size=1200,630 \
-  --screenshot=docs/screenshots/og-image.png \
-  "file://$PWD/docs/screenshots/render-og.html"
+ROOT="$(pwd)"
+
+# 1. Popover mock → app-capture.png
+"$CHROME" --headless=new --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=360,920 \
+  --screenshot="$ROOT/docs/screenshots/app-capture.png" \
+  "file://$ROOT/docs/screenshots/render-capture.html"
+
+# 2. Menu-bar composite → app-preview.png (depends on step 1)
+"$CHROME" --headless=new --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=920,1154 \
+  --screenshot="$ROOT/docs/screenshots/app-preview.png" \
+  "file://$ROOT/docs/screenshots/render-popover.html"
+
+# 3. Open Graph card → og-image.png (depends on step 2)
+"$CHROME" --headless=new --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=1200,630 \
+  --screenshot="$ROOT/docs/screenshots/og-image.png" \
+  "file://$ROOT/docs/screenshots/render-og.html"
 ```
+
+If Chrome is unavailable, `docs/screenshots/render-pngs.swift` can snapshot the same HTML
+via WKWebView (`swift docs/screenshots/render-pngs.swift <html> <png> <w> <h>`). For
+composites that reference local PNGs, inline the prior PNG as a `data:` URL first (file
+URLs are blocked in some sandboxed agent environments). Prefer solid page backgrounds in
+the HTML mocks — CSS gradients can glitch under WKWebView headless snapshots.
+
+`scripts/verify.sh` rejects `Post to X` and `comparison caption` in `docs/index.html` and
+`docs/screenshots/render-*.html` (case-insensitive). It does not OCR the PNGs.
 
 ## Local preview
 

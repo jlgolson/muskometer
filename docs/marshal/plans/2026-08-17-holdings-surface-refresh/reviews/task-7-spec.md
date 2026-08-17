@@ -23,15 +23,13 @@ Next-request: these are static strings. Retry, replay, and a second launch all s
 
 ## Findings
 
-### Suggestion
-
-- **Leftover “beneficial” / “cover default” phrasing under the new tables.** `docs/HOLDINGS.md:47` still defines Form 4 ownership as “Musk’s beneficial / Class A-equivalent holdings.” Compliance wants “Form 4 / Class A-equivalent **sellable**” (common + vested options; not unvested CEO awards). The ownership section above already says sellable and not 13d-3; this concept-table cell is the one place a reader can still equate Form 4 with the voting package that includes the 1.302B awards. Same file `docs/HOLDINGS.md:48` and `:59` still say “cover-derived bundled defaults” / “prior or cover default,” and `README.md:92` still says “companyfacts / cover defaults,” while the outstanding table and FAQ correctly say cover+Cursor. Not a number miss (the §2 table is right). Tighten the concept row to sellable Class A-equivalent (common + vested options) and say cover+Cursor default in the two leftover cover-only sentences.
+None.
 
 ## Findings (machine-readable)
 
 <!-- MARSHAL_FINDINGS_JSON v1 -->
 ```json
-{"schema_version":1,"dispatch_id":null,"verdict":"approved","round":1,"findings":[{"severity":"suggestion","id":"T7-S1","title":"Leftover beneficial / cover-default phrasing","path":"docs/HOLDINGS.md","summary":"Concept table still says beneficial holdings and cover default; ownership/outstanding tables already have sellable + cover+Cursor. Tighten to Compliance wording."}]}
+{"schema_version":1,"dispatch_id":null,"verdict":"approved","round":1,"findings":[]}
 ```
 
 VERDICT: APPROVED
@@ -50,6 +48,10 @@ VERDICT: APPROVED
 - docs/PRIVACY.md
 - docs/ARCHITECTURE.md
 - docs/DEVELOPING.md
+
+plan-graph-sha256: ae014630f4ddc5c26f9bf07a365c8ba9ae27e7e8bfed4ac7589d129073e57130
+
+reviewed-content-sha256: 609e7786b9d2cb3826281014d56629163c738805261e37b7d000dcced41f7bc2
 
 plan-graph-sha256: ae014630f4ddc5c26f9bf07a365c8ba9ae27e7e8bfed4ac7589d129073e57130
 

@@ -254,7 +254,9 @@ struct PopoverContentView: View {
                 }
             }
 
-            GainSparklineView(samples: viewModel.intradaySamples)
+            if !viewModel.intradaySamples.isEmpty {
+                GainSparklineView(samples: viewModel.intradaySamples)
+            }
 
             HStack(spacing: 8) {
                 Button {
@@ -283,7 +285,8 @@ struct PopoverContentView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .muskometerGlassCard(tint: Color.accentColor)
+        // Untinted glass — full AccentColor tint washes the card solid blue in MenuBarExtra.
+        .muskometerGlassCard()
     }
 
     private var footer: some View {

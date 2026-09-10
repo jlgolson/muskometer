@@ -12,7 +12,7 @@ struct GainSparklineView: View {
     var body: some View {
         Group {
             if samples.isEmpty {
-                Color.clear
+                EmptyView()
             } else {
                 Canvas { context, size in
                     Self.draw(
@@ -23,10 +23,10 @@ struct GainSparklineView: View {
                         in: &context
                     )
                 }
+                .frame(height: height)
+                .accessibilityLabel(accessibilityLabel)
             }
         }
-        .frame(height: height)
-        .accessibilityLabel(accessibilityLabel)
     }
 
     private var accessibilityLabel: String {

@@ -12,3 +12,5 @@
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"implementer","task":3,"round":1,"ts":"2026-09-10T07:15:57.824527Z"}
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"spec-reviewer","task":3,"round":1,"ts":"2026-09-10T07:17:00.809537Z"}
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"code-quality-reviewer","task":3,"round":1,"ts":"2026-09-10T07:17:00.810016Z"}
+{"kind":"integration","scope":"2026-09-10-review-fixes","task":3,"round":null,"commit":"a5bb2387200d9b733c3324d252f453fa2fd0eee9","base":"e574468c53d6a86fac310e511591e2b5368f005b","ts":"2026-09-10T07:24:43.224065Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"implementer","task":3,"round":null,"ts":"2026-09-10T07:24:43.224487Z"}

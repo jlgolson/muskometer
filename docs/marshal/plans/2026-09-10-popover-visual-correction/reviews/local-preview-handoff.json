@@ -1,0 +1,29 @@
+{
+  "status": "LOCAL_PREVIEW_READY",
+  "at": "2026-09-10T19:02:00.950109+00:00",
+  "dispatch_id": "ae765d85-d81b-42ed-8bf9-e43bdf8c87c0-task-0",
+  "integrated_task_head": "e5f51d1285fac657f2db93ba597b961e0145bfa7",
+  "reason": "User said the process had gone too far down the rabbit hole and asked how close the work was to done. Root directed immediate local integration and preview delivery after the already completed verification and genuine paired task reviews.",
+  "completed": [
+    "verified task integration",
+    "102 matching source hashes",
+    "401 passing tests; all391 baseline identifiers retained",
+    "normal Release and asset identity matched",
+    "genuine task spec and quality round1 APPROVED with zero findings; authorship and convergence verified",
+    "accepted visual captures preserved"
+  ],
+  "not_run_by_scope_adjustment": [
+    "execution-holistic review",
+    "whole-cumulative code-holistic conformance/quality gate",
+    "additional finishing runner"
+  ],
+  "formal_marshal_cycle_complete": false,
+  "preview_launch_owner": "root",
+  "publishing_or_main_merge": false,
+  "reviewer_dispatch_ids": {
+    "spec": "e801b958-23f4-4797-9681-fbe72ad58bd0-task-1",
+    "quality": "384268ec-e6b5-4ebc-be91-f5b9ef5668df-task-1"
+  },
+  "evidence": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/integrated-evidence-check.json",
+  "normal_release": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/normal-release/Muskometer.app"
+}

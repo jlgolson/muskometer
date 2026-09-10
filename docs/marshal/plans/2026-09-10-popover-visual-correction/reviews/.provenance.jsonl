@@ -20,3 +20,5 @@
 {"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"implementer","task":1,"round":null,"ts":"2026-09-10T18:49:15.560887Z"}
 {"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"spec-reviewer","task":1,"round":null,"ts":"2026-09-10T18:50:31.594546Z"}
 {"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"code-quality-reviewer","task":1,"round":null,"ts":"2026-09-10T18:50:31.595396Z"}
+{"kind":"integration","scope":"2026-09-10-popover-visual-correction","task":1,"round":null,"commit":"e5f51d1285fac657f2db93ba597b961e0145bfa7","base":"9d5ee43988c945f77b375a7201e59ed125e70f4c","ts":"2026-09-10T19:01:17.215252Z"}
+{"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"implementer","task":1,"round":null,"ts":"2026-09-10T19:01:17.215781Z"}

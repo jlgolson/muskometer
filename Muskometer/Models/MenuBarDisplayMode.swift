@@ -23,4 +23,11 @@ enum MenuBarDisplayMode: String, CaseIterable, Identifiable, Sendable {
             return "Total worth"
         }
     }
+
+    /// Next mode in Settings picker order, wrapping after the last case.
+    var next: MenuBarDisplayMode {
+        let all = Self.allCases
+        guard let index = all.firstIndex(of: self) else { return .combinedDollars }
+        return all[(index + 1) % all.count]
+    }
 }

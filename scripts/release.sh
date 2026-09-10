@@ -15,7 +15,13 @@
 #   NOTARIZE=0             Force-skip notarization even if credentials are set
 #   SKIP_NOTARIZE=1        Alias for NOTARIZE=0
 #
+# Usage:
+#   ./scripts/release.sh              # archive, export, package, notarize
+#   ./scripts/release.sh --preflight  # check Team ID + cert + notary creds only
+#
 # See docs/RELEASE.md for one-time Apple setup and GitHub Release upload steps.
+# Never pass secrets on the command line; use env vars or Config/Release.xcconfig
+# (gitignored). Do not commit .p8 / .p12 / Team IDs into the repo.
 
 set -euo pipefail
 
@@ -30,6 +36,23 @@ DERIVED_DATA="$BUILD_DIR/DerivedData"
 ARCHIVE_PATH="$BUILD_DIR/${APP_NAME}.xcarchive"
 EXPORT_DIR="$BUILD_DIR/export"
 EXPORT_PLIST="$BUILD_DIR/ExportOptions.plist"
+
+PREFLIGHT=0
+for arg in "$@"; do
+  case "$arg" in
+    --preflight|-n|--dry-run)
+      PREFLIGHT=1
+      ;;
+    -h|--help)
+      sed -n '2,24p' "$0"
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $arg (try --preflight or --help)" >&2
+      exit 2
+      ;;
+  esac
+done
 
 CODESIGN_IDENTITY="${CODESIGN_IDENTITY:-Developer ID Application}"
 APPLE_TEAM_ID="${APPLE_TEAM_ID:-${DEVELOPMENT_TEAM:-}}"
@@ -53,17 +76,73 @@ EOF
   exit 1
 fi
 
-if ! security find-identity -v -p codesigning | grep -q "Developer ID Application"; then
-  cat >&2 <<'EOF'
-WARN: No "Developer ID Application" certificate found in the login keychain.
-Create one at https://developer.apple.com/account/resources/certificates/list
-(Developer ID Application → download → double-click to install).
-EOF
+has_developer_id_cert() {
+  security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application"
+}
+
+notarization_status() {
+  if [[ "${NOTARIZE:-1}" == "0" || "${SKIP_NOTARIZE:-0}" == "1" ]]; then
+    echo "skipped (NOTARIZE=0)"
+    return 1
+  fi
+  if [[ -n "${NOTARY_PROFILE:-}" ]]; then
+    echo "ready (NOTARY_PROFILE=$NOTARY_PROFILE)"
+    return 0
+  fi
+  if [[ -n "${APPLE_API_KEY_ID:-}" && -n "${APPLE_API_KEY_ISSUER_ID:-}" && -n "${APPLE_API_KEY_PATH:-}" ]]; then
+    if [[ ! -f "$APPLE_API_KEY_PATH" ]]; then
+      echo "missing (APPLE_API_KEY_PATH not found: $APPLE_API_KEY_PATH)"
+      return 1
+    fi
+    echo "ready (API key env vars)"
+    return 0
+  fi
+  if [[ -n "${APPLE_ID:-}" && -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
+    echo "ready (Apple ID + app-specific password)"
+    return 0
+  fi
+  echo "missing (set NOTARY_PROFILE or API key env vars)"
+  return 1
+}
+
+MODE_LABEL="build"
+if [[ "$PREFLIGHT" == "1" ]]; then
+  MODE_LABEL="preflight"
 fi
 
-echo "=== Muskometer release build ==="
+echo "=== Muskometer release ${MODE_LABEL} ==="
 echo "Team ID: $APPLE_TEAM_ID"
 echo "Sign identity: $CODESIGN_IDENTITY"
+
+if has_developer_id_cert; then
+  echo "Developer ID cert: found"
+else
+  cat >&2 <<'EOF'
+ERROR: No "Developer ID Application" certificate found in the login keychain.
+Create one at https://developer.apple.com/account/resources/certificates/list
+(Developer ID Application → download → double-click to install).
+Verify with:
+  security find-identity -v -p codesigning | grep "Developer ID Application"
+EOF
+  exit 1
+fi
+
+set +e
+NOTARY_MSG="$(notarization_status)"
+NOTARY_OK=$?
+set -e
+echo "Notarization: $NOTARY_MSG"
+
+if [[ "$PREFLIGHT" == "1" ]]; then
+  echo ""
+  if [[ $NOTARY_OK -ne 0 && "${NOTARIZE:-1}" != "0" && "${SKIP_NOTARIZE:-0}" != "1" ]]; then
+    echo "Preflight OK for signing; notarization credentials not set (release will package but Gatekeeper may still warn until you notarize)."
+  else
+    echo "Preflight OK — ready to run ./scripts/release.sh"
+  fi
+  exit 0
+fi
+
 echo ""
 
 rm -rf "$DERIVED_DATA" "$ARCHIVE_PATH" "$EXPORT_DIR"
@@ -207,9 +286,14 @@ echo "Artifacts:"
 echo "  $DMG_PATH"
 echo "  $ZIP_PATH"
 echo ""
-echo "Next steps — GitHub Release:"
-echo "  1. Tag the release:  git tag v${VERSION} && git push origin v${VERSION}"
-echo "  2. Open: https://github.com/jlgolson/muskometer/releases/new?tag=v${VERSION}"
-echo "  3. Title: Muskometer ${VERSION}"
-echo "  4. Attach: dist/${DMG_NAME} (and optionally dist/${ZIP_NAME})"
-echo "  5. Publish — README install link will pick up the latest release automatically."
+echo "Next steps — GitHub Release (signed + notarized):"
+echo "  git tag v${VERSION} && git push origin v${VERSION}"
+echo "  gh release create v${VERSION} \\"
+echo "    dist/${DMG_NAME} \\"
+echo "    dist/${ZIP_NAME} \\"
+echo "    --title \"Muskometer ${VERSION}\" \\"
+echo "    --notes \"Signed + notarized DMG — double-click to install.\""
+echo "  Or open: https://github.com/jlgolson/muskometer/releases/new?tag=v${VERSION}"
+echo ""
+echo "Note: CI on v* tags still ships the unsigned package-dmg path by default."
+echo "Upload signed artifacts only when you intentionally replace or supplement that flow."

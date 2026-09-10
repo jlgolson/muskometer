@@ -11,6 +11,8 @@ final class GainsViewModel {
 
     private(set) var isSyncingHoldings = false
     private(set) var holdingsSyncMessage: String?
+    /// Ephemeral popover toast when Form 4 sync changes ownership counts.
+    private(set) var holdingsOwnershipChangeMessage: String?
 
     private(set) var dailyRecordsSnapshot = DailyRecordTracker.Snapshot(
         bestRecord: nil,
@@ -33,6 +35,7 @@ final class GainsViewModel {
     private let marketHours: any MarketHoursServiceProtocol
     private let dailyRecordTracker: DailyRecordTracker
     private let gainThresholdNotificationService: GainThresholdNotificationService
+    private let dayCloseSummaryNotificationService: DayCloseSummaryNotificationService
     private let intradayGainSampleStore: IntradayGainSampleStore
     private let netWorthMilestoneTracker: NetWorthMilestoneTracker
     private var refreshTask: Task<Void, Never>?
@@ -49,6 +52,7 @@ final class GainsViewModel {
         marketHours: any MarketHoursServiceProtocol = MarketHoursService(),
         dailyRecordTracker: DailyRecordTracker? = nil,
         gainThresholdNotificationService: GainThresholdNotificationService? = nil,
+        dayCloseSummaryNotificationService: DayCloseSummaryNotificationService? = nil,
         intradayGainSampleStore: IntradayGainSampleStore? = nil,
         netWorthMilestoneTracker: NetWorthMilestoneTracker? = nil,
         dateProvider: @escaping () -> Date = { .now },
@@ -62,6 +66,7 @@ final class GainsViewModel {
         self.marketHours = marketHours
         self.dailyRecordTracker = dailyRecordTracker ?? DailyRecordTracker()
         self.gainThresholdNotificationService = gainThresholdNotificationService ?? GainThresholdNotificationService()
+        self.dayCloseSummaryNotificationService = dayCloseSummaryNotificationService ?? DayCloseSummaryNotificationService()
         self.intradayGainSampleStore = intradayGainSampleStore ?? IntradayGainSampleStore()
         self.netWorthMilestoneTracker = netWorthMilestoneTracker ?? NetWorthMilestoneTracker()
         self.dateProvider = dateProvider
@@ -76,44 +81,52 @@ final class GainsViewModel {
 
         refreshTask?.cancel()
         refreshTask = Task { [weak self] in
-            guard let self else { return }
-
-            await self.syncHoldingsIfNeeded()
-
-            await self.refresh()
+            await self?.syncHoldingsIfNeeded()
+            await self?.refresh()
 
             // After the initial refresh, treat current quotability as "already refreshed this session"
             // so the first open-session loop iteration sleeps between refreshes (no double-refresh).
             // When off-market sleep ends into a quotable session, wasQuotable is false and we
             // refresh immediately instead of sleeping another full open-session interval.
-            var wasQuotable = self.marketHours.isQuotable(at: self.dateProvider())
+            var wasQuotable = false
+            if let self {
+                wasQuotable = self.marketHours.isQuotable(at: self.dateProvider())
+            }
 
             while !Task.isCancelled {
-                let isQuotable = self.marketHours.isQuotable(at: self.dateProvider())
-                let timing = Self.openSessionRefreshTiming(isQuotable: isQuotable, wasQuotable: wasQuotable)
+                let timing: OpenSessionRefreshTiming
+                let sleepSeconds: TimeInterval?
 
-                if timing == .waitOffMarket {
-                    wasQuotable = false
-                    // Keep sparkline in sync with the store without a full quote refresh.
-                    // Overnight load retains the last completed RTH session's samples for share/display.
-                    self.syncIntradaySamplesFromStore()
-                    let sleepSeconds = self.offMarketSleepInterval()
+                // Scope strong `self` so it is not retained across `Task.sleep`.
+                do {
+                    guard let self else { return }
+                    let isQuotable = self.marketHours.isQuotable(at: self.dateProvider())
+                    timing = Self.openSessionRefreshTiming(isQuotable: isQuotable, wasQuotable: wasQuotable)
+
+                    if timing == .waitOffMarket {
+                        wasQuotable = false
+                        self.syncIntradaySamplesFromStore()
+                        sleepSeconds = self.offMarketSleepInterval()
+                    } else if timing == .sleepThenRefresh {
+                        sleepSeconds = self.refreshSleepInterval()
+                    } else {
+                        sleepSeconds = nil
+                    }
+                }
+
+                if let sleepSeconds {
                     try? await Task.sleep(for: .seconds(sleepSeconds))
                     guard !Task.isCancelled else { break }
+                }
+
+                if timing == .waitOffMarket {
                     // Still off-market: store keeps prior RTH samples until the next session appends.
-                    self.syncIntradaySamplesFromStore()
+                    self?.syncIntradaySamplesFromStore()
                     continue
                 }
 
-                // Sleep only between consecutive open-session refreshes.
-                // Skip when first entering a quotable session after off-market wait.
-                if timing == .sleepThenRefresh {
-                    let interval = self.refreshSleepInterval()
-                    try? await Task.sleep(for: .seconds(interval))
-                    guard !Task.isCancelled else { break }
-                }
-
                 wasQuotable = true
+                guard let self else { return }
 
                 if self.settings.needsHoldingsSync {
                     await self.syncHoldingsIfNeeded()
@@ -203,11 +216,15 @@ final class GainsViewModel {
 
         isSyncingHoldings = true
         holdingsSyncMessage = nil
+        holdingsOwnershipChangeMessage = nil
 
         defer { isSyncingHoldings = false }
 
         let profile = settings.selectedProfile
         let expectedSymbols = profile.expectedSymbols
+        let priorCounts = Dictionary(
+            uniqueKeysWithValues: expectedSymbols.map { ($0, settings.shareCount(for: $0)) }
+        )
 
         do {
             let service = holdingsSyncServiceFactory(profile)
@@ -218,6 +235,12 @@ final class GainsViewModel {
             if syncComplete {
                 let symbols = expectedSymbols.sorted().joined(separator: ", ")
                 holdingsSyncMessage = "Holdings updated from SEC (\(symbols))."
+                holdingsOwnershipChangeMessage = Self.ownershipChangeToast(
+                    prior: priorCounts,
+                    current: Dictionary(
+                        uniqueKeysWithValues: expectedSymbols.map { ($0, settings.shareCount(for: $0)) }
+                    )
+                )
 
                 if snapshot != nil {
                     await refresh(force: true)
@@ -246,12 +269,34 @@ final class GainsViewModel {
         await syncIssuerOutstanding(for: profile)
     }
 
+    static func ownershipChangeToast(
+        prior: [String: Int64],
+        current: [String: Int64]
+    ) -> String? {
+        let symbols = Set(prior.keys).union(current.keys).sorted()
+        var parts: [String] = []
+        for symbol in symbols {
+            let before = prior[symbol] ?? 0
+            let after = current[symbol] ?? 0
+            guard before != after else { continue }
+            parts.append(
+                "\(symbol) \(CurrencyFormatter.formatShareCount(before)) → \(CurrencyFormatter.formatShareCount(after))"
+            )
+        }
+        guard !parts.isEmpty else { return nil }
+        return "Ownership updated: " + parts.joined(separator: " · ")
+    }
+
     /// Fetches companyfacts outstanding for the profile's holding specs and persists positive results.
     private func syncIssuerOutstanding(for profile: TrackedPersonProfile) async {
         let service = outstandingSyncServiceFactory()
         let outstanding = await service.fetchOutstanding(for: profile.holdingSpecs)
-        for (symbol, shares) in outstanding where shares > 0 {
-            settings.setSharesOutstanding(shares, for: symbol)
+        for (symbol, fact) in outstanding where fact.shares > 0 {
+            settings.setSharesOutstanding(
+                fact.shares,
+                for: symbol,
+                provenance: .companyfacts(periodEnd: fact.periodEnd, filed: fact.filed)
+            )
         }
     }
 
@@ -269,6 +314,13 @@ final class GainsViewModel {
             tslaOutstanding: settings.sharesOutstanding(for: "TSLA"),
             spcxOutstanding: settings.sharesOutstanding(for: "SPCX")
         )
+    }
+
+    /// Outstanding provenance line for the parity card (“TSLA … · SPCX …”).
+    var mergerParityOutstandingCaption: String {
+        let tsla = settings.outstandingProvenanceCaption(for: "TSLA")
+        let spcx = settings.outstandingProvenanceCaption(for: "SPCX")
+        return "TSLA \(tsla) · SPCX \(spcx)"
     }
 
     var menuBarTitle: String {
@@ -329,7 +381,7 @@ final class GainsViewModel {
             return isLoading ? "Muskometer — loading…" : "Muskometer"
         }
 
-        var lines = ["Muskometer"]
+        var lines = ["Muskometer", "⌥-click to cycle display · \(settings.menuBarDisplayMode.label)"]
         if settings.menuBarDisplayMode == .totalWorth {
             lines.append("Total worth: \(CurrencyFormatter.formatMarketValue(snapshot.combinedMarketValue))")
         }
@@ -340,6 +392,9 @@ final class GainsViewModel {
         }
         lines.append("Combined: \(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))")
         lines.append("Updated \(snapshot.lastUpdated.formatted(date: .omitted, time: .shortened))")
+        if hasStaleData {
+            lines.append("Stale — last good quotes; open Muskometer and Refresh")
+        }
         if let closeLabel = marketCloseStatusLabel {
             lines.append(closeLabel)
         }
@@ -358,12 +413,29 @@ final class GainsViewModel {
     func copyShareToPasteboard() -> Bool {
         guard let snapshot else { return false }
 
+        let parity = settings.showMergerParityCard ? mergerParityPresentation : nil
         return ShareImageExporter.copyToPasteboard(
             snapshot: snapshot,
             profile: settings.selectedProfile,
             format: settings.shareFormat,
-            intradaySamples: intradaySamples
+            intradaySamples: intradaySamples,
+            parity: parity
         )
+    }
+
+    /// Opens the system share sheet with the current share format (image or text).
+    @discardableResult
+    func presentSystemShare() -> Bool {
+        guard let snapshot else { return false }
+        let parity = settings.showMergerParityCard ? mergerParityPresentation : nil
+        let items = ShareImageExporter.shareItems(
+            snapshot: snapshot,
+            profile: settings.selectedProfile,
+            format: settings.shareFormat,
+            intradaySamples: intradaySamples,
+            parity: parity
+        )
+        return ShareSheetPresenter.present(items: items)
     }
 
     func clearActiveMilestone() {
@@ -403,17 +475,29 @@ final class GainsViewModel {
         enabledNotificationThresholdIDs = ids
     }
 
+    func setNotifyDayCloseSummaryEnabled(_ enabled: Bool) {
+        settings.notifyDayCloseSummary = enabled
+        if enabled {
+            Task { @MainActor in
+                let granted = await NotificationAuthorization.requestIfNeeded()
+                notificationAuthorizationMessage = granted ? nil : NotificationAuthorization.deniedHint
+            }
+        } else if enabledNotificationThresholdIDs.isEmpty {
+            notificationAuthorizationMessage = nil
+        }
+    }
+
     /// Refreshes the denied-auth hint when any gain threshold is enabled (e.g. Alerts tab appear).
     /// Uses `requestIfNeeded`, which only prompts when status is notDetermined.
     func refreshNotificationAuthorizationMessageIfNeeded() {
-        guard !enabledNotificationThresholdIDs.isEmpty else {
+        guard !enabledNotificationThresholdIDs.isEmpty || settings.notifyDayCloseSummary else {
             notificationAuthorizationMessage = nil
             return
         }
         Task { @MainActor in
             let granted = await NotificationAuthorization.requestIfNeeded()
             // Thresholds may have been cleared while awaiting auth status.
-            guard !enabledNotificationThresholdIDs.isEmpty else {
+            guard !enabledNotificationThresholdIDs.isEmpty || settings.notifyDayCloseSummary else {
                 notificationAuthorizationMessage = nil
                 return
             }
@@ -436,6 +520,19 @@ final class GainsViewModel {
             at: snapshot.lastUpdated,
             isQuotable: snapshot.isQuotable
         )
+
+        if let finalized = dailyRecordTracker.peekPendingFinalizedDay(for: personID) {
+            let outcome = await dayCloseSummaryNotificationService.deliverIfNeeded(
+                finalized: finalized,
+                personID: personID,
+                possessiveName: profile.possessiveName,
+                enabled: settings.notifyDayCloseSummary
+            )
+            // Keep pending on delivery failure so the same dayKey can retry (finalize won't re-queue).
+            if outcome != .failed {
+                _ = dailyRecordTracker.consumePendingFinalizedDay(for: personID)
+            }
+        }
 
         intradayGainSampleStore.append(
             personID: personID,
@@ -487,7 +584,8 @@ final class GainsViewModel {
     private func offMarketSleepInterval() -> TimeInterval {
         let now = dateProvider()
         if let nextOpen = marketHours.nextOpenDate(from: now) {
-            return max(nextOpen.timeIntervalSince(now), 60)
+            // Sleep until open (tiny epsilon only). A 60s floor delayed first RTH refresh.
+            return max(nextOpen.timeIntervalSince(now), 0.5)
         }
         return 300
     }

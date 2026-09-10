@@ -50,7 +50,7 @@ extension MarketHoursServiceProtocol {
     /// Default 16:00 ET close for mocks/stubs that do not model early closes.
     func regularCloseDate(on day: Date) -> Date? {
         var calendar = Calendar(identifier: .gregorian)
-        let timeZone = TimeZone(identifier: "America/New_York") ?? .current
+        let timeZone = EasternTimeZone.americaNewYork
         calendar.timeZone = timeZone
         var components = calendar.dateComponents([.year, .month, .day], from: day)
         components.hour = 16
@@ -90,9 +90,25 @@ struct MarketHoursService: MarketHoursServiceProtocol {
     private let calendar: Calendar
     private let timeZone: TimeZone
 
+    /// Last calendar year covered by `fullHolidays` / `earlyCloses`. Extend before year-end.
+    static let holidayTableThroughYear = 2028
+
+    /// True when the embedded holiday table covers `year` (and callers should extend before it expires).
+    static func holidayTableCovers(year: Int) -> Bool {
+        year <= holidayTableThroughYear
+    }
+
+    /// Highest calendar year present in embedded holiday / early-close keys.
+    /// Keep equal to `holidayTableThroughYear` when extending the tables.
+    static func holidayTableMaxKeyYear() -> Int {
+        let holidayYears = fullHolidays.compactMap { Int($0.prefix(4)) }
+        let earlyYears = earlyCloses.keys.compactMap { Int($0.prefix(4)) }
+        return (holidayYears + earlyYears).max() ?? 0
+    }
+
     init(
         calendar: Calendar = Calendar(identifier: .gregorian),
-        timeZone: TimeZone = TimeZone(identifier: "America/New_York") ?? .current
+        timeZone: TimeZone = EasternTimeZone.americaNewYork
     ) {
         var configured = calendar
         configured.timeZone = timeZone
@@ -225,19 +241,19 @@ struct MarketHoursService: MarketHoursServiceProtocol {
     }
 
     private func isHoliday(_ date: Date) -> Bool {
-        // Minimal set — extend as needed.
-        let holidays: Set<String> = [
-            "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03",
-            "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07",
-            "2026-11-26", "2026-12-25",
-            "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26",
-            "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
-            "2027-11-25", "2027-12-24",
-            "2028-01-17", "2028-02-21", "2028-04-14", "2028-05-29",
-            "2028-06-19", "2028-07-04", "2028-09-04", "2028-11-23",
-            "2028-12-25"
-        ]
-
-        return holidays.contains(dayKey(for: date))
+        Self.fullHolidays.contains(dayKey(for: date))
     }
+
+    /// NYSE full-holiday set for the years covered by `holidayTableThroughYear`.
+    private static let fullHolidays: Set<String> = [
+        "2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03",
+        "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07",
+        "2026-11-26", "2026-12-25",
+        "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26",
+        "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
+        "2027-11-25", "2027-12-24", "2027-12-31",
+        "2028-01-17", "2028-02-21", "2028-04-14", "2028-05-29",
+        "2028-06-19", "2028-07-04", "2028-09-04", "2028-11-23",
+        "2028-12-25"
+    ]
 }

@@ -2,9 +2,9 @@
 
 Guide for maintainers shipping builds to [GitHub Releases](https://github.com/jlgolson/muskometer/releases).
 
-## Primary path: unsigned DMG (current: v0.1.5)
+## Primary path: unsigned DMG (current: v0.1.6)
 
-**This is what we ship today.** No Apple Developer Program ($99) required. Examples below use **0.1.5**; substitute the version you are shipping.
+**This is what we ship today.** No Apple Developer Program ($99) required. Examples below use **0.1.6**; substitute the version you are shipping.
 
 ```bash
 ./scripts/package-dmg.sh
@@ -21,26 +21,26 @@ No signing or notarization. Tell users to **right-click → Open** on first laun
 
 ### Tag and publish
 
-1. Confirm `MARKETING_VERSION` matches the release (e.g. `0.1.5`) in the Xcode project / `Info.plist`.
+1. Confirm `MARKETING_VERSION` matches the release (e.g. `0.1.6`) in the Xcode project / `Info.plist`.
 2. Run `./scripts/package-dmg.sh`.
 3. Tag and push:
 
 ```bash
-git tag v0.1.5
-git push origin v0.1.5
+git tag v0.1.6
+git push origin v0.1.6
 ```
 
 4. Create the GitHub Release and attach the artifacts:
 
 ```bash
-gh release create v0.1.5 \
-  dist/Muskometer-0.1.5.dmg \
-  dist/Muskometer-0.1.5.zip \
-  --title "Muskometer 0.1.5" \
+gh release create v0.1.6 \
+  dist/Muskometer-0.1.6.dmg \
+  dist/Muskometer-0.1.6.zip \
+  --title "Muskometer 0.1.6" \
   --notes "See CHANGELOG.md. Unsigned DMG — right-click → Open on first launch."
 ```
 
-Or use the [New release](https://github.com/jlgolson/muskometer/releases/new) UI: choose tag `v0.1.5`, title **Muskometer 0.1.5**, attach `dist/Muskometer-0.1.5.dmg` (and optionally the `.zip`).
+Or use the [New release](https://github.com/jlgolson/muskometer/releases/new) UI: choose tag `v0.1.6`, title **Muskometer 0.1.6**, attach `dist/Muskometer-0.1.6.dmg` (and optionally the `.zip`).
 
 ---
 
@@ -54,7 +54,20 @@ The pipeline:
 2. **Export** as `developer-id`
 3. Package **`dist/Muskometer-<version>.dmg`** (drag-to-Applications layout) and a **`.zip`** fallback
 4. **Notarize** with `xcrun notarytool` and staple the ticket (recommended)
-5. **Upload** to a GitHub Release tagged `v<version>`
+5. **Upload** to a GitHub Release tagged `v<version>` (manually — CI still ships unsigned by default)
+
+### Preflight (no build)
+
+Checks Team ID resolution, Developer ID cert presence, and notarization credentials without archiving:
+
+```bash
+export APPLE_TEAM_ID=AB12CD34EF   # or Config/Release.xcconfig
+./scripts/release.sh --preflight
+```
+
+Exit `0` means signing is ready. Missing notary creds still exits `0` with a warning (package will sign but Gatekeeper may warn until you notarize). Missing Team ID or Developer ID cert exits non-zero.
+
+### Full signed release
 
 ```bash
 export APPLE_TEAM_ID=AB12CD34EF
@@ -63,6 +76,16 @@ export NOTARY_PROFILE=muskometer-notary   # after notarytool store-credentials
 ./scripts/release.sh
 ```
 
+Then publish (example — substitute the version printed by the script):
+
+```bash
+gh release create v0.1.6 \
+  dist/Muskometer-0.1.6.dmg \
+  dist/Muskometer-0.1.6.zip \
+  --title "Muskometer 0.1.6" \
+  --notes "Signed + notarized DMG — double-click to install."
+```
+If CI already created an unsigned release for the same tag, either attach signed assets alongside with clear notes, or use a distinct tag — do not silently replace CI checksums without updating the release body.
 ### One-time Apple setup
 
 #### 1. Enroll in the Apple Developer Program
@@ -143,6 +166,7 @@ export APPLE_TEAM_ID=AB12CD34EF
 | `APPLE_APP_SPECIFIC_PASSWORD` | No | App-specific password |
 | `NOTARIZE=0` | No | Skip notarization even if creds exist |
 
+CLI flags for `scripts/release.sh`: `--preflight` (alias `-n` / `--dry-run`) checks credentials without building; `--help` prints usage.
 Optional local config file (gitignored):
 
 ```bash
@@ -156,8 +180,8 @@ cp Config/Release.xcconfig.example Config/Release.xcconfig
 
 Update in Xcode or in `Muskometer.xcodeproj` / `Info.plist`:
 
-- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.5`)
-- `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `26`)
+- `MARKETING_VERSION` → `CFBundleShortVersionString` (e.g. `0.1.6`)
+- `CURRENT_PROJECT_VERSION` → `CFBundleVersion` (e.g. `27`)
 
 Commit the version bump before tagging.
 

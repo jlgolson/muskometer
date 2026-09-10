@@ -4,24 +4,34 @@ import UserNotifications
 final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     static var onTerminateHandler: (@MainActor () -> Void)?
     static var shareShortcutHandler: (@MainActor () -> Bool)?
+    static var menuBarDisplayModeCycleHandler: (@MainActor () -> Void)?
 
     private var shareShortcutController: ShareShortcutController?
+    private var menuBarDisplayModeCycleController: MenuBarDisplayModeCycleController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Keep delegate for foreground presentation / update tap handling.
         // Authorization is requested only when the user enables a feature that
         // needs notifications (gain thresholds or update notify).
         UNUserNotificationCenter.current().delegate = self
+        NotificationAuthorization.registerCategories()
 
-        guard let handler = Self.shareShortcutHandler else { return }
+        if let handler = Self.shareShortcutHandler {
+            let controller = ShareShortcutController(handler: handler)
+            controller.start()
+            shareShortcutController = controller
+        }
 
-        let controller = ShareShortcutController(handler: handler)
-        controller.start()
-        shareShortcutController = controller
+        if let cycleHandler = Self.menuBarDisplayModeCycleHandler {
+            let cycleController = MenuBarDisplayModeCycleController(handler: cycleHandler)
+            cycleController.start()
+            menuBarDisplayModeCycleController = cycleController
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         shareShortcutController?.stop()
+        menuBarDisplayModeCycleController?.stop()
 
         guard let handler = Self.onTerminateHandler else { return }
 
@@ -47,12 +57,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
-        let userInfo = response.notification.request.content.userInfo
-        guard let urlString = userInfo["releaseURL"] as? String,
-              let url = URL(string: urlString) else {
-            return
-        }
+        let content = response.notification.request.content
+        let destination = NotificationResponseRouter.destination(
+            actionIdentifier: response.actionIdentifier,
+            categoryIdentifier: content.categoryIdentifier,
+            userInfo: content.userInfo
+        )
 
-        NSWorkspace.shared.open(url)
+        switch destination {
+        case .openPopover:
+            _ = await MenuBarPopoverPresenter.openIfNeeded()
+        case .openURL(let url):
+            NSWorkspace.shared.open(url)
+        case .ignore:
+            break
+        }
     }
 }

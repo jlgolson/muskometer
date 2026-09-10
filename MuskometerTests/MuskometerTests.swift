@@ -143,6 +143,27 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertFalse(service.isMarketOpen(at: saturday))
     }
 
+    func testHolidayTableCoversCurrentAndNextYear() {
+        let year = Calendar(identifier: .gregorian).component(.year, from: Date())
+        XCTAssertTrue(
+            MarketHoursService.holidayTableCovers(year: year),
+            "NYSE holiday table must cover the current calendar year"
+        )
+        XCTAssertTrue(
+            MarketHoursService.holidayTableCovers(year: year + 1),
+            "NYSE holiday table should cover next year so year-end doesn't corrupt day state"
+        )
+        XCTAssertFalse(MarketHoursService.holidayTableCovers(year: MarketHoursService.holidayTableThroughYear + 1))
+    }
+
+    func testHolidayTableMaxKeyYearMatchesThroughYear() {
+        XCTAssertEqual(
+            MarketHoursService.holidayTableMaxKeyYear(),
+            MarketHoursService.holidayTableThroughYear,
+            "When extending NYSE holidays, bump holidayTableThroughYear to match the newest key year"
+        )
+    }
+
     func testHolidayIsClosed() throws {
         var components = DateComponents()
         components.year = 2026
@@ -203,9 +224,12 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertTrue(service.isMarketOpen(at: nextDay))
     }
 
-    func test2028HasNoObservedNewYearsClose() throws {
+    func test2028ObservedNewYearsCloseIsDec31_2027() throws {
+        // Jan 1 2028 is Saturday → NYSE observes New Year’s on Fri Dec 31 2027.
+        let observedClose = try EasternTestDates.date(year: 2027, month: 12, day: 31, hour: 11)
         let jan3 = try EasternTestDates.date(year: 2028, month: 1, day: 3, hour: 11)
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
+        XCTAssertFalse(service.isMarketOpen(at: observedClose))
         XCTAssertTrue(service.isMarketOpen(at: jan3))
     }
 
@@ -1120,6 +1144,42 @@ final class IssuerSharesOutstandingTests: XCTestCase {
         XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
         XCTAssertEqual(settings.sharesOutstanding(for: "SPCX"), IssuerSharesOutstanding.defaultSPCX)
         XCTAssertEqual(settings.sharesOutstanding(for: "UNKNOWN"), 0)
+        XCTAssertEqual(settings.outstandingProvenance(for: "TSLA"), .bundledDefault)
+        XCTAssertTrue(settings.outstandingProvenanceCaption(for: "TSLA").contains("bundled default"))
+        XCTAssertTrue(settings.outstandingProvenanceCaption(for: "TSLA").contains("2026-07-16"))
+    }
+
+    func testCompanyfactsProvenancePersistsAsOf() {
+        let (settings, defaults) = makeSettings()
+        settings.setSharesOutstanding(
+            4_111_000_000,
+            for: "TSLA",
+            provenance: .companyfacts(periodEnd: "2026-09-01", filed: "2026-09-05")
+        )
+        XCTAssertEqual(
+            settings.outstandingProvenance(for: "TSLA"),
+            .companyfacts(periodEnd: "2026-09-01", filed: "2026-09-05")
+        )
+        XCTAssertTrue(settings.outstandingProvenanceCaption(for: "TSLA").contains("SEC companyfacts"))
+        XCTAssertTrue(settings.outstandingProvenanceCaption(for: "TSLA").contains("2026-09-01"))
+
+        let reloaded = AppSettings(defaults: defaults)
+        XCTAssertEqual(
+            reloaded.outstandingProvenance(for: "TSLA"),
+            .companyfacts(periodEnd: "2026-09-01", filed: "2026-09-05")
+        )
+    }
+
+    func testResetToDefaultsRestoresBundledProvenance() {
+        let (settings, _) = makeSettings()
+        settings.setSharesOutstanding(
+            9_999_999_999,
+            for: "TSLA",
+            provenance: .companyfacts(periodEnd: "2026-09-01", filed: "2026-09-05")
+        )
+        settings.resetToDefaults()
+        XCTAssertEqual(settings.outstandingProvenance(for: "TSLA"), .bundledDefault)
+        XCTAssertEqual(settings.sharesOutstanding(for: "TSLA"), IssuerSharesOutstanding.defaultTSLA)
     }
 
     func testSetGetRoundTripIndependentOfShareCount() {
@@ -1416,6 +1476,10 @@ final class CompanyFactsOutstandingResolverTests: XCTestCase {
             CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data(json)),
             3_949_547_394
         )
+        let fact = try? XCTUnwrap(CompanyFactsOutstandingResolver.resolve(from: data(json)))
+        XCTAssertEqual(fact?.shares, 3_949_547_394)
+        XCTAssertEqual(fact?.periodEnd, "2026-07-16")
+        XCTAssertEqual(fact?.filed, "2026-07-23")
     }
 
     func testMultiMemberSameEndFiledSums() {
@@ -1692,13 +1756,19 @@ final class GainsViewModelIssuerOutstandingSyncTests: XCTestCase {
 
 private final class MockIssuerOutstandingSyncService: IssuerOutstandingSyncServiceProtocol, @unchecked Sendable {
     private(set) var callCount = 0
-    private let result: [String: Int64]
+    private let result: [String: IssuerOutstandingFact]
 
     init(result: [String: Int64]) {
-        self.result = result
+        self.result = result.mapValues { shares in
+            IssuerOutstandingFact(shares: shares, periodEnd: "2026-01-01", filed: "2026-01-02")
+        }
     }
 
-    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: Int64] {
+    init(facts: [String: IssuerOutstandingFact]) {
+        self.result = facts
+    }
+
+    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: IssuerOutstandingFact] {
         callCount += 1
         return result
     }
@@ -2787,7 +2857,18 @@ final class GainsViewModelCopyShareTests: XCTestCase {
         XCTAssertTrue(viewModel.copyShareToPasteboard())
         XCTAssertEqual(
             NSPasteboard.general.string(forType: .string),
+            GainSummaryFormatter.format(snapshot, parity: viewModel.mergerParityPresentation)
+        )
+
+        settings.showMergerParityCard = false
+        XCTAssertTrue(viewModel.copyShareToPasteboard())
+        XCTAssertEqual(
+            NSPasteboard.general.string(forType: .string),
             GainSummaryFormatter.format(snapshot)
+        )
+        XCTAssertFalse(
+            (NSPasteboard.general.string(forType: .string) ?? "")
+                .contains("If Tesla had SpaceX's market cap")
         )
     }
 }
@@ -2832,6 +2913,22 @@ final class ShareImageExporterTests: XCTestCase {
         XCTAssertGreaterThan(png?.count ?? 0, 1_000)
     }
 
+    func testRendersLargerPNGWhenParityIncluded() {
+        let snapshot = sampleSnapshot()
+        let parity = MergerMarketCapParity.presentation(
+            tslaPrice: 342,
+            spcxPrice: 28.5,
+            tslaOutstanding: 3_200_000_000,
+            spcxOutstanding: 6_068_734_060
+        )
+        let without = ShareImageExporter.renderPNGData(snapshot: snapshot, profile: .musk)
+        let with = ShareImageExporter.renderPNGData(snapshot: snapshot, profile: .musk, parity: parity)
+
+        XCTAssertNotNil(without)
+        XCTAssertNotNil(with)
+        XCTAssertGreaterThan(with?.count ?? 0, without?.count ?? 0)
+    }
+
     func testCopiesTextSummaryToPasteboard() {
         let snapshot = sampleSnapshot()
 
@@ -2842,6 +2939,40 @@ final class ShareImageExporterTests: XCTestCase {
             NSPasteboard.general.string(forType: .string),
             GainSummaryFormatter.format(snapshot)
         )
+    }
+
+    func testShareItemsTextContainsSummary() {
+        let snapshot = sampleSnapshot()
+        let items = ShareImageExporter.shareItems(snapshot: snapshot, profile: .musk, format: .text)
+        XCTAssertEqual(items.count, 1)
+        XCTAssertEqual(items.first as? String, GainSummaryFormatter.format(snapshot))
+    }
+
+    func testShareItemsImageReturnsNSImage() {
+        let items = ShareImageExporter.shareItems(snapshot: sampleSnapshot(), profile: .musk, format: .image)
+        XCTAssertEqual(items.count, 1)
+        XCTAssertTrue(items.first is NSImage)
+    }
+
+    func testCopiesTextSummaryWithParityPunchline() {
+        let snapshot = sampleSnapshot()
+        let parity = MergerParityPresentation(
+            impliedTSLAPrice: 1_250.40,
+            tslaMarketCap: 1_100_000_000_000,
+            spcxMarketCap: 1_400_000_000_000
+        )
+
+        XCTAssertTrue(
+            ShareImageExporter.copyToPasteboard(
+                snapshot: snapshot,
+                profile: .musk,
+                format: .text,
+                parity: parity
+            )
+        )
+        let text = NSPasteboard.general.string(forType: .string) ?? ""
+        XCTAssertTrue(text.contains("If Tesla had SpaceX's market cap"))
+        XCTAssertTrue(text.contains(CurrencyFormatter.formatPrice(parity.impliedTSLAPrice)))
     }
 }
 
@@ -3679,6 +3810,53 @@ final class DailyRecordTrackerTests: XCTestCase {
         XCTAssertNil(snapshot.bestRecord)
         XCTAssertNil(snapshot.worstRecord)
     }
+
+    func testPeekPendingSurvivesFailedDeliveryUntilConsume() throws {
+        let tracker = makeTracker()
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+
+        _ = tracker.update(personID: "musk", paperGain: 5_000_000_000, at: midday, isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 5_000_000_000, at: afterClose, isQuotable: false)
+
+        let peeked = tracker.peekPendingFinalizedDay(for: "musk")
+        XCTAssertEqual(peeked?.dayKey, "2026-06-30")
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+
+        // Simulate delivery failure: leave pending; same day cannot re-finalize.
+        _ = tracker.update(personID: "musk", paperGain: 5_000_000_000, at: afterClose.addingTimeInterval(60), isQuotable: false)
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+
+        let consumed = try XCTUnwrap(tracker.consumePendingFinalizedDay(for: "musk"))
+        XCTAssertEqual(consumed.dayKey, "2026-06-30")
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+
+        // Manual restore after mistaken consume — finalize won't re-queue the same dayKey.
+        tracker.restorePendingFinalizedDay(consumed, for: "musk")
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+    }
+
+    func testPendingFinalizedDaySurvivesRelaunchUntilConsume() throws {
+        let suiteName = "MuskometerTests-pending-relaunch-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let tracker1 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        _ = tracker1.update(personID: "musk", paperGain: 5_000_000_000, at: midday, isQuotable: true)
+        _ = tracker1.update(personID: "musk", paperGain: 5_000_000_000, at: afterClose, isQuotable: false)
+        XCTAssertEqual(tracker1.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+
+        // New tracker instance = process relaunch with same UserDefaults.
+        let tracker2 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        XCTAssertEqual(tracker2.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+        XCTAssertEqual(tracker2.peekPendingFinalizedDay(for: "musk")?.closeGain, 5_000_000_000)
+
+        _ = tracker2.consumePendingFinalizedDay(for: "musk")
+        let tracker3 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        XCTAssertNil(tracker3.peekPendingFinalizedDay(for: "musk"))
+    }
 }
 
 final class GainNotificationThresholdTests: XCTestCase {
@@ -3756,6 +3934,74 @@ final class GainThresholdNotificationServiceTests: XCTestCase {
         XCTAssertEqual(events.first?.threshold.id, "gain-10b")
         XCTAssertEqual(deliverer.requests.count, 1)
         XCTAssertTrue(deliverer.requests.first?.content.title.contains("+$10B") ?? false)
+        XCTAssertEqual(
+            deliverer.requests.first?.content.categoryIdentifier,
+            NotificationAuthorization.gainThresholdCategoryID
+        )
+        XCTAssertEqual(
+            deliverer.requests.first?.content.userInfo[NotificationAuthorization.notificationKindKey] as? String,
+            NotificationAuthorization.gainThresholdKind
+        )
+        XCTAssertEqual(
+            deliverer.requests.first?.identifier,
+            "gain-threshold-gain-10b-\(easternCalendar.dayKey(for: date))"
+        )
+    }
+
+    func testKeepsArmedWhenDeliveryFailsThenRetries() async throws {
+        final class FailingThenSucceedingDeliverer: GainThresholdNotificationDelivering, @unchecked Sendable {
+            private(set) var attempts = 0
+            private(set) var requests: [UNNotificationRequest] = []
+
+            func add(_ request: UNNotificationRequest) async throws {
+                attempts += 1
+                if attempts == 1 {
+                    throw URLError(.notConnectedToInternet)
+                }
+                requests.append(request)
+            }
+        }
+
+        let deliverer = FailingThenSucceedingDeliverer()
+        let suiteName = "MuskometerTests-gain-notify-fail-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let service = GainThresholdNotificationService(
+            defaults: defaults,
+            calendar: easternCalendar,
+            deliverer: deliverer
+        )
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        let date = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+
+        _ = await service.processUpdate(
+            paperGain: 9_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date,
+            isQuotable: true
+        )
+        let failed = await service.processUpdate(
+            paperGain: 11_000_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(60),
+            isQuotable: true
+        )
+        XCTAssertTrue(failed.isEmpty)
+        XCTAssertEqual(deliverer.attempts, 1)
+        XCTAssertTrue(deliverer.requests.isEmpty)
+
+        // Still above threshold — should retry while armed.
+        let retried = await service.processUpdate(
+            paperGain: 11_500_000_000,
+            personID: "musk",
+            possessiveName: "Elon's",
+            at: date.addingTimeInterval(120),
+            isQuotable: true
+        )
+        XCTAssertEqual(retried.count, 1)
+        XCTAssertEqual(deliverer.requests.count, 1)
     }
 
     func testDoesNotFireWhenMarketClosed() async throws {
@@ -3947,6 +4193,468 @@ final class NetWorthMilestoneTrackerTests: XCTestCase {
 
         XCTAssertEqual(tracker.currentZone(for: "musk"), .aboveOneTrillion)
         XCTAssertEqual(tracker.currentZone(for: "other"), .belowOneTrillion)
+    }
+}
+
+
+@MainActor
+final class DayCloseSummaryNotificationServiceTests: XCTestCase {
+    private final class MockDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+        private(set) var requests: [UNNotificationRequest] = []
+        func add(_ request: UNNotificationRequest) async throws {
+            requests.append(request)
+        }
+    }
+
+    func testDeliversOncePerDayWhenEnabled() async {
+        let suite = "MuskometerTests-day-close-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let deliverer = MockDeliverer()
+        let service = DayCloseSummaryNotificationService(defaults: defaults, deliverer: deliverer)
+        let finalized = DailyRecordTracker.FinalizedTradingDay(
+            dayKey: "2026-06-30",
+            closeGain: 1_000_000_000,
+            peak: 2_000_000_000,
+            trough: -500_000_000,
+            date: Date()
+        )
+
+        let disabled = await service.deliverIfNeeded(finalized: finalized, personID: "musk", possessiveName: "Elon's", enabled: false)
+        XCTAssertEqual(disabled, .skipped)
+        XCTAssertTrue(deliverer.requests.isEmpty)
+
+        let delivered = await service.deliverIfNeeded(finalized: finalized, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(delivered, .delivered)
+        XCTAssertEqual(deliverer.requests.count, 1)
+        XCTAssertEqual(deliverer.requests.first?.content.categoryIdentifier, NotificationAuthorization.dayCloseCategoryID)
+
+        let duplicate = await service.deliverIfNeeded(finalized: finalized, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(duplicate, .skipped)
+        XCTAssertEqual(deliverer.requests.count, 1)
+    }
+
+    func testKeepsPendingRetryWhenDeliveryFailsThenSucceeds() async {
+        final class FailingThenSucceedingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+            private(set) var attempts = 0
+            private(set) var requests: [UNNotificationRequest] = []
+
+            func add(_ request: UNNotificationRequest) async throws {
+                attempts += 1
+                if attempts == 1 {
+                    throw URLError(.notConnectedToInternet)
+                }
+                requests.append(request)
+            }
+        }
+
+        let suite = "MuskometerTests-day-close-fail-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let deliverer = FailingThenSucceedingDeliverer()
+        let service = DayCloseSummaryNotificationService(defaults: defaults, deliverer: deliverer)
+        let finalized = DailyRecordTracker.FinalizedTradingDay(
+            dayKey: "2026-06-30",
+            closeGain: 1_000_000_000,
+            peak: 2_000_000_000,
+            trough: -500_000_000,
+            date: Date()
+        )
+
+        let failed = await service.deliverIfNeeded(
+            finalized: finalized,
+            personID: "musk",
+            possessiveName: "Elon's",
+            enabled: true
+        )
+        XCTAssertEqual(failed, .failed)
+        XCTAssertEqual(deliverer.attempts, 1)
+        XCTAssertTrue(deliverer.requests.isEmpty)
+
+        let retried = await service.deliverIfNeeded(
+            finalized: finalized,
+            personID: "musk",
+            possessiveName: "Elon's",
+            enabled: true
+        )
+        XCTAssertEqual(retried, .delivered)
+        XCTAssertEqual(deliverer.attempts, 2)
+        XCTAssertEqual(deliverer.requests.count, 1)
+    }
+
+    func testConcurrentDeliverIfNeededPostsOnlyOnce() async {
+        final class SuspendingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+            private let lock = NSLock()
+            private var addCount = 0
+            private var resumeContinuation: CheckedContinuation<Void, Never>?
+            private var enteredContinuation: CheckedContinuation<Void, Never>?
+
+            var currentAddCount: Int {
+                lock.lock()
+                defer { lock.unlock() }
+                return addCount
+            }
+
+            func waitUntilAddEntered() async {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    lock.lock()
+                    if addCount > 0 {
+                        lock.unlock()
+                        continuation.resume()
+                    } else {
+                        enteredContinuation = continuation
+                        lock.unlock()
+                    }
+                }
+            }
+
+            func resumeAdd() {
+                lock.lock()
+                let cont = resumeContinuation
+                resumeContinuation = nil
+                lock.unlock()
+                cont?.resume()
+            }
+
+            func add(_ request: UNNotificationRequest) async throws {
+                // Store resume continuation before signaling entry so resumeAdd cannot race ahead.
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    lock.lock()
+                    addCount += 1
+                    resumeContinuation = continuation
+                    let entered = enteredContinuation
+                    enteredContinuation = nil
+                    lock.unlock()
+                    entered?.resume()
+                }
+            }
+        }
+
+        let suite = "MuskometerTests-day-close-reentrant-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let deliverer = SuspendingDeliverer()
+        let service = DayCloseSummaryNotificationService(defaults: defaults, deliverer: deliverer)
+        let finalized = DailyRecordTracker.FinalizedTradingDay(
+            dayKey: "2026-06-30",
+            closeGain: 1_000_000_000,
+            peak: 2_000_000_000,
+            trough: -500_000_000,
+            date: Date()
+        )
+
+        async let first = service.deliverIfNeeded(
+            finalized: finalized,
+            personID: "musk",
+            possessiveName: "Elon's",
+            enabled: true
+        )
+        await deliverer.waitUntilAddEntered()
+
+        let second = await service.deliverIfNeeded(
+            finalized: finalized,
+            personID: "musk",
+            possessiveName: "Elon's",
+            enabled: true
+        )
+        XCTAssertEqual(second, .skipped)
+        XCTAssertEqual(deliverer.currentAddCount, 1)
+
+        deliverer.resumeAdd()
+        let firstOutcome = await first
+        XCTAssertEqual(firstOutcome, .delivered)
+        XCTAssertEqual(deliverer.currentAddCount, 1)
+    }
+}
+
+@MainActor
+final class GainsViewModelDayCloseNotificationTests: XCTestCase {
+    private final class SucceedingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+        private(set) var requests: [UNNotificationRequest] = []
+        func add(_ request: UNNotificationRequest) async throws {
+            requests.append(request)
+        }
+    }
+
+    private final class FailingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+        private(set) var attempts = 0
+        func add(_ request: UNNotificationRequest) async throws {
+            attempts += 1
+            throw URLError(.notConnectedToInternet)
+        }
+    }
+
+    private func quotes(producingCombinedGain gain: Double) -> [StockQuote] {
+        let tslaShares = 100.0
+        let tslaDelta = gain / tslaShares
+        return [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 100 + tslaDelta,
+                previousClose: 100,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 50,
+                previousClose: 50,
+                currency: "USD"
+            ),
+        ]
+    }
+
+    private func makeViewModel(
+        deliverer: any DayCloseSummaryNotificationDelivering,
+        notifyEnabled: Bool,
+        dateProvider: @escaping () -> Date
+    ) -> (GainsViewModel, DailyRecordTracker) {
+        let suite = "MuskometerTests-gains-day-close-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+        settings.notifyDayCloseSummary = notifyEnabled
+
+        let calendar = EasternTestDates.calendar()
+        let marketHours = MarketHoursService(calendar: calendar, timeZone: EasternTestDates.eastern)
+        let tradingCalendar = TradingDayCalendar(calendar: calendar, timeZone: EasternTestDates.eastern)
+        let tracker = DailyRecordTracker(
+            defaults: defaults,
+            calendar: tradingCalendar,
+            marketHours: marketHours
+        )
+        let dayCloseService = DayCloseSummaryNotificationService(defaults: defaults, deliverer: deliverer)
+
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes(producingCombinedGain: 5_000_000_000)),
+            marketHours: marketHours,
+            dailyRecordTracker: tracker,
+            dayCloseSummaryNotificationService: dayCloseService,
+            dateProvider: dateProvider
+        )
+        return (viewModel, tracker)
+    }
+
+    func testFailedDayCloseDeliveryKeepsPending() async throws {
+        var now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let deliverer = FailingDeliverer()
+        let (viewModel, tracker) = makeViewModel(
+            deliverer: deliverer,
+            notifyEnabled: true,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+
+        now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        await viewModel.refresh(force: true)
+
+        XCTAssertEqual(deliverer.attempts, 1)
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.closeGain, 5_000_000_000)
+    }
+
+    func testSuccessfulDayCloseDeliveryConsumesPending() async throws {
+        var now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let deliverer = SucceedingDeliverer()
+        let (viewModel, tracker) = makeViewModel(
+            deliverer: deliverer,
+            notifyEnabled: true,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+
+        now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        await viewModel.refresh(force: true)
+
+        XCTAssertEqual(deliverer.requests.count, 1)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+    }
+
+    func testSkippedDayCloseDeliveryConsumesPending() async throws {
+        var now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let deliverer = SucceedingDeliverer()
+        let (viewModel, tracker) = makeViewModel(
+            deliverer: deliverer,
+            notifyEnabled: false,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        await viewModel.refresh(force: true)
+
+        XCTAssertTrue(deliverer.requests.isEmpty)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+    }
+}
+
+
+final class OwnershipChangeToastTests: XCTestCase {
+    @MainActor
+    func testOwnershipChangeToastFormatsDeltas() {
+        let message = GainsViewModel.ownershipChangeToast(
+            prior: ["TSLA": 100, "SPCX": 200],
+            current: ["TSLA": 150, "SPCX": 200]
+        )
+        XCTAssertEqual(message, "Ownership updated: TSLA 100 → 150")
+    }
+
+    @MainActor
+    func testOwnershipChangeToastNilWhenUnchanged() {
+        XCTAssertNil(
+            GainsViewModel.ownershipChangeToast(
+                prior: ["TSLA": 100],
+                current: ["TSLA": 100]
+            )
+        )
+    }
+}
+
+final class MenuBarDisplayModeCycleTests: XCTestCase {
+    func testNextCyclesThroughAllCasesInOrder() {
+        var mode = MenuBarDisplayMode.allCases[0]
+        var seen: [MenuBarDisplayMode] = [mode]
+        for _ in 1..<MenuBarDisplayMode.allCases.count {
+            mode = mode.next
+            seen.append(mode)
+        }
+        XCTAssertEqual(seen, MenuBarDisplayMode.allCases)
+        XCTAssertEqual(mode.next, MenuBarDisplayMode.allCases[0])
+    }
+
+    @MainActor
+    func testCycleMenuBarDisplayModePersists() {
+        let suite = "MuskometerTests-menuBarCycle-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let settings = AppSettings(defaults: defaults)
+        XCTAssertEqual(settings.menuBarDisplayMode, .combinedDollars)
+        settings.cycleMenuBarDisplayMode()
+        XCTAssertEqual(settings.menuBarDisplayMode, .combinedPercent)
+        XCTAssertEqual(defaults.string(forKey: "menuBarDisplayMode"), MenuBarDisplayMode.combinedPercent.rawValue)
+    }
+}
+
+final class NotificationResponseRouterTests: XCTestCase {
+    func testGainThresholdTapOpensPopover() {
+        let destination = NotificationResponseRouter.destination(
+            actionIdentifier: UNNotificationDefaultActionIdentifier,
+            categoryIdentifier: NotificationAuthorization.gainThresholdCategoryID,
+            userInfo: [
+                NotificationAuthorization.notificationKindKey: NotificationAuthorization.gainThresholdKind
+            ]
+        )
+        XCTAssertEqual(destination, .openPopover)
+    }
+
+    func testDayCloseTapOpensPopover() {
+        let destination = NotificationResponseRouter.destination(
+            actionIdentifier: UNNotificationDefaultActionIdentifier,
+            categoryIdentifier: NotificationAuthorization.dayCloseCategoryID,
+            userInfo: [
+                NotificationAuthorization.notificationKindKey: NotificationAuthorization.dayCloseKind
+            ]
+        )
+        XCTAssertEqual(destination, .openPopover)
+    }
+
+    func testUpdateTapOpensTrustedReleaseURL() {
+        let url = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v1.0.0")!
+        let destination = NotificationResponseRouter.destination(
+            actionIdentifier: UNNotificationDefaultActionIdentifier,
+            categoryIdentifier: NotificationAuthorization.updateCategoryID,
+            userInfo: ["releaseURL": url.absoluteString]
+        )
+        XCTAssertEqual(destination, .openURL(url))
+    }
+
+    func testUntrustedReleaseURLIsIgnored() {
+        let destination = NotificationResponseRouter.destination(
+            actionIdentifier: UNNotificationDefaultActionIdentifier,
+            categoryIdentifier: NotificationAuthorization.updateCategoryID,
+            userInfo: ["releaseURL": "https://github.com/jlgolson/muskometer/releases/../../evil"]
+        )
+        XCTAssertEqual(destination, .ignore)
+    }
+
+    func testDismissActionIsIgnored() {
+        let destination = NotificationResponseRouter.destination(
+            actionIdentifier: UNNotificationDismissActionIdentifier,
+            categoryIdentifier: NotificationAuthorization.gainThresholdCategoryID,
+            userInfo: [
+                NotificationAuthorization.notificationKindKey: NotificationAuthorization.gainThresholdKind
+            ]
+        )
+        XCTAssertEqual(destination, .ignore)
+    }
+}
+
+@MainActor
+final class MenuBarDisplayModeCycleMatcherTests: XCTestCase {
+    func testOptionClickOnStatusBarWindowShouldCycle() {
+        XCTAssertTrue(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: .option,
+                windowClassName: "NSStatusBarWindow"
+            )
+        )
+        XCTAssertTrue(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: .option,
+                windowClassName: "NSStatusItemWindow"
+            )
+        )
+    }
+
+    func testRejectsCommandOptionShiftAndPlainClick() {
+        XCTAssertFalse(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: [.option, .command],
+                windowClassName: "NSStatusBarWindow"
+            )
+        )
+        XCTAssertFalse(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: [.option, .shift],
+                windowClassName: "NSStatusBarWindow"
+            )
+        )
+        XCTAssertFalse(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: .shift,
+                windowClassName: "NSStatusBarWindow"
+            )
+        )
+        XCTAssertFalse(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: [],
+                windowClassName: "NSStatusBarWindow"
+            )
+        )
+    }
+
+    func testNilOrOrdinaryWindowDoesNotCycle() {
+        XCTAssertFalse(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: .option,
+                windowClassName: nil
+            )
+        )
+        XCTAssertFalse(
+            MenuBarDisplayModeCycleMatcher.shouldCycle(
+                modifierFlags: .option,
+                windowClassName: "NSWindow"
+            )
+        )
     }
 }
 
@@ -4457,7 +5165,6 @@ final class UpdateCoordinatorTests: XCTestCase {
 
         let settings = AppSettings(defaults: defaults)
         settings.notifyOfAvailableUpdates = true
-        settings.updateDeliveryMode = .notifyOnly
 
         let deliverer = MockUpdateNotificationDeliverer()
         let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
@@ -4522,45 +5229,63 @@ final class UpdateCoordinatorTests: XCTestCase {
         )
     }
 
-    /// Automatic delivery must not use the Sparkle no-op stub (always nil),
-    /// which would falsely report "you're on the latest."
-    func testAutomaticModeFallsBackToGitHubChecker() async {
-        let suiteName = "MuskometerTests-update-automatic-\(UUID().uuidString)"
+    func testIgnoresUntrustedReleasePageURL() async {
+        let suiteName = "MuskometerTests-update-untrusted-\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
 
         let settings = AppSettings(defaults: defaults)
         settings.notifyOfAvailableUpdates = true
-        settings.updateDeliveryMode = .automatic
 
         let deliverer = MockUpdateNotificationDeliverer()
-        let releaseURL = URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
-        let githubChecker = MockUpdateChecker(result: UpdateCheckResult(
-            availableVersion: "0.2.0",
-            releasePageURL: releaseURL,
-            publishedAt: nil
-        ))
-        // Sparkle stub / empty checker would return nil and lie about "latest".
-        let sparkleDriver = MockUpdateChecker(result: nil)
-
-        let coordinator = UpdateCoordinator(
-            settings: settings,
+        let evilURL = URL(string: "https://evil.example/phish")!
+        let coordinator = makeCoordinator(
             defaults: defaults,
-            notificationDeliverer: deliverer,
-            githubChecker: githubChecker,
-            sparkleDriver: sparkleDriver
+            settings: settings,
+            checkerResult: UpdateCheckResult(
+                availableVersion: "0.2.0",
+                releasePageURL: evilURL,
+                publishedAt: nil
+            ),
+            deliverer: deliverer
         )
 
         coordinator.checkNow()
         try? await Task.sleep(for: .milliseconds(200))
 
         XCTAssertEqual(coordinator.availableUpdate?.availableVersion, "0.2.0")
-        XCTAssertEqual(coordinator.manualCheckSummary, "Version 0.2.0 is available.")
+        XCTAssertTrue(deliverer.addedRequests.isEmpty)
+        XCTAssertFalse(AppURLs.isTrustedReleasePageURL(evilURL))
         XCTAssertFalse(
-            coordinator.manualCheckSummary?.contains("latest version") ?? true,
-            "Automatic mode must not report up-to-date when GitHub has a newer release"
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/../../evil")!
+            )
         )
-        XCTAssertEqual(deliverer.addedRequests.count, 1)
+        XCTAssertFalse(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases")!
+            )
+        )
+        XCTAssertFalse(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/download/v0.2.0/app.zip")!
+            )
+        )
+        XCTAssertTrue(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/latest")!
+            )
+        )
+        XCTAssertTrue(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+            )
+        )
+        XCTAssertTrue(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v1.0.0")!
+            )
+        )
     }
 }
 

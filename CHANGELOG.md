@@ -6,6 +6,35 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-09-09
+
+macOS 26 / Liquid Glass hygiene, menu-bar UX polish, share + notification features, and dead-code cleanup.
+
+### Added
+
+- **⌥-click menu-bar cycle** — advance display mode without opening Settings
+- **Share parity punchline** — merger card line on image/text share when parity is enabled
+- **Gain-alert tap → popover** — threshold notifications open/focus the menu bar window
+- **System Share sheet** — Share… beside Copy (`NSSharingServicePicker`)
+- **Opt-in day-close summary** — once-per-day paper P&L notification (default off)
+- **Outstanding provenance** — bundled default vs SEC companyfacts · as of on parity + Holdings
+- **Form 4 ownership toast** — popover delta when SEC sync changes counts; sellable-ownership footnote
+- **Stale-data banner** — last-good-quotes affordance beyond menu-bar dimming
+- **Signed release preflight** — `scripts/release.sh --preflight` + docs for notarized DMG path
+
+### Changed
+
+- **Deployment** — macOS **26.0**; Liquid Glass cards via `MuskometerGlass`
+- **Networking** — ephemeral no-cache session helper
+- **App icon** — full-bleed real PNGs; Icon Composer pipeline notes in `design/README.md`
+- **Holiday guard** — `holidayTableMaxKeyYear` must match `holidayTableThroughYear`
+- **Version** — marketing **0.1.6**, build **27**
+
+### Removed
+
+- Sparkle stub / automatic update delivery mode
+- Marshal plan/spec archaeology under `docs/marshal/`
+
 ## [0.1.5] - 2026-08-17
 
 Sellable ownership seeds, Cursor outstanding bump, 2028 NYSE calendar, comparison-caption removal, marketing surface refresh.

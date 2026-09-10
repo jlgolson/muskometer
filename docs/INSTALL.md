@@ -7,7 +7,7 @@
 3. Open the DMG and drag **Muskometer** into **Applications**.
 4. Eject the disk image.
 
-**Requirements:** macOS 14.0 (Sonoma) or later, internet access (Yahoo Finance + SEC EDGAR).
+**Requirements:** macOS 26.0 or later, internet access (Yahoo Finance + SEC EDGAR).
 
 ## First launch (Gatekeeper)
 

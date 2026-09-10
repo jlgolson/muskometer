@@ -12,7 +12,7 @@ struct GainSparklineView: View {
     var body: some View {
         Group {
             if samples.isEmpty {
-                Color.clear
+                EmptyView()
             } else {
                 Canvas { context, size in
                     Self.draw(
@@ -23,22 +23,22 @@ struct GainSparklineView: View {
                         in: &context
                     )
                 }
+                .frame(height: height)
+                .accessibilityLabel(accessibilityLabel)
             }
         }
-        .frame(height: height)
-        .accessibilityLabel(accessibilityLabel)
     }
 
     private var accessibilityLabel: String {
         guard let last = samples.last?.combinedPaperGain else {
             return "Intraday gain sparkline"
         }
-        return "Intraday gain sparkline, current \(CurrencyFormatter.formatCurrency(last))"
+        let side = last >= 0 ? "above" : "below"
+        return "Intraday gain sparkline, \(side) breakeven, current \(CurrencyFormatter.formatCurrency(last))"
     }
 }
 
-private struct SparklineSegment: Identifiable {
-    let id = UUID()
+private struct SparklineSegment {
     let points: [GainSample]
     let isPositive: Bool
 }

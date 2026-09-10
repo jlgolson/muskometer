@@ -12,9 +12,14 @@ struct MenuBarLabelView: View {
     var body: some View {
         HStack(spacing: 4) {
             if settings.showMenuBarIcon {
-                Image(systemName: "chart.line.uptrend.xyaxis")
+                Image(systemName: viewModel.hasStaleData ? "exclamationmark.triangle.fill" : "chart.line.uptrend.xyaxis")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(viewModel.hasStaleData ? Color.orange : .secondary)
+                    .accessibilityHidden(true)
+            } else if viewModel.hasStaleData {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.orange)
                     .accessibilityHidden(true)
             }
 
@@ -38,6 +43,10 @@ struct MenuBarLabelView: View {
         .help(viewModel.menuBarTooltip)
         .accessibilityLabel("Muskometer daily gain or loss")
         .accessibilityValue(displayText)
+        .accessibilityHint("Option-click to cycle menu bar display mode")
+        .accessibilityAction(named: "Cycle display mode") {
+            settings.cycleMenuBarDisplayMode()
+        }
         .id(settings.menuBarLabelEpoch)
         .onAppear { viewModel.start() }
     }

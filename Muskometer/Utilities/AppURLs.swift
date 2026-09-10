@@ -8,4 +8,33 @@ enum AppURLs {
     static let author = URL(string: "https://jordangolson.com")!
     static let contact = URL(string: "mailto:info@muskometer.org")!
     static let releasesLatest = URL(string: "https://github.com/jlgolson/muskometer/releases/latest")!
+
+    /// Only open release links that point at this repo's GitHub release pages.
+    static func isTrustedReleasePageURL(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(), scheme == "https" else { return false }
+        guard let host = url.host?.lowercased(), host == "github.com" else { return false }
+
+        // Reject `.` / `..` / empty segments before any prefix check (path traversal).
+        let segments = url.pathComponents.filter { $0 != "/" }
+        guard !segments.isEmpty,
+              segments.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            return false
+        }
+        guard segments.count >= 3,
+              segments[0].caseInsensitiveCompare("jlgolson") == .orderedSame,
+              segments[1].caseInsensitiveCompare("muskometer") == .orderedSame,
+              segments[2].caseInsensitiveCompare("releases") == .orderedSame else {
+            return false
+        }
+        // Allow only release pages: /releases/latest or /releases/tag/<tag>
+        // (reject bare /releases, /releases/download/..., extra segments, empty tag).
+        guard segments.count >= 4 else { return false }
+        if segments[3].caseInsensitiveCompare("latest") == .orderedSame {
+            return segments.count == 4
+        }
+        if segments[3].caseInsensitiveCompare("tag") == .orderedSame {
+            return segments.count == 5 && !segments[4].isEmpty
+        }
+        return false
+    }
 }

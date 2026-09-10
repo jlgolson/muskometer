@@ -45,10 +45,7 @@ struct StockRowView: View {
             }
         }
         .padding(12)
-        .background {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
-        }
+        .muskometerGlassCard(cornerRadius: MuskometerGlass.compactCornerRadius)
     }
 
     @ViewBuilder

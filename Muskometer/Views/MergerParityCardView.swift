@@ -3,6 +3,7 @@ import SwiftUI
 /// “If Tesla had SpaceX’s market cap” card for the main popover.
 struct MergerParityCardView: View {
     let presentation: MergerParityPresentation
+    var outstandingCaption: String? = nil
     var animateValues = false
 
     var body: some View {
@@ -18,13 +19,18 @@ struct MergerParityCardView: View {
             Text(caption)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+
+            if let outstandingCaption {
+                Text(outstandingCaption)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .accessibilityLabel("Outstanding shares source")
+                    .accessibilityValue(outstandingCaption)
+            }
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
-        }
+        .muskometerGlassCard(cornerRadius: MuskometerGlass.compactCornerRadius)
     }
 
     private var caption: String {

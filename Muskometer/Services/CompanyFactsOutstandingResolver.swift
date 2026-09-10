@@ -13,8 +13,8 @@ enum CompanyFactsOutstandingResolver {
         "10-Q", "10-K", "10-Q/A", "10-K/A",
     ]
 
-    /// Parse SEC companyfacts JSON Data → positive Int64 outstanding or nil.
-    static func resolveSharesOutstanding(from companyFactsJSON: Data) -> Int64? {
+    /// Parse SEC companyfacts JSON Data → positive outstanding fact or nil.
+    static func resolve(from companyFactsJSON: Data) -> IssuerOutstandingFact? {
         guard
             let root = try? JSONSerialization.jsonObject(with: companyFactsJSON) as? [String: Any],
             let facts = root["facts"] as? [String: Any]
@@ -37,6 +37,11 @@ enum CompanyFactsOutstandingResolver {
         )
     }
 
+    /// Convenience for callers that only need the share count.
+    static func resolveSharesOutstanding(from companyFactsJSON: Data) -> Int64? {
+        resolve(from: companyFactsJSON)?.shares
+    }
+
     // MARK: - Private
 
     private struct FactRow {
@@ -50,7 +55,7 @@ enum CompanyFactsOutstandingResolver {
         facts: [String: Any],
         taxonomy: String,
         concept: String
-    ) -> Int64? {
+    ) -> IssuerOutstandingFact? {
         guard
             let taxonomyNode = facts[taxonomy] as? [String: Any],
             let conceptNode = taxonomyNode[concept] as? [String: Any],
@@ -84,7 +89,11 @@ enum CompanyFactsOutstandingResolver {
         guard sum.isFinite, sum > 0, sum <= Double(Int64.max) else { return nil }
         let rounded = sum.rounded()
         guard rounded > 0 else { return nil }
-        return Int64(rounded)
+        return IssuerOutstandingFact(
+            shares: Int64(rounded),
+            periodEnd: best.end,
+            filed: best.filed
+        )
     }
 
     private static func parseRow(_ dict: [String: Any]) -> FactRow? {

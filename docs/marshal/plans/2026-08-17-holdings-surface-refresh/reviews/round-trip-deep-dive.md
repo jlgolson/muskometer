@@ -1,1 +1,0 @@
-plan-review: persistence objective triggered via remigration keyword; round-trip deep-dive ran (UserDefaults integer remigration, not a hash chain). Set persisted_invariants only if a future cycle adds a real round-trip invariant.

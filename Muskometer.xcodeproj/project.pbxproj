@@ -30,6 +30,8 @@
 		A10000000000000000000015 /* GainSummaryFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000017 /* GainSummaryFormatter.swift */; };
 		A10000000000000000000016 /* LaunchAtLoginManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* LaunchAtLoginManager.swift */; };
 		A1000000000000000000001C /* AppURLs.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001C /* AppURLs.swift */; };
+		A1000000000000000000003E /* MuskometerNetworking.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003E /* MuskometerNetworking.swift */; };
+		A10000000000000000000042 /* MuskometerGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* MuskometerGlass.swift */; };
 		A1000000000000000000001D /* SPCXHoldings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001D /* SPCXHoldings.swift */; };
 		A1000000000000000000001E /* SPCXOwnershipCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000001E /* SPCXOwnershipCalculator.swift */; };
 		A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* Form4OwnershipParser.swift */; };
@@ -41,8 +43,12 @@
 		A10000000000000000000023 /* TrackedPersonProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* TrackedPersonProfile.swift */; };
 		A10000000000000000000024 /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000024 /* ShareCardView.swift */; };
 		A10000000000000000000025 /* ShareImageExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000025 /* ShareImageExporter.swift */; };
+		A10000000000000000000058 /* ShareSheetPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000058 /* ShareSheetPresenter.swift */; };
 		A10000000000000000000026 /* ShareFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000026 /* ShareFormat.swift */; };
 		A10000000000000000000027 /* ShareShortcutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000027 /* ShareShortcutController.swift */; };
+		A10000000000000000000055 /* MenuBarDisplayModeCycleController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000055 /* MenuBarDisplayModeCycleController.swift */; };
+		A10000000000000000000056 /* MenuBarPopoverPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000056 /* MenuBarPopoverPresenter.swift */; };
+		A10000000000000000000057 /* NotificationResponseRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000057 /* NotificationResponseRouter.swift */; };
 		A1000000000000000000002C /* DailyGainRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002C /* DailyGainRecord.swift */; };
 		A1000000000000000000002D /* NetWorthMilestone.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002D /* NetWorthMilestone.swift */; };
 		A1000000000000000000002F /* MilestoneCelebrationOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000002F /* MilestoneCelebrationOverlay.swift */; };
@@ -55,13 +61,12 @@
 		A10000000000000000000037 /* DailyRecordTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000037 /* DailyRecordTracker.swift */; };
 		A10000000000000000000038 /* GainNotificationThreshold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000038 /* GainNotificationThreshold.swift */; };
 		A10000000000000000000039 /* GainThresholdNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000039 /* GainThresholdNotificationService.swift */; };
+		A10000000000000000000059 /* DayCloseSummaryNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000059 /* DayCloseSummaryNotificationService.swift */; };
 		A1000000000000000000003C /* NetWorthMilestoneTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003C /* NetWorthMilestoneTracker.swift */; };
 		A1000000000000000000003D /* MarketStatusFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003D /* MarketStatusFormatter.swift */; };
-		A1000000000000000000003E /* UpdateDeliveryMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003E /* UpdateDeliveryMode.swift */; };
 		A1000000000000000000003F /* UpdateChecking.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000003F /* UpdateChecking.swift */; };
 		A10000000000000000000040 /* GitHubReleaseUpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */; };
 		A10000000000000000000041 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000041 /* UpdateCoordinator.swift */; };
-		A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000042 /* SparkleUpdateDriver.swift */; };
 		A10000000000000000000043 /* SemanticVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000043 /* SemanticVersion.swift */; };
 		A10000000000000000000044 /* QuotePriceResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000044 /* QuotePriceResolver.swift */; };
 		A10000000000000000000045 /* NotificationAuthorization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000045 /* NotificationAuthorization.swift */; };
@@ -101,6 +106,8 @@
 		A20000000000000000000017 /* GainSummaryFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainSummaryFormatter.swift; sourceTree = "<group>"; };
 		A20000000000000000000018 /* LaunchAtLoginManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginManager.swift; sourceTree = "<group>"; };
 		A2000000000000000000001C /* AppURLs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppURLs.swift; sourceTree = "<group>"; };
+		A2000000000000000000003E /* MuskometerNetworking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuskometerNetworking.swift; sourceTree = "<group>"; };
+		A20000000000000000000042 /* MuskometerGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MuskometerGlass.swift; sourceTree = "<group>"; };
 		A2000000000000000000001D /* SPCXHoldings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SPCXHoldings.swift; sourceTree = "<group>"; };
 		A2000000000000000000001E /* SPCXOwnershipCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SPCXOwnershipCalculator.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* Form4OwnershipParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Form4OwnershipParser.swift; sourceTree = "<group>"; };
@@ -112,8 +119,12 @@
 		A20000000000000000000023 /* TrackedPersonProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedPersonProfile.swift; sourceTree = "<group>"; };
 		A20000000000000000000024 /* ShareCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardView.swift; sourceTree = "<group>"; };
 		A20000000000000000000025 /* ShareImageExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareImageExporter.swift; sourceTree = "<group>"; };
+		A20000000000000000000058 /* ShareSheetPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareSheetPresenter.swift; sourceTree = "<group>"; };
 		A20000000000000000000026 /* ShareFormat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareFormat.swift; sourceTree = "<group>"; };
 		A20000000000000000000027 /* ShareShortcutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareShortcutController.swift; sourceTree = "<group>"; };
+		A20000000000000000000055 /* MenuBarDisplayModeCycleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarDisplayModeCycleController.swift; sourceTree = "<group>"; };
+		A20000000000000000000056 /* MenuBarPopoverPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPopoverPresenter.swift; sourceTree = "<group>"; };
+		A20000000000000000000057 /* NotificationResponseRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationResponseRouter.swift; sourceTree = "<group>"; };
 		A2000000000000000000002C /* DailyGainRecord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyGainRecord.swift; sourceTree = "<group>"; };
 		A2000000000000000000002D /* NetWorthMilestone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthMilestone.swift; sourceTree = "<group>"; };
 		A2000000000000000000002F /* MilestoneCelebrationOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MilestoneCelebrationOverlay.swift; sourceTree = "<group>"; };
@@ -126,13 +137,12 @@
 		A20000000000000000000037 /* DailyRecordTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyRecordTracker.swift; sourceTree = "<group>"; };
 		A20000000000000000000038 /* GainNotificationThreshold.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainNotificationThreshold.swift; sourceTree = "<group>"; };
 		A20000000000000000000039 /* GainThresholdNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GainThresholdNotificationService.swift; sourceTree = "<group>"; };
+		A20000000000000000000059 /* DayCloseSummaryNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCloseSummaryNotificationService.swift; sourceTree = "<group>"; };
 		A2000000000000000000003C /* NetWorthMilestoneTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetWorthMilestoneTracker.swift; sourceTree = "<group>"; };
 		A2000000000000000000003D /* MarketStatusFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarketStatusFormatter.swift; sourceTree = "<group>"; };
-		A2000000000000000000003E /* UpdateDeliveryMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateDeliveryMode.swift; sourceTree = "<group>"; };
 		A2000000000000000000003F /* UpdateChecking.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecking.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubReleaseUpdateChecker.swift; sourceTree = "<group>"; };
 		A20000000000000000000041 /* UpdateCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCoordinator.swift; sourceTree = "<group>"; };
-		A20000000000000000000042 /* SparkleUpdateDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SparkleUpdateDriver.swift; sourceTree = "<group>"; };
 		A20000000000000000000043 /* SemanticVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticVersion.swift; sourceTree = "<group>"; };
 		A20000000000000000000044 /* QuotePriceResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotePriceResolver.swift; sourceTree = "<group>"; };
 		A20000000000000000000045 /* NotificationAuthorization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationAuthorization.swift; sourceTree = "<group>"; };
@@ -229,6 +239,9 @@
 				A20000000000000000000001 /* MuskometerApp.swift */,
 				A20000000000000000000012 /* AppDelegate.swift */,
 				A20000000000000000000027 /* ShareShortcutController.swift */,
+				A20000000000000000000055 /* MenuBarDisplayModeCycleController.swift */,
+				A20000000000000000000056 /* MenuBarPopoverPresenter.swift */,
+				A20000000000000000000057 /* NotificationResponseRouter.swift */,
 				A2000000000000000000001B /* AppNotifications.swift */,
 			);
 			path = App;
@@ -247,7 +260,6 @@
 				A2000000000000000000002D /* NetWorthMilestone.swift */,
 				A20000000000000000000031 /* GainSample.swift */,
 				A20000000000000000000038 /* GainNotificationThreshold.swift */,
-				A2000000000000000000003E /* UpdateDeliveryMode.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -267,11 +279,11 @@
 				A20000000000000000000032 /* IntradayGainSampleStore.swift */,
 				A20000000000000000000037 /* DailyRecordTracker.swift */,
 				A20000000000000000000039 /* GainThresholdNotificationService.swift */,
+				A20000000000000000000059 /* DayCloseSummaryNotificationService.swift */,
 				A2000000000000000000003C /* NetWorthMilestoneTracker.swift */,
 				A2000000000000000000003F /* UpdateChecking.swift */,
 				A20000000000000000000040 /* GitHubReleaseUpdateChecker.swift */,
 				A20000000000000000000041 /* UpdateCoordinator.swift */,
-				A20000000000000000000042 /* SparkleUpdateDriver.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -310,11 +322,14 @@
 				A20000000000000000000017 /* GainSummaryFormatter.swift */,
 				A20000000000000000000018 /* LaunchAtLoginManager.swift */,
 				A2000000000000000000001C /* AppURLs.swift */,
+				A2000000000000000000003E /* MuskometerNetworking.swift */,
+				A20000000000000000000042 /* MuskometerGlass.swift */,
 				A2000000000000000000001D /* SPCXHoldings.swift */,
 				A2000000000000000000001E /* SPCXOwnershipCalculator.swift */,
 				A2000000000000000000001A /* String+Truncation.swift */,
 				A20000000000000000000020 /* AppVersion.swift */,
 				A20000000000000000000025 /* ShareImageExporter.swift */,
+				A20000000000000000000058 /* ShareSheetPresenter.swift */,
 				A20000000000000000000036 /* TradingDayCalendar.swift */,
 				A2000000000000000000003D /* MarketStatusFormatter.swift */,
 				A20000000000000000000043 /* SemanticVersion.swift */,
@@ -447,6 +462,8 @@
 				A10000000000000000000015 /* GainSummaryFormatter.swift in Sources */,
 				A10000000000000000000016 /* LaunchAtLoginManager.swift in Sources */,
 				A1000000000000000000001C /* AppURLs.swift in Sources */,
+				A1000000000000000000003E /* MuskometerNetworking.swift in Sources */,
+				A10000000000000000000042 /* MuskometerGlass.swift in Sources */,
 				A1000000000000000000001D /* SPCXHoldings.swift in Sources */,
 				A1000000000000000000001E /* SPCXOwnershipCalculator.swift in Sources */,
 				A10000000000000000000017 /* Form4OwnershipParser.swift in Sources */,
@@ -458,8 +475,12 @@
 				A10000000000000000000023 /* TrackedPersonProfile.swift in Sources */,
 				A10000000000000000000024 /* ShareCardView.swift in Sources */,
 				A10000000000000000000025 /* ShareImageExporter.swift in Sources */,
+				A10000000000000000000058 /* ShareSheetPresenter.swift in Sources */,
 				A10000000000000000000026 /* ShareFormat.swift in Sources */,
 				A10000000000000000000027 /* ShareShortcutController.swift in Sources */,
+				A10000000000000000000055 /* MenuBarDisplayModeCycleController.swift in Sources */,
+				A10000000000000000000056 /* MenuBarPopoverPresenter.swift in Sources */,
+				A10000000000000000000057 /* NotificationResponseRouter.swift in Sources */,
 				A1000000000000000000002C /* DailyGainRecord.swift in Sources */,
 				A1000000000000000000002D /* NetWorthMilestone.swift in Sources */,
 				A1000000000000000000002F /* MilestoneCelebrationOverlay.swift in Sources */,
@@ -471,13 +492,12 @@
 				A10000000000000000000037 /* DailyRecordTracker.swift in Sources */,
 				A10000000000000000000038 /* GainNotificationThreshold.swift in Sources */,
 				A10000000000000000000039 /* GainThresholdNotificationService.swift in Sources */,
+				A10000000000000000000059 /* DayCloseSummaryNotificationService.swift in Sources */,
 				A1000000000000000000003C /* NetWorthMilestoneTracker.swift in Sources */,
 				A1000000000000000000003D /* MarketStatusFormatter.swift in Sources */,
-				A1000000000000000000003E /* UpdateDeliveryMode.swift in Sources */,
 				A1000000000000000000003F /* UpdateChecking.swift in Sources */,
 				A10000000000000000000040 /* GitHubReleaseUpdateChecker.swift in Sources */,
 				A10000000000000000000041 /* UpdateCoordinator.swift in Sources */,
-				A10000000000000000000042 /* SparkleUpdateDriver.swift in Sources */,
 				A10000000000000000000043 /* SemanticVersion.swift in Sources */,
 				A10000000000000000000045 /* NotificationAuthorization.swift in Sources */,
 				A10000000000000000000046 /* ShareCountTextInput.swift in Sources */,
@@ -518,7 +538,7 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = macosx;
@@ -538,7 +558,7 @@
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
@@ -553,7 +573,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -564,7 +584,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -581,7 +601,7 @@
 				CODE_SIGN_ENTITLEMENTS = Muskometer/Muskometer.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -592,7 +612,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				MARKETING_VERSION = 0.1.5;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app;
 				PRODUCT_MODULE_NAME = Muskometer;
 				PRODUCT_NAME = Muskometer;
@@ -606,11 +626,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.5;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;
@@ -624,11 +644,11 @@
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 26;
+				CURRENT_PROJECT_VERSION = 27;
 				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 0.1.5;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.6;
 				PRODUCT_BUNDLE_IDENTIFIER = org.muskometer.app.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = NO;

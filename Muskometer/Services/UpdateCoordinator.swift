@@ -32,10 +32,10 @@ final class UpdateCoordinator {
     private let defaults: UserDefaults
     private let notificationDeliverer: any UpdateNotificationDelivering
     private let githubChecker: any UpdateChecking
-    private let sparkleDriver: any UpdateChecking
     private var scheduler: NSBackgroundActivityScheduler?
     private var isSchedulerActive = false
     private var checkTask: Task<Void, Never>?
+    private var checkGeneration = 0
 
     private enum Keys {
         static let lastNotifiedAvailableVersion = "lastNotifiedAvailableVersion"
@@ -46,14 +46,12 @@ final class UpdateCoordinator {
         settings: AppSettings,
         defaults: UserDefaults = .standard,
         notificationDeliverer: any UpdateNotificationDelivering = SystemUpdateNotificationDeliverer(),
-        githubChecker: any UpdateChecking = GitHubReleaseUpdateChecker(),
-        sparkleDriver: any UpdateChecking = SparkleUpdateDriver()
+        githubChecker: any UpdateChecking = GitHubReleaseUpdateChecker()
     ) {
         self.settings = settings
         self.defaults = defaults
         self.notificationDeliverer = notificationDeliverer
         self.githubChecker = githubChecker
-        self.sparkleDriver = sparkleDriver
     }
 
     func start() {
@@ -80,10 +78,12 @@ final class UpdateCoordinator {
     func stop() {
         checkTask?.cancel()
         checkTask = nil
+        checkGeneration += 1
         scheduler?.invalidate()
         scheduler = nil
         isSchedulerActive = false
         notificationAuthorizationMessage = nil
+        isChecking = false
     }
 
     static func resetNotificationDebounce(defaults: UserDefaults = .standard) {
@@ -92,8 +92,6 @@ final class UpdateCoordinator {
     }
 
     func checkNow() {
-        guard !isChecking else { return }
-
         checkTask?.cancel()
         checkTask = Task { [weak self] in
             await self?.performCheck(userInitiated: true)
@@ -120,25 +118,16 @@ final class UpdateCoordinator {
         isSchedulerActive = true
     }
 
-    private func checker(for mode: UpdateDeliveryMode) -> any UpdateChecking {
-        switch mode {
-        case .notifyOnly:
-            return githubChecker
-        case .automatic:
-            // SparkleUpdateDriver is still a permanent no-op stub (always nil).
-            // Fall back to the GitHub notify checker so automatic mode never
-            // falsely reports "you're on the latest." Re-route to sparkleDriver
-            // when Sparkle SPM is actually integrated.
-            _ = sparkleDriver
-            return githubChecker
-        }
-    }
-
     private func performCheck(userInitiated: Bool) async {
-        guard !isChecking else { return }
+        checkGeneration += 1
+        let generation = checkGeneration
 
         isChecking = true
-        defer { isChecking = false }
+        defer {
+            if generation == checkGeneration {
+                isChecking = false
+            }
+        }
 
         if userInitiated {
             lastCheckError = nil
@@ -148,8 +137,8 @@ final class UpdateCoordinator {
         let currentVersion = AppVersion.short
 
         do {
-            let result = try await checker(for: settings.updateDeliveryMode)
-                .checkForUpdate(currentVersion: currentVersion)
+            let result = try await githubChecker.checkForUpdate(currentVersion: currentVersion)
+            guard generation == checkGeneration else { return }
 
             lastCheckDate = .now
             availableUpdate = result
@@ -166,6 +155,7 @@ final class UpdateCoordinator {
                 await postUpdateNotification(for: result)
             }
         } catch {
+            guard generation == checkGeneration else { return }
             lastCheckDate = .now
             if userInitiated {
                 lastCheckError = error.localizedDescription
@@ -177,9 +167,6 @@ final class UpdateCoordinator {
 
     private func shouldNotify(for result: UpdateCheckResult) -> Bool {
         guard settings.notifyOfAvailableUpdates else { return false }
-        // Both delivery modes use the GitHub notify path until Sparkle can
-        // actually install updates. Do not suppress notifications for
-        // `.automatic` — that mode is currently check-only via GitHub.
 
         let lastVersion = defaults.string(forKey: Keys.lastNotifiedAvailableVersion)
         let lastNotifiedAt = defaults.double(forKey: Keys.lastNotifiedAt)
@@ -194,6 +181,8 @@ final class UpdateCoordinator {
     }
 
     private func postUpdateNotification(for result: UpdateCheckResult) async {
+        guard AppURLs.isTrustedReleasePageURL(result.releasePageURL) else { return }
+
         let content = UNMutableNotificationContent()
         content.title = "Muskometer update available"
         content.body = "Version \(result.availableVersion) is available. Open the release page to download."

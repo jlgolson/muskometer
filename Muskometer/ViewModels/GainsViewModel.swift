@@ -40,6 +40,12 @@ final class GainsViewModel {
     private let netWorthMilestoneTracker: NetWorthMilestoneTracker
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
+    private var lifecycle = UUID()
+    private var holdingsTask: Task<Void, Never>?
+    private var holdingsToken: UUID?
+    private var quoteTasks: [Int: Task<Void, Never>] = [:]
+    private var summaryTasks: [UUID: Task<Void, Never>] = [:]
+    private let sleeper: @Sendable (TimeInterval) async throws -> Void
     private var hasStarted = false
     private var lastSideEffectPersonID: String?
     private let dateProvider: () -> Date
@@ -56,7 +62,8 @@ final class GainsViewModel {
         intradayGainSampleStore: IntradayGainSampleStore? = nil,
         netWorthMilestoneTracker: NetWorthMilestoneTracker? = nil,
         dateProvider: @escaping () -> Date = { .now },
-        updateCoordinator: UpdateCoordinator? = nil
+        updateCoordinator: UpdateCoordinator? = nil,
+        sleeper: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(for: .seconds($0)) }
     ) {
         self.settings = settings
         self.updateCoordinator = updateCoordinator ?? UpdateCoordinator(settings: settings)
@@ -70,6 +77,7 @@ final class GainsViewModel {
         self.intradayGainSampleStore = intradayGainSampleStore ?? IntradayGainSampleStore()
         self.netWorthMilestoneTracker = netWorthMilestoneTracker ?? NetWorthMilestoneTracker()
         self.dateProvider = dateProvider
+        self.sleeper = sleeper
         self.enabledNotificationThresholdIDs = self.gainThresholdNotificationService.enabledThresholdIDs(
             for: settings.selectedPersonID
         )
@@ -78,195 +86,258 @@ final class GainsViewModel {
     func start() {
         guard !hasStarted else { return }
         hasStarted = true
-
-        refreshTask?.cancel()
+        let token = lifecycle
+        let sleep = sleeper
+        beginHoldingsSync(force: false)
         refreshTask = Task { [weak self] in
-            await self?.syncHoldingsIfNeeded()
-            await self?.refresh()
-
-            // After the initial refresh, treat current quotability as "already refreshed this session"
-            // so the first open-session loop iteration sleeps between refreshes (no double-refresh).
-            // When off-market sleep ends into a quotable session, wasQuotable is false and we
-            // refresh immediately instead of sleeping another full open-session interval.
-            var wasQuotable = false
-            if let self {
-                wasQuotable = self.marketHours.isQuotable(at: self.dateProvider())
-            }
-
+            // Only task handles survive suspension; slow services never retain the model.
+            let initial = self?.beginScheduledRefresh(force: false)
+            if let initial { for await _ in initial {} }
+            var sessionClose = self?.currentRegularClose()
+            var closeAttempts = 0
             while !Task.isCancelled {
-                let timing: OpenSessionRefreshTiming
-                let sleepSeconds: TimeInterval?
-
-                // Scope strong `self` so it is not retained across `Task.sleep`.
-                do {
-                    guard let self else { return }
-                    let isQuotable = self.marketHours.isQuotable(at: self.dateProvider())
-                    timing = Self.openSessionRefreshTiming(isQuotable: isQuotable, wasQuotable: wasQuotable)
-
-                    if timing == .waitOffMarket {
-                        wasQuotable = false
-                        self.syncIntradaySamplesFromStore()
-                        sleepSeconds = self.offMarketSleepInterval()
-                    } else if timing == .sleepThenRefresh {
-                        sleepSeconds = self.refreshSleepInterval()
-                    } else {
-                        sleepSeconds = nil
+                guard self?.lifecycle == token else { return }
+                self?.advanceTradingClock()
+                let now = self?.dateProvider() ?? .distantPast
+                let isOpen = self?.marketHours.isQuotable(at: now) ?? false
+                if isOpen {
+                    let newClose = self?.marketHours.regularCloseDate(on: now)
+                    if newClose != sessionClose {
+                        sessionClose = newClose
+                        closeAttempts = 0
+                        self?.beginHoldingsSync(force: false)
+                        let request = self?.beginScheduledRefresh(force: false)
+                        if let request { for await _ in request {} }
+                        continue
                     }
-                }
-
-                if let sleepSeconds {
-                    try? await Task.sleep(for: .seconds(sleepSeconds))
-                    guard !Task.isCancelled else { break }
-                }
-
-                if timing == .waitOffMarket {
-                    // Still off-market: store keeps prior RTH samples until the next session appends.
-                    self?.syncIntradaySamplesFromStore()
+                    let interval = self?.refreshSleepInterval() ?? 30
+                    let untilClose = sessionClose?.timeIntervalSince(now) ?? interval
+                    do { try await sleep(max(0.5, min(interval, untilClose))) }
+                    catch { return }
+                    guard !Task.isCancelled, self?.lifecycle == token else { return }
+                    // Reevaluate the clock before deciding whether this is the closing request.
+                    if self?.marketHours.isQuotable(at: self?.dateProvider() ?? now) == true {
+                        self?.beginHoldingsSync(force: false)
+                        let request = self?.beginScheduledRefresh(force: false)
+                        if let request { for await _ in request {} }
+                    }
                     continue
                 }
 
-                wasQuotable = true
-                guard let self else { return }
-
-                if self.settings.needsHoldingsSync {
-                    await self.syncHoldingsIfNeeded()
+                if let close = sessionClose, now >= close, closeAttempts < 2 {
+                    closeAttempts += 1
+                    let request = self?.beginScheduledRefresh(force: true)
+                    if let request { for await _ in request {} }
+                    guard !Task.isCancelled, self?.lifecycle == token else { return }
+                    if self?.errorMessage == nil { closeAttempts = 2 }
+                    if closeAttempts == 1 {
+                        do { try await sleep(30) } catch { return }
+                    }
+                    continue
                 }
-
-                await self.refresh()
+                // The clock can finalize durable records without another overnight quote poll.
+                self?.beginPendingSummary()
+                let interval = self?.offMarketSleepInterval() ?? 300
+                do { try await sleep(interval) } catch { return }
             }
         }
+    }
+
+    private func currentRegularClose() -> Date? {
+        let now = dateProvider()
+        return marketHours.isQuotable(at: now) ? marketHours.regularCloseDate(on: now) : nil
     }
 
     func stop() {
+        lifecycle = UUID()
+        refreshGeneration += 1
         refreshTask?.cancel()
         refreshTask = nil
+        holdingsTask?.cancel()
+        holdingsTask = nil
+        holdingsToken = nil
+        quoteTasks.values.forEach { $0.cancel() }
+        quoteTasks.removeAll()
+        summaryTasks.values.forEach { $0.cancel() }
+        summaryTasks.removeAll()
+        isLoading = false
+        isSyncingHoldings = false
         hasStarted = false
+        let people = Set([settings.selectedPersonID, lastSideEffectPersonID].compactMap { $0 })
+        for personID in people {
+            gainThresholdNotificationService.resetRuntimeState(for: personID)
+            dayCloseSummaryNotificationService.resetRuntimeState(for: personID)
+        }
     }
 
     func refresh(force: Bool = false) async {
-        if isLoading, !force { return }
+        let task = beginRefresh(force: force)
+        await withTaskCancellationHandler {
+            await task?.value
+        } onCancel: {
+            task?.cancel()
+        }
+    }
 
+    @discardableResult
+    private func beginScheduledRefresh(force: Bool) -> AsyncStream<Void> {
+        let (completion, continuation) = AsyncStream<Void>.makeStream()
+        if beginRefresh(force: force, quotesCompleted: { continuation.finish() }) == nil {
+            continuation.finish()
+        }
+        return completion
+    }
+
+    @discardableResult
+    private func beginRefresh(force: Bool, quotesCompleted: (() -> Void)? = nil) -> Task<Void, Never>? {
+        if isLoading, !force { return nil }
         refreshGeneration += 1
-        let generation = refreshGeneration
-
+        let generation = refreshGeneration, token = lifecycle
+        let personID = settings.selectedPersonID
+        let symbols = settings.holdings.map(\.symbol)
+        let stock = stockService, thresholds = gainThresholdNotificationService
+        let name = settings.selectedProfile.possessiveName
         isLoading = true
         errorMessage = nil
-
-        defer {
-            if generation == refreshGeneration {
-                isLoading = false
+        let task = Task { [weak self] in
+            defer {
+                quotesCompleted?()
+                self?.finishQuoteTask(generation: generation, token: token)
+            }
+            do {
+                let quotes = try await stock.fetchQuotes(for: symbols)
+                guard !Task.isCancelled,
+                      let accepted = self?.acceptQuotes(quotes, generation: generation, token: token, personID: personID) else { return }
+                quotesCompleted?()
+                let summary = self?.beginPendingSummary()
+                // No suspension between accepting the snapshot and entering processUpdate:
+                // its synchronous prefix records every threshold observation in acceptance order.
+                await thresholds.processUpdate(paperGain: accepted.combinedPaperGain,
+                    personID: personID, possessiveName: name, at: accepted.lastUpdated,
+                    isQuotable: accepted.isQuotable)
+                await summary?.value
+            } catch {
+                guard !Task.isCancelled else { return }
+                let summary = self?.acceptQuoteFailure(error, generation: generation, token: token, personID: personID)
+                quotesCompleted?()
+                await summary?.value
             }
         }
+        quoteTasks[generation] = task
+        return task
+    }
 
+    private func finishQuoteTask(generation: Int, token: UUID) {
+        guard lifecycle == token else { return }
+        quoteTasks.removeValue(forKey: generation)
+        if generation == refreshGeneration { isLoading = false }
+    }
+
+    private func acceptQuotes(_ quotes: [StockQuote], generation: Int, token: UUID, personID: String) -> GainsSnapshot? {
+        guard lifecycle == token, generation == refreshGeneration,
+              settings.selectedPersonID == personID else { return nil }
+        // Counts may have changed while Yahoo was suspended. Use the current accepted settings.
         let holdings = settings.holdings
-        let symbols = holdings.map(\.symbol)
-
-        do {
-            let quotes = try await stockService.fetchQuotes(for: symbols)
-            let quoteBySymbol = Dictionary(uniqueKeysWithValues: quotes.map { ($0.symbol, $0) })
-
-            let holdingGains = holdings.compactMap { holding -> HoldingGain? in
-                guard let quote = quoteBySymbol[holding.symbol] else { return nil }
-                return HoldingGain(
-                    id: holding.id,
-                    symbol: holding.symbol,
-                    displayName: holding.displayName,
-                    shareCount: holding.shareCount,
-                    quote: quote
-                )
-            }
-
-            guard generation == refreshGeneration else { return }
-
-            guard holdingGains.count == holdings.count else {
-                errorMessage = "Incomplete quote data received."
-                if snapshot != nil {
-                    hasStaleData = true
-                }
-                return
-            }
-
-            let newSnapshot = GainsSnapshot(
-                holdings: holdingGains,
-                lastUpdated: dateProvider(),
-                tradingSession: marketHours.currentSession(at: dateProvider())
-            )
-            snapshot = newSnapshot
-            hasStaleData = false
-            await processSnapshotSideEffects(newSnapshot)
-        } catch {
-            guard generation == refreshGeneration else { return }
-
-            errorMessage = error.localizedDescription
-            if snapshot != nil {
-                hasStaleData = true
-            }
+        let quoteBySymbol = Dictionary(quotes.map { ($0.symbol, $0) }, uniquingKeysWith: { _, newer in newer })
+        let gains = holdings.compactMap { holding -> HoldingGain? in
+            guard let quote = quoteBySymbol[holding.symbol] else { return nil }
+            return HoldingGain(id: holding.id, symbol: holding.symbol, displayName: holding.displayName,
+                               shareCount: holding.shareCount, quote: quote)
         }
+        guard gains.count == holdings.count else {
+            errorMessage = "Incomplete quote data received."
+            hasStaleData = snapshot != nil
+            isLoading = false
+            advanceTradingClock()
+            beginPendingSummary()
+            return nil
+        }
+        let now = dateProvider()
+        let accepted = GainsSnapshot(holdings: gains, lastUpdated: now, tradingSession: marketHours.currentSession(at: now))
+        snapshot = accepted
+        hasStaleData = false
+        isLoading = false
+        processSnapshotSideEffects(accepted)
+        return accepted
+    }
+
+    private func acceptQuoteFailure(_ error: Error, generation: Int, token: UUID, personID: String) -> Task<Void, Never>? {
+        guard lifecycle == token, generation == refreshGeneration,
+              settings.selectedPersonID == personID else { return nil }
+        errorMessage = error.localizedDescription
+        hasStaleData = snapshot != nil
+        isLoading = false
+        advanceTradingClock()
+        return beginPendingSummary()
     }
 
     func syncHoldingsIfNeeded(force: Bool = false) async {
-        if isSyncingHoldings { return }
-        if !force, !settings.needsHoldingsSync { return }
-
-        await syncHoldingsFromSEC()
+        let task = beginHoldingsSync(force: force)
+        await withTaskCancellationHandler { await task?.value } onCancel: { task?.cancel() }
     }
 
     func syncHoldingsFromSEC() async {
-        guard !isSyncingHoldings else { return }
+        await syncHoldingsIfNeeded(force: true)
+    }
 
+    @discardableResult
+    private func beginHoldingsSync(force: Bool) -> Task<Void, Never>? {
+        guard !isSyncingHoldings, force || settings.needsHoldingsSync else { return nil }
+        let token = UUID(), epoch = lifecycle
+        holdingsToken = token
         isSyncingHoldings = true
         holdingsSyncMessage = nil
         holdingsOwnershipChangeMessage = nil
-
-        defer { isSyncingHoldings = false }
-
         let profile = settings.selectedProfile
-        let expectedSymbols = profile.expectedSymbols
-        let priorCounts = Dictionary(
-            uniqueKeysWithValues: expectedSymbols.map { ($0, settings.shareCount(for: $0)) }
-        )
-
-        do {
-            let service = holdingsSyncServiceFactory(profile)
-            let result = try await service.syncHoldings()
-            // applyHoldingsSync records lastHoldingsSyncAttemptAt for complete and partial.
-            let syncComplete = settings.applyHoldingsSync(result)
-
-            if syncComplete {
-                let symbols = expectedSymbols.sorted().joined(separator: ", ")
-                holdingsSyncMessage = "Holdings updated from SEC (\(symbols))."
-                holdingsOwnershipChangeMessage = Self.ownershipChangeToast(
-                    prior: priorCounts,
-                    current: Dictionary(
-                        uniqueKeysWithValues: expectedSymbols.map { ($0, settings.shareCount(for: $0)) }
-                    )
-                )
-
-                if snapshot != nil {
-                    await refresh(force: true)
-                }
-            } else {
-                // Partial sync does not change share counts — message only, no refresh.
-                // Attempt is recorded so auto-retry waits holdingsSyncInterval (not every quote cycle).
-                let found = result.sharesBySymbol.keys
-                    .filter { expectedSymbols.contains($0) }
-                    .sorted()
-
-                if found.isEmpty {
-                    holdingsSyncMessage = "SEC sync incomplete — will retry later."
-                } else {
-                    holdingsSyncMessage = "SEC sync incomplete — will retry later (\(found.joined(separator: ", ")) found)."
-                }
+        let service = holdingsSyncServiceFactory(profile)
+        let outstanding = outstandingSyncServiceFactory()
+        let task = Task { [weak self] in
+            defer { self?.finishHoldingsTask(token: token, epoch: epoch) }
+            do {
+                let result = try await service.syncHoldings()
+                guard !Task.isCancelled else { return }
+                let refresh = self?.acceptHoldings(result, profile: profile, token: token, epoch: epoch)
+                if let refresh { for await _ in refresh {} }
+            } catch {
+                guard !Task.isCancelled, self?.holdingsToken == token, self?.lifecycle == epoch else { return }
+                self?.settings.recordHoldingsSyncAttempt()
+                self?.holdingsSyncMessage = "SEC sync failed: \(error.localizedDescription)"
             }
-        } catch {
-            // Record failed attempts so network errors also back off for 24h.
-            settings.recordHoldingsSyncAttempt()
-            holdingsSyncMessage = "SEC sync failed: \(error.localizedDescription)"
+            guard !Task.isCancelled, self?.holdingsToken == token, self?.lifecycle == epoch else { return }
+            let facts = await outstanding.fetchOutstanding(for: profile.holdingSpecs)
+            guard !Task.isCancelled, self?.holdingsToken == token, self?.lifecycle == epoch,
+                  self?.settings.selectedPersonID == profile.id else { return }
+            for (symbol, fact) in facts where fact.shares > 0 {
+                self?.settings.setSharesOutstanding(fact.shares, for: symbol,
+                    provenance: .companyfacts(periodEnd: fact.periodEnd, filed: fact.filed))
+            }
         }
+        holdingsTask = task
+        return task
+    }
 
-        // Best-effort issuer outstanding (companyfacts). Independent of Form 4 outcome;
-        // never alters holdingsSyncMessage on failure.
-        await syncIssuerOutstanding(for: profile)
+    private func finishHoldingsTask(token: UUID, epoch: UUID) {
+        guard lifecycle == epoch, holdingsToken == token else { return }
+        holdingsTask = nil
+        holdingsToken = nil
+        isSyncingHoldings = false
+    }
+
+    private func acceptHoldings(_ result: HoldingsSyncResult, profile: TrackedPersonProfile, token: UUID, epoch: UUID) -> AsyncStream<Void>? {
+        guard lifecycle == epoch, holdingsToken == token, settings.selectedPersonID == profile.id else { return nil }
+        let symbols = profile.expectedSymbols
+        let prior = Dictionary(uniqueKeysWithValues: symbols.map { ($0, settings.shareCount(for: $0)) })
+        if settings.applyHoldingsSync(result) {
+            holdingsSyncMessage = "Holdings updated from SEC (\(symbols.sorted().joined(separator: ", ")))."
+            let current = Dictionary(uniqueKeysWithValues: symbols.map { ($0, settings.shareCount(for: $0)) })
+            holdingsOwnershipChangeMessage = Self.ownershipChangeToast(prior: prior, current: current)
+            // A changed accepted result has one refresh owner, including during the initial fetch.
+            return prior != current ? beginScheduledRefresh(force: true) : nil
+        }
+        let found = result.sharesBySymbol.keys.filter { symbols.contains($0) }.sorted()
+        holdingsSyncMessage = found.isEmpty ? "SEC sync incomplete — will retry later."
+            : "SEC sync incomplete — will retry later (\(found.joined(separator: ", ")) found)."
+        return nil
     }
 
     static func ownershipChangeToast(
@@ -285,19 +356,6 @@ final class GainsViewModel {
         }
         guard !parts.isEmpty else { return nil }
         return "Ownership updated: " + parts.joined(separator: " · ")
-    }
-
-    /// Fetches companyfacts outstanding for the profile's holding specs and persists positive results.
-    private func syncIssuerOutstanding(for profile: TrackedPersonProfile) async {
-        let service = outstandingSyncServiceFactory()
-        let outstanding = await service.fetchOutstanding(for: profile.holdingSpecs)
-        for (symbol, fact) in outstanding where fact.shares > 0 {
-            settings.setSharesOutstanding(
-                fact.shares,
-                for: symbol,
-                provenance: .companyfacts(periodEnd: fact.periodEnd, filed: fact.filed)
-            )
-        }
     }
 
     /// Market-cap parity presentation for the TSLA/SPCX merger card.
@@ -443,6 +501,9 @@ final class GainsViewModel {
     }
 
     func reloadPersistedDisplayState() {
+        let restart = hasStarted
+        stop()
+        defer { if restart { start() } }
         let personID = settings.selectedPersonID
         enabledNotificationThresholdIDs = gainThresholdNotificationService.enabledThresholdIDs(for: personID)
         intradayGainSampleStore.reloadFromDefaults(for: personID)
@@ -505,9 +566,8 @@ final class GainsViewModel {
         }
     }
 
-    private func processSnapshotSideEffects(_ snapshot: GainsSnapshot) async {
+    private func processSnapshotSideEffects(_ snapshot: GainsSnapshot) {
         let personID = settings.selectedPersonID
-        let profile = settings.selectedProfile
 
         if let lastPersonID = lastSideEffectPersonID, lastPersonID != personID {
             reloadPersonScopedDisplayState(for: personID)
@@ -520,19 +580,6 @@ final class GainsViewModel {
             at: snapshot.lastUpdated,
             isQuotable: snapshot.isQuotable
         )
-
-        if let finalized = dailyRecordTracker.peekPendingFinalizedDay(for: personID) {
-            let outcome = await dayCloseSummaryNotificationService.deliverIfNeeded(
-                finalized: finalized,
-                personID: personID,
-                possessiveName: profile.possessiveName,
-                enabled: settings.notifyDayCloseSummary
-            )
-            // Keep pending on delivery failure so the same dayKey can retry (finalize won't re-queue).
-            if outcome != .failed {
-                _ = dailyRecordTracker.consumePendingFinalizedDay(for: personID)
-            }
-        }
 
         intradayGainSampleStore.append(
             personID: personID,
@@ -560,13 +607,39 @@ final class GainsViewModel {
             trillionEasterEggMessage = nil
         }
 
-        await gainThresholdNotificationService.processUpdate(
-            paperGain: snapshot.combinedPaperGain,
-            personID: personID,
-            possessiveName: profile.possessiveName,
-            at: snapshot.lastUpdated,
-            isQuotable: snapshot.isQuotable
-        )
+    }
+
+    private func advanceTradingClock() {
+        let now = dateProvider()
+        dailyRecordsSnapshot = dailyRecordTracker.advanceClock(personID: settings.selectedPersonID, at: now)
+        if let previous = snapshot {
+            snapshot = GainsSnapshot(holdings: previous.holdings, lastUpdated: previous.lastUpdated,
+                                     tradingSession: marketHours.currentSession(at: now))
+        }
+        syncIntradaySamplesFromStore()
+    }
+
+    @discardableResult
+    private func beginPendingSummary() -> Task<Void, Never>? {
+        let personID = settings.selectedPersonID
+        guard let finalized = dailyRecordTracker.peekPendingFinalizedDay(for: personID) else { return nil }
+        let service = dayCloseSummaryNotificationService
+        let tracker = dailyRecordTracker
+        let name = settings.selectedProfile.possessiveName
+        let enabled = settings.notifyDayCloseSummary
+        let token = lifecycle, id = UUID()
+        let task = Task { [weak self] in
+            defer { self?.summaryTasks.removeValue(forKey: id) }
+            guard !Task.isCancelled, self?.lifecycle == token else { return }
+            let outcome = await service.deliverIfNeeded(finalized: finalized, personID: personID,
+                                                       possessiveName: name, enabled: enabled)
+            guard !Task.isCancelled, self?.lifecycle == token else { return }
+            if outcome == .delivered || outcome == .skipped {
+                tracker.consumePendingFinalizedDay(for: personID, matching: finalized)
+            }
+        }
+        summaryTasks[id] = task
+        return task
     }
 
     private func reloadPersonScopedDisplayState(for personID: String) {

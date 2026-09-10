@@ -782,3 +782,523 @@ final class GainsViewModelTrillionEasterEggTests: XCTestCase {
         XCTAssertEqual(tracker.currentZone(for: personID), .aboveOneTrillion)
     }
 }
+
+// Gated boundaries intentionally ignore cancellation so late completions are exercised.
+private actor LifecycleQuotes: StockPriceServiceProtocol {
+    var calls = 0
+    var price = 101.0
+    var previous = 100.0
+    var fail = false
+    var partial = false
+    var gated = false
+    var waits: [Int: CheckedContinuation<Void, Never>] = [:]
+    func configure(price: Double? = nil, previous: Double? = nil, fail: Bool = false, partial: Bool = false, gated: Bool = false) {
+        if let price { self.price = price }; if let previous { self.previous = previous }
+        self.fail = fail; self.partial = partial; self.gated = gated
+    }
+    func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
+        calls += 1
+        let id = calls, value = price, prior = previous, fails = fail, incomplete = partial
+        if gated { await withCheckedContinuation { waits[id] = $0 } }
+        if fails { throw URLError(.notConnectedToInternet) }
+        return (incomplete ? Array(symbols.prefix(1)) : symbols).map {
+            StockQuote(symbol: $0, displayName: $0, currentPrice: value, previousClose: prior, currency: "USD")
+        }
+    }
+    func release(_ id: Int) { waits.removeValue(forKey: id)?.resume() }
+}
+
+private actor LifecycleHoldings: HoldingsSyncServiceProtocol {
+    var calls = 0
+    var waits: [Int: CheckedContinuation<HoldingsSyncResult, Error>] = [:]
+    func syncHoldings() async throws -> HoldingsSyncResult {
+        calls += 1
+        let id = calls
+        return try await withCheckedThrowingContinuation { waits[id] = $0 }
+    }
+    func release(_ id: Int, count: Int64 = 2, fails: Bool = false) {
+        let wait = waits.removeValue(forKey: id)
+        if fails { wait?.resume(throwing: HoldingsSyncError.invalidResponse) }
+        else { wait?.resume(returning: HoldingsSyncResult(sharesBySymbol: ["TSLA": count, "SPCX": 0], syncedAt: .now, sourceDescription: "Fixture")) }
+    }
+}
+
+private actor LifecycleNotifications: DayCloseSummaryNotificationDelivering, GainThresholdNotificationDelivering {
+    var requests: [UNNotificationRequest] = []
+    var waits: [Int: CheckedContinuation<Void, Error>] = [:]
+    func add(_ request: UNNotificationRequest) async throws {
+        requests.append(request)
+        let id = requests.count
+        try await withCheckedThrowingContinuation { waits[id] = $0 }
+    }
+    func release(_ id: Int, fails: Bool = false) {
+        let wait = waits.removeValue(forKey: id)
+        if fails { wait?.resume(throwing: URLError(.notConnectedToInternet)) } else { wait?.resume() }
+    }
+}
+
+private actor LifecycleOutstanding: IssuerOutstandingSyncServiceProtocol {
+    var started = false
+    var continuation: CheckedContinuation<Void, Never>?
+    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: IssuerOutstandingFact] {
+        started = true
+        await withCheckedContinuation { continuation = $0 }
+        return [:]
+    }
+    func release() { continuation?.resume(); continuation = nil }
+}
+
+private actor LifecycleSleeper {
+    var intervals: [TimeInterval] = []
+    var waits: [Int: CheckedContinuation<Void, Error>] = [:]
+    func sleep(_ seconds: TimeInterval) async throws {
+        intervals.append(seconds)
+        let id = intervals.count
+        try await withCheckedThrowingContinuation { waits[id] = $0 }
+    }
+    func wake(_ id: Int, cancelled: Bool = false) {
+        let wait = waits.removeValue(forKey: id)
+        if cancelled { wait?.resume(throwing: CancellationError()) } else { wait?.resume() }
+    }
+}
+
+@MainActor
+final class GainsViewModelLifecycleRegressionTests: XCTestCase {
+    private final class Clock { var now: Date; init(_ now: Date) { self.now = now } }
+    private struct Fixture {
+        let vm: GainsViewModel
+        let settings: AppSettings
+        let defaults: UserDefaults
+        let tracker: DailyRecordTracker
+        let milestones: NetWorthMilestoneTracker
+        let stock: LifecycleQuotes
+        let holdings: LifecycleHoldings
+        let notifications: LifecycleNotifications
+        let sleeper: LifecycleSleeper
+        let clock: Clock
+    }
+    private func date(_ day: Int = 30, _ hour: Int = 11, _ minute: Int = 0, month: Int = 6) -> Date {
+        try! EasternTestDates.date(year: 2026, month: month, day: day, hour: hour, minute: minute)
+    }
+    private func fixture(at now: Date? = nil, notify: Bool = false, due: Bool = false, thresholds: Set<String> = [], outstanding: any IssuerOutstandingSyncServiceProtocol = MockIssuerOutstandingSyncService(result: [:])) -> Fixture {
+        let defaults = UserDefaults(suiteName: "Task5-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.setShareCount(1, for: "TSLA"); settings.setShareCount(0, for: "SPCX")
+        settings.notifyDayCloseSummary = notify
+        if !due { settings.recordHoldingsSyncAttempt() }
+        let clock = Clock(now ?? date()), stock = LifecycleQuotes(), holdings = LifecycleHoldings()
+        let notifications = LifecycleNotifications(), sleeper = LifecycleSleeper()
+        let tracker = DailyRecordTracker(defaults: defaults), milestones = NetWorthMilestoneTracker(defaults: defaults)
+        let gains = GainThresholdNotificationService(defaults: defaults, deliverer: notifications)
+        gains.setEnabledThresholdIDs(thresholds, for: "musk")
+        let vm = GainsViewModel(settings: settings, stockService: stock,
+            holdingsSyncServiceFactory: { _ in holdings },
+            outstandingSyncServiceFactory: { outstanding },
+            dailyRecordTracker: tracker,
+            gainThresholdNotificationService: gains,
+            dayCloseSummaryNotificationService: DayCloseSummaryNotificationService(defaults: defaults, deliverer: notifications),
+            intradayGainSampleStore: IntradayGainSampleStore(defaults: defaults),
+            netWorthMilestoneTracker: milestones, dateProvider: { clock.now },
+            sleeper: { try await sleeper.sleep($0) })
+        return Fixture(vm: vm, settings: settings, defaults: defaults, tracker: tracker, milestones: milestones,
+                       stock: stock, holdings: holdings, notifications: notifications, sleeper: sleeper, clock: clock)
+    }
+    private func settle(_ predicate: () async -> Bool) async {
+        for _ in 0..<10000 { if await predicate() { return }; await Task.yield() }
+    }
+
+    func testGatedSECDoesNotBlockInitialQuotesAndChangedCountsRefreshOnce() async {
+        let f = fixture(due: true)
+        f.vm.start()
+        await settle { await f.holdings.calls == 1 }
+        await settle { f.vm.snapshot != nil }
+        XCTAssertNotNil(f.vm.snapshot, "Quotes must arrive while SEC is suspended")
+        await f.holdings.release(1)
+        await settle { !f.vm.isSyncingHoldings && f.vm.snapshot?.holdings.first?.shareCount == 2 }
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 2, "Initial quote plus exactly one changed-holdings refresh")
+        f.vm.stop()
+        await f.sleeper.wake(1, cancelled: true)
+    }
+
+    func testUnchangedSECSyncDoesNotAddQuoteRefresh() async {
+        let f = fixture(due: true)
+        await f.vm.refresh()
+        let sync = Task { await f.vm.syncHoldingsFromSEC() }
+        await settle { await f.holdings.calls == 1 }
+        await f.holdings.release(1, count: 1)
+        await sync.value
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 1, "Unchanged accepted counts require no quote refresh")
+    }
+
+    private func overlap(fails: Bool) async {
+        let f = fixture(at: date(1, 10, month: 7), notify: true)
+        _ = f.tracker.update(personID: "musk", paperGain: 1e9, at: date(), isQuotable: true)
+        await f.stock.configure(price: 989e9, previous: 980e9)
+        let older = Task { await f.vm.refresh(force: true) }
+        await settle { await f.notifications.requests.count == 1 }
+        XCTAssertEqual(f.vm.intradaySamples.map(\.combinedPaperGain), [9e9], "First sample is committed before summary delivery")
+        f.clock.now = f.clock.now.addingTimeInterval(1)
+        await f.stock.configure(price: 1001e9, previous: 980e9)
+        await f.vm.refresh(force: true)
+        XCTAssertNotNil(f.tracker.peekPendingFinalizedDay(for: "musk"), "In-flight summary is not an acknowledgment")
+        await f.notifications.release(1, fails: fails)
+        await older.value
+        XCTAssertEqual(f.vm.intradaySamples.map(\.combinedPaperGain), [9e9, 21e9])
+        XCTAssertEqual(f.milestones.currentZone(for: "musk"), .aboveOneTrillion)
+        XCTAssertNil(f.vm.trillionEasterEggMessage)
+        XCTAssertEqual(f.tracker.peekPendingFinalizedDay(for: "musk") != nil, fails)
+    }
+    func testOlderSuccessfulSummaryCannotOverwriteNewSamplesOrMilestone() async { await overlap(fails: false) }
+    func testOlderFailedSummaryRetainsPendingAndNewSamplesOrMilestone() async { await overlap(fails: true) }
+
+    func testFailedClosingFetchFinalizesLastRealObservationAndUpdatesSession() async {
+        let f = fixture(at: date(30, 15, 59), notify: true)
+        await f.vm.refresh()
+        let observed = f.vm.snapshot!.lastUpdated
+        f.clock.now = date(30, 16, 1)
+        await f.stock.configure(fail: true)
+        let closing = Task { await f.vm.refresh(force: true) }
+        await settle { await f.notifications.requests.count == 1 }
+        XCTAssertTrue(f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(f.vm.snapshot?.tradingSession, .closed)
+        XCTAssertEqual(f.vm.snapshot?.lastUpdated, observed)
+        XCTAssertTrue(f.vm.hasStaleData)
+        let requests = await f.notifications.requests
+        XCTAssertTrue(requests.first?.content.body.contains("Last observed session") == true)
+        XCTAssertTrue(requests.first?.content.body.contains("3:59 PM") == true)
+        XCTAssertEqual(f.vm.intradaySamples.count, 1)
+        await f.notifications.release(1, fails: true)
+        await closing.value
+        XCTAssertEqual(f.tracker.peekPendingFinalizedDay(for: "musk")?.date, observed)
+    }
+
+    func testPartialClosingQuotesAdvanceClockWithoutReplacingObservation() async {
+        let f = fixture(at: date(30, 15, 59))
+        await f.vm.refresh()
+        let observed = f.vm.snapshot!.lastUpdated
+        f.clock.now = date(30, 16)
+        await f.stock.configure(partial: true)
+        await f.vm.refresh()
+        XCTAssertTrue(f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay)
+        XCTAssertEqual(f.vm.snapshot?.tradingSession, .closed)
+        XCTAssertEqual(f.vm.snapshot?.lastUpdated, observed)
+        XCTAssertTrue(f.vm.hasStaleData)
+    }
+
+    func testCountChangeDuringFetchUsesCurrentHoldings() async {
+        let f = fixture()
+        await f.stock.configure(gated: true)
+        let refresh = Task { await f.vm.refresh() }
+        await settle { await f.stock.calls == 1 }
+        f.settings.setShareCount(7, for: "TSLA")
+        await f.stock.release(1)
+        await refresh.value
+        XCTAssertEqual(f.vm.snapshot?.holdings.first?.shareCount, 7)
+        XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, 7)
+    }
+
+    func testStopInvalidatesLateQuoteSuccessAndFailure() async {
+        for fail in [false, true] {
+            let f = fixture()
+            await f.stock.configure(fail: fail, gated: true)
+            let refresh = Task { await f.vm.refresh() }
+            await settle { await f.stock.calls == 1 }
+            f.vm.stop()
+            await f.stock.release(1)
+            await refresh.value
+            XCTAssertNil(f.vm.snapshot)
+            XCTAssertNil(f.vm.errorMessage)
+            XCTAssertFalse(f.vm.isLoading)
+        }
+    }
+
+    func testStopRestartOldSECCannotApplyOrClearNewSync() async {
+        let f = fixture(due: true)
+        f.vm.start()
+        await settle { await f.holdings.calls == 1 }
+        f.vm.stop(); f.vm.start()
+        await settle { await f.holdings.calls == 2 }
+        let calls = await f.holdings.calls
+        XCTAssertEqual(calls, 2)
+        await f.holdings.release(1, count: 99)
+        await settle { f.settings.shareCount(for: "TSLA") == 99 || f.vm.isSyncingHoldings }
+        XCTAssertEqual(f.settings.shareCount(for: "TSLA"), 1)
+        XCTAssertTrue(f.vm.isSyncingHoldings)
+        await f.holdings.release(2, count: 3)
+        await settle { !f.vm.isSyncingHoldings }
+        XCTAssertEqual(f.settings.shareCount(for: "TSLA"), 3)
+        f.vm.stop(); await f.sleeper.wake(1, cancelled: true); await f.sleeper.wake(2, cancelled: true)
+    }
+
+    func testResetAndStopInvalidateOldSummaryWithoutConsumingReplacement() async {
+        for reset in [false, true] {
+            let f = fixture(at: date(1, 10, month: 7), notify: true)
+            _ = f.tracker.update(personID: "musk", paperGain: 1e9, at: date(), isQuotable: true)
+            let old = Task { await f.vm.refresh() }
+            await settle { await f.notifications.requests.count == 1 }
+            if reset { f.vm.reloadPersistedDisplayState() } else { f.vm.stop() }
+            let replacement = Task { await f.vm.refresh(force: true) }
+            await settle { await f.notifications.requests.count == 2 }
+            let count = await f.notifications.requests.count
+            XCTAssertEqual(count, 2)
+            await f.notifications.release(1)
+            await old.value
+            XCTAssertNil(f.defaults.string(forKey: "dayCloseSummaryNotifiedDay_musk"))
+            XCTAssertNotNil(f.tracker.peekPendingFinalizedDay(for: "musk"))
+            await f.notifications.release(2, fails: true)
+            await replacement.value
+            XCTAssertNotNil(f.tracker.peekPendingFinalizedDay(for: "musk"))
+        }
+    }
+
+    func testLoopBoundsCloseRetryAndRefreshesImmediatelyNextOpen() async {
+        let f = fixture(at: date(30, 15, 59))
+        f.vm.start()
+        await settle { await f.sleeper.intervals.count == 1 }
+        f.clock.now = date(30, 16)
+        await f.stock.configure(fail: true)
+        await f.sleeper.wake(1)
+        await settle { await f.sleeper.intervals.count == 2 }
+        await f.sleeper.wake(2)
+        await settle { await f.sleeper.intervals.count == 3 }
+        let closeCalls = await f.stock.calls, sleeps = await f.sleeper.intervals
+        XCTAssertEqual(closeCalls, 3, "Initial, close, and one bounded retry")
+        XCTAssertTrue((sleeps.last ?? 0) > 3600, "No overnight quote polling")
+        XCTAssertTrue(f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay)
+        f.clock.now = date(1, 9, 30, month: 7)
+        await f.stock.configure()
+        await f.sleeper.wake(3)
+        await settle { f.vm.snapshot?.lastUpdated == f.clock.now }
+        XCTAssertEqual(f.vm.snapshot?.lastUpdated, f.clock.now)
+        XCTAssertEqual(f.vm.snapshot?.tradingSession, .regular)
+        f.vm.stop(); await f.sleeper.wake(4, cancelled: true)
+    }
+
+    func testEarlyCloseSleepAndStopCancellationDoNotFetchAgain() async {
+        let f = fixture(at: date(27, 12, 59, month: 11))
+        f.settings.refreshIntervalSeconds = 300
+        f.vm.start()
+        await settle { await f.sleeper.intervals.count == 1 }
+        let intervals = await f.sleeper.intervals
+        XCTAssertEqual(intervals.first, 60, "Refresh sleep must stop at the early close")
+        f.vm.stop()
+        await f.sleeper.wake(1)
+        for _ in 0..<100 { await Task.yield() }
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 1)
+    }
+
+    func testStoppedOwnedServicesDoNotRetainViewModel() async {
+        var f: Fixture? = fixture(due: true)
+        let holdings = f!.holdings, stock = f!.stock
+        await stock.configure(gated: true)
+        weak var weakVM = f!.vm
+        f!.vm.start()
+        await settle { let h = await holdings.calls; let q = await stock.calls; return h == 1 && q == 1 }
+        f!.vm.stop()
+        f = nil
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertNil(weakVM, "Cancellation-unaware SEC and quote work cannot own the model")
+        await holdings.release(1)
+        await stock.release(1)
+    }
+    func testGatedThresholdDoesNotSuspendScheduledQuotesOrClosingClock() async {
+        let f = fixture(at: date(30, 15, 59), thresholds: ["gain-10b"])
+        await f.stock.configure(price: 989e9, previous: 980e9)
+        await f.vm.refresh()
+        await f.stock.configure(price: 991e9, previous: 980e9)
+        f.vm.start()
+        await settle { await f.notifications.requests.count == 1 }
+        await settle { await f.sleeper.intervals.count == 1 }
+        let sleepCount = await f.sleeper.intervals.count
+        XCTAssertEqual(sleepCount, 1, "The schedule must continue while threshold delivery waits")
+        f.clock.now = date(30, 16)
+        await f.stock.configure(fail: true)
+        await f.sleeper.wake(1)
+        await settle { f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay }
+        XCTAssertTrue(f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay)
+        f.vm.stop()
+        await f.notifications.release(1)
+        await f.sleeper.wake(2, cancelled: true)
+    }
+
+    func testThresholdObservationsFollowAcceptedSnapshotsWhileOldSummaryWaits() async {
+        let f = fixture(at: date(1, 10, month: 7), notify: true, thresholds: ["gain-10b"])
+        _ = f.tracker.update(personID: "musk", paperGain: 1e9, at: date(), isQuotable: true)
+        await f.stock.configure(price: 989e9, previous: 980e9)
+        let old = Task { await f.vm.refresh() }
+        await settle { await f.notifications.requests.count == 1 }
+        f.clock.now = f.clock.now.addingTimeInterval(1)
+        await f.stock.configure(price: 991e9, previous: 980e9)
+        let crossing = Task { await f.vm.refresh(force: true) }
+        await settle { await f.notifications.requests.count == 2 }
+        let requests = await f.notifications.requests
+        XCTAssertEqual(requests.count, 2, "9→11 must cross even while yesterday's summary is pending")
+        await f.notifications.release(2)
+        await crossing.value
+        await f.notifications.release(1)
+        await old.value
+    }
+
+    func testLateQuoteSuccessAndFailureCannotReplaceNewGeneration() async {
+        for fails in [false, true] {
+            let f = fixture()
+            await f.stock.configure(price: 105, fail: fails, gated: true)
+            let old = Task { await f.vm.refresh() }
+            await settle { await f.stock.calls == 1 }
+            f.settings.setShareCount(8, for: "TSLA")
+            await f.stock.configure(price: 110)
+            await f.vm.refresh(force: true)
+            await f.stock.release(1)
+            await old.value
+            XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, 80)
+            XCTAssertNil(f.vm.errorMessage)
+            XCTAssertFalse(f.vm.hasStaleData)
+        }
+    }
+
+    func testSECCanFinishAfterPartialQuotesAndStillRefreshAcceptedCountsOnce() async {
+        let f = fixture(due: true)
+        await f.stock.configure(partial: true)
+        f.vm.start()
+        await settle { f.vm.errorMessage != nil && f.vm.isSyncingHoldings }
+        await f.stock.configure()
+        await f.holdings.release(1, count: 4)
+        await settle { !f.vm.isSyncingHoldings }
+        XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, 4)
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 2)
+        f.vm.stop(); await f.sleeper.wake(1, cancelled: true)
+    }
+
+    func testConsecutiveDaysEachHaveOneClosingRequest() async {
+        let f = fixture(at: date(30, 15, 59))
+        f.vm.start()
+        await settle { await f.sleeper.intervals.count == 1 }
+        f.clock.now = date(30, 16)
+        await f.sleeper.wake(1)
+        await settle { await f.sleeper.intervals.count == 2 }
+        f.clock.now = date(1, 9, 30, month: 7)
+        await f.sleeper.wake(2)
+        await settle { await f.sleeper.intervals.count == 3 }
+        f.clock.now = date(1, 16, month: 7)
+        await f.sleeper.wake(3)
+        await settle { await f.sleeper.intervals.count == 4 }
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 4)
+        XCTAssertEqual(f.vm.snapshot?.lastUpdated, f.clock.now)
+        f.vm.stop(); await f.sleeper.wake(4, cancelled: true)
+    }
+
+    func testCancelledRefreshDiscardsCancellationUnawareResult() async {
+        let f = fixture()
+        await f.stock.configure(gated: true)
+        let task = Task { await f.vm.refresh() }
+        await settle { await f.stock.calls == 1 }
+        task.cancel()
+        await f.stock.release(1)
+        await task.value
+        XCTAssertNil(f.vm.snapshot)
+        XCTAssertFalse(f.vm.isLoading)
+    }
+
+    func testRestartedQuoteLoadingCannotBeClearedByOldCompletion() async {
+        let f = fixture()
+        await f.stock.configure(gated: true)
+        f.vm.start()
+        await settle { await f.stock.calls == 1 }
+        f.vm.stop(); f.vm.start()
+        await settle { await f.stock.calls == 2 }
+        await f.stock.release(1)
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertNil(f.vm.snapshot)
+        XCTAssertTrue(f.vm.isLoading)
+        await f.stock.release(2)
+        await settle { f.vm.snapshot != nil }
+        XCTAssertFalse(f.vm.isLoading)
+        f.vm.stop(); await f.sleeper.wake(1, cancelled: true)
+    }
+
+    func testOldSECFailureCannotOverwriteRestartedSyncStatus() async {
+        let f = fixture(due: true)
+        f.vm.start()
+        await settle { await f.holdings.calls == 1 }
+        f.vm.stop(); f.vm.start()
+        await settle { await f.holdings.calls == 2 }
+        await f.holdings.release(1, fails: true)
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertNil(f.vm.holdingsSyncMessage)
+        XCTAssertNil(f.settings.lastHoldingsSyncAttemptAt)
+        XCTAssertTrue(f.vm.isSyncingHoldings)
+        await f.holdings.release(2, count: 1)
+        await settle { !f.vm.isSyncingHoldings }
+        f.vm.stop(); await f.sleeper.wake(1, cancelled: true); await f.sleeper.wake(2, cancelled: true)
+    }
+
+    func testStoppedOutstandingServiceDoesNotRetainViewModel() async {
+        let outstanding = LifecycleOutstanding()
+        var f: Fixture? = fixture(due: true, outstanding: outstanding)
+        let holdings = f!.holdings, sleeper = f!.sleeper
+        weak var model = f!.vm
+        f!.vm.start()
+        await settle { await holdings.calls == 1 }
+        await holdings.release(1, count: 1)
+        await settle { await outstanding.started }
+        f!.vm.stop(); f = nil
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertNil(model)
+        await outstanding.release(); await sleeper.wake(1, cancelled: true)
+    }
+
+    func testStoppedSummaryDeliveryDoesNotRetainViewModel() async {
+        var f: Fixture? = fixture(at: date(1, 10, month: 7), notify: true)
+        let notifications = f!.notifications, sleeper = f!.sleeper
+        _ = f!.tracker.update(personID: "musk", paperGain: 1e9, at: date(), isQuotable: true)
+        weak var model = f!.vm
+        f!.vm.start()
+        await settle { await notifications.requests.count == 1 }
+        f!.vm.stop(); f = nil
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertNil(model)
+        await notifications.release(1); await sleeper.wake(1, cancelled: true)
+    }
+
+    func testOlderDaySummaryCannotAcknowledgeNewPendingDay() async {
+        for fails in [false, true] {
+            let f = fixture(notify: true)
+            _ = f.tracker.update(personID: "musk", paperGain: 1e9, at: date(29), isQuotable: true)
+            let old = Task { await f.vm.refresh() }
+            await settle { await f.notifications.requests.count == 1 }
+            f.clock.now = date(1, 10, month: 7)
+            let newer = Task { await f.vm.refresh(force: true) }
+            await settle { await f.notifications.requests.count == 2 }
+            await f.notifications.release(1, fails: fails)
+            await old.value
+            XCTAssertEqual(f.tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+            await f.notifications.release(2, fails: true)
+            await newer.value
+            XCTAssertEqual(f.tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+        }
+    }
+
+    func testLatePreSECFetchCannotResurrectPreviousCounts() async {
+        let f = fixture(due: true)
+        await f.stock.configure(gated: true)
+        f.vm.start()
+        await settle { let h = await f.holdings.calls; let q = await f.stock.calls; return h == 1 && q == 1 }
+        await f.holdings.release(1, count: 7)
+        await settle { await f.stock.calls == 2 }
+        await f.stock.release(2)
+        await settle { f.vm.snapshot?.holdings.first?.shareCount == 7 }
+        await f.stock.release(1)
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertEqual(f.vm.snapshot?.holdings.first?.shareCount, 7)
+        XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, 7)
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 2)
+        f.vm.stop(); await f.sleeper.wake(1, cancelled: true)
+    }
+
+}

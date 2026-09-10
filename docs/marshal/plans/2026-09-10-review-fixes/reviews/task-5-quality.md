@@ -205,6 +205,8 @@ Explicit scope authority: `build/task5-evidence/authorized-integration-scope.md`
 
 These independent hashes attest the authorized added paths at reviewed HEAD `adab4cb0efa2142900cac456abf817b97e315d14` separately from the standard original-plan-files trailer.
 
+ADJUDICATED: adjudicate-race — (fixed: adab4cb0efa2142900cac456abf817b97e315d14)
+
 ## Findings
 
 None.

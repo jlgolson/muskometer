@@ -1,0 +1,2646 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 2ef3004..9746707 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -8,6 +8,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
+ 
+ ### Fixed
+ 
++- Restore the Tesla/SpaceX comparison above secondary popover details, move ownership methodology into Holdings, and show honest intraday chart depth with range labels, a gradient, and the latest point in both the popover and shared image.
++
+ - Reconstruct Form 4 ownership from verified dated TSLA/SPCX buckets, preserving unchanged holdings and explicit zero disposals; reject ambiguous amendments, incomplete coverage, and invalid numeric values. SEC scans and archive requests are bounded and cancellable.
+ - Deduplicate companyfacts whole-entity outstanding totals and reject conflicting values instead of summing them.
+ - Commit snapshot, chart, milestone, and threshold observations before delivery awaits; preserve rearm/retry state and bound background gain delivery per person/preset.
+diff --git a/Muskometer/App/MuskometerApp.swift b/Muskometer/App/MuskometerApp.swift
+index 60b53ea..69e58f4 100644
+--- a/Muskometer/App/MuskometerApp.swift
++++ b/Muskometer/App/MuskometerApp.swift
+@@ -1,5 +1,15 @@
+ import SwiftUI
+ 
++#if DEBUG && MUSKOMETER_TEST_HOST
++@main
++struct MuskometerApp: App {
++    static let isIsolatedTestHost = true
++
++    var body: some Scene {
++        Settings { EmptyView() }
++    }
++}
++#else
+ @main
+ struct MuskometerApp: App {
+     private let viewModel: GainsViewModel
+@@ -64,4 +74,11 @@ struct MuskometerApp: App {
+         }
+         .windowResizability(.contentSize)
+     }
+-}
+\ No newline at end of file
++}
++
++#if DEBUG
++extension MuskometerApp {
++    static let isIsolatedTestHost = false
++}
++#endif
++#endif
+diff --git a/Muskometer/Views/GainSparklineView.swift b/Muskometer/Views/GainSparklineView.swift
+index 84deb47..6fb4359 100644
+--- a/Muskometer/Views/GainSparklineView.swift
++++ b/Muskometer/Views/GainSparklineView.swift
+@@ -1,40 +1,62 @@
+ import SwiftUI
+ 
+-/// Compact intraday sparkline for combined paper gain (~36pt tall).
+-/// Green above $0 breakeven, red below — drawn with Canvas for reliable per-segment coloring.
++/// Intraday gain with an explicit observed-range scale and sign-aware shading.
+ struct GainSparklineView: View {
+     let samples: [GainSample]
++    @Environment(\.colorScheme) private var colorScheme
++    @Environment(\.colorSchemeContrast) private var contrast
++    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+ 
+-    private let height: CGFloat = 36
++    var body: some View {
++        GainSparklineContent(samples: samples, colorScheme: colorScheme,
++                             contrast: contrast, reduceTransparency: reduceTransparency)
++    }
++}
++
++/// Explicit rendering inputs keep accessibility presentation independently testable;
++/// the shared public-facing view always supplies the live SwiftUI environment.
++struct GainSparklineContent: View {
++    let samples: [GainSample]
++    let colorScheme: ColorScheme
++    let contrast: ColorSchemeContrast
++    let reduceTransparency: Bool
++
++    private let height: CGFloat = 60
+     private let gainPositive = Color("GainPositive")
+     private let gainNegative = Color("GainNegative")
+ 
+     var body: some View {
+-        Group {
+-            if samples.isEmpty {
+-                EmptyView()
+-            } else {
++        if !samples.isEmpty {
++            VStack(spacing: 3) {
+                 Canvas { context, size in
+-                    Self.draw(
+-                        samples: samples,
+-                        size: size,
+-                        gainPositive: gainPositive,
+-                        gainNegative: gainNegative,
+-                        in: &context
+-                    )
++                    Self.draw(samples: samples, size: size, gainPositive: gainPositive,
++                              gainNegative: gainNegative, highContrast: contrast == .increased,
++                              reduceTransparency: reduceTransparency, dark: colorScheme == .dark,
++                              in: &context)
+                 }
+                 .frame(height: height)
+-                .accessibilityLabel(accessibilityLabel)
++                HStack(spacing: 4) {
++                    Text("Range")
++                    Spacer(minLength: 4)
++                    Text("\(CurrencyFormatter.formatCurrency(domain.minGain)) – \(CurrencyFormatter.formatCurrency(domain.maxGain))")
++                        .monospacedDigit()
++                }
++                .font(.caption2)
++                .foregroundStyle(contrast == .increased ? .primary : .secondary)
+             }
++            .accessibilityElement(children: .ignore)
++            .accessibilityLabel(accessibilityLabel)
+         }
+     }
+ 
++    private var domain: SparklineLayout {
++        SparklineLayout(samples: samples, size: .zero)
++    }
++
+     private var accessibilityLabel: String {
+-        guard let last = samples.last?.combinedPaperGain else {
+-            return "Intraday gain sparkline"
+-        }
++        guard let last = samples.last?.combinedPaperGain else { return "Intraday gain sparkline" }
+         let side = last >= 0 ? "above" : "below"
+-        return "Intraday gain sparkline, \(side) breakeven, current \(CurrencyFormatter.formatCurrency(last))"
++        return "Intraday gain sparkline, \(side) breakeven, current \(CurrencyFormatter.formatCurrency(last)), displayed range \(CurrencyFormatter.formatCurrency(domain.minGain)) to \(CurrencyFormatter.formatCurrency(domain.maxGain))"
+     }
+ }
+ 
+@@ -43,53 +65,52 @@ private struct SparklineSegment {
+     let isPositive: Bool
+ }
+ 
+-private extension GainSparklineView {
++private extension GainSparklineContent {
+     static func draw(
+-        samples: [GainSample],
+-        size: CGSize,
+-        gainPositive: Color,
+-        gainNegative: Color,
++        samples: [GainSample], size: CGSize, gainPositive: Color, gainNegative: Color,
++        highContrast: Bool, reduceTransparency: Bool, dark: Bool,
+         in context: inout GraphicsContext
+     ) {
+-        guard samples.count >= 1, size.width > 0, size.height > 0 else { return }
+-
++        guard !samples.isEmpty, size.width > 0, size.height > 0 else { return }
+         let layout = SparklineLayout(samples: samples, size: size)
+         let segments = segments(from: samples)
+-
+-        var zeroPath = Path()
+-        zeroPath.move(to: CGPoint(x: 0, y: layout.zeroY))
+-        zeroPath.addLine(to: CGPoint(x: size.width, y: layout.zeroY))
+-        context.stroke(
+-            zeroPath,
+-            with: .color(.secondary.opacity(0.35)),
+-            style: StrokeStyle(lineWidth: 0.5, dash: [3, 3])
+-        )
+-
+-        for segment in segments {
+-            let plotPoints = segment.points.map { layout.point(for: $0) }
+-            guard plotPoints.count >= 1 else { continue }
+-
+-            let strokeColor = segment.isPositive ? gainPositive : gainNegative
+-
+-            var linePath = Path()
+-            linePath.move(to: plotPoints[0])
+-            for point in plotPoints.dropFirst() {
+-                linePath.addLine(to: point)
+-            }
+-
+-            context.stroke(
+-                linePath,
+-                with: .color(strokeColor),
+-                style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round)
+-            )
+-
+-            guard plotPoints.count >= 2 else { continue }
+-
+-            var fillPath = linePath
+-            fillPath.addLine(to: CGPoint(x: plotPoints.last!.x, y: layout.zeroY))
+-            fillPath.addLine(to: CGPoint(x: plotPoints.first!.x, y: layout.zeroY))
+-            fillPath.closeSubpath()
+-            context.fill(fillPath, with: .color(strokeColor.opacity(0.22)))
++        let crossesZero = samples.contains { $0.combinedPaperGain < 0 }
++            && samples.contains { $0.combinedPaperGain > 0 }
++
++        // All fills precede reference lines, rounded strokes and the endpoint.
++        for segment in segments where segment.points.count >= 2 && !reduceTransparency {
++            let points = segment.points.map { layout.point(for: $0) }
++            let color = segment.isPositive ? gainPositive : gainNegative
++            let baseline = crossesZero ? layout.zeroY : (segment.isPositive ? layout.bottomY : layout.topY)
++            var fill = Path()
++            fill.addLines(points)
++            fill.addLine(to: CGPoint(x: points.last!.x, y: baseline))
++            fill.addLine(to: CGPoint(x: points.first!.x, y: baseline))
++            fill.closeSubpath()
++            let opacity = highContrast ? 0.32 : (dark ? 0.25 : 0.18)
++            context.fill(fill, with: .linearGradient(
++                Gradient(colors: [color.opacity(opacity), color.opacity(0.015)]),
++                startPoint: CGPoint(x: 0, y: segment.isPositive ? layout.topY : layout.bottomY),
++                endPoint: CGPoint(x: 0, y: baseline)))
++        }
++        if layout.containsZero {
++            var zero = Path()
++            zero.move(to: CGPoint(x: layout.leftX, y: layout.zeroY))
++            zero.addLine(to: CGPoint(x: layout.rightX, y: layout.zeroY))
++            context.stroke(zero, with: .color(.secondary.opacity(highContrast ? 0.7 : 0.4)),
++                           style: StrokeStyle(lineWidth: 0.5, dash: [3, 3]))
++        }
++        for segment in segments where segment.points.count >= 2 {
++            var line = Path()
++            line.addLines(segment.points.map { layout.point(for: $0) })
++            context.stroke(line, with: .color(segment.isPositive ? gainPositive : gainNegative),
++                           style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
++        }
++        if let last = samples.last {
++            let point = layout.point(for: last)
++            let color = last.combinedPaperGain >= 0 ? gainPositive : gainNegative
++            let dot = Path(ellipseIn: CGRect(x: point.x - 3, y: point.y - 3, width: 6, height: 6))
++            context.fill(dot, with: .color(color))
+         }
+     }
+ 
+@@ -163,7 +184,7 @@ private extension GainSparklineView {
+     }
+ }
+ 
+-private struct SparklineLayout {
++struct SparklineLayout {
+     let minGain: Double
+     let maxGain: Double
+     let minTime: TimeInterval
+@@ -172,18 +193,27 @@ private struct SparklineLayout {
+ 
+     init(samples: [GainSample], size: CGSize) {
+         let gains = samples.map(\.combinedPaperGain)
+-        let rawMin = min(gains.min() ?? 0, 0)
+-        let rawMax = max(gains.max() ?? 0, 0)
+-        let span = max(rawMax - rawMin, 1)
+-        let padding = span * 0.08
+-
+-        self.minGain = rawMin - padding
+-        self.maxGain = rawMax + padding
+-        self.minTime = samples.first!.timestamp.timeIntervalSince1970
+-        self.maxTime = samples.last!.timestamp.timeIntervalSince1970
++        let rawMin = gains.min() ?? 0
++        let rawMax = gains.max() ?? 0
++        let midpoint = rawMin + (rawMax - rawMin) / 2
++        let minimumSpan = max(1, max(abs(rawMin), abs(rawMax)) * 0.01)
++        let span = max(rawMax - rawMin, minimumSpan)
++        let halfRange = span * 0.58
++
++        self.minGain = midpoint - halfRange
++        self.maxGain = midpoint + halfRange
++        self.minTime = samples.first?.timestamp.timeIntervalSince1970 ?? 0
++        self.maxTime = samples.last?.timestamp.timeIntervalSince1970 ?? self.minTime
+         self.size = size
+     }
+ 
++    // Four points keep the rounded stroke and three-point endpoint inside the plot.
++    var leftX: CGFloat { min(4, max(0, size.width) / 2) }
++    var rightX: CGFloat { max(leftX, size.width - leftX) }
++    var topY: CGFloat { min(4, max(0, size.height) / 2) }
++    var bottomY: CGFloat { max(topY, size.height - topY) }
++    var containsZero: Bool { minGain <= 0 && maxGain >= 0 }
++
+     var zeroY: CGFloat {
+         y(for: 0)
+     }
+@@ -196,14 +226,14 @@ private struct SparklineLayout {
+     }
+ 
+     private func x(for time: TimeInterval) -> CGFloat {
+-        let span = max(maxTime - minTime, 1)
+-        let t = (time - minTime) / span
+-        return CGFloat(t) * size.width
++        guard maxTime > minTime else { return (leftX + rightX) / 2 }
++        let t = min(1, max(0, (time - minTime) / (maxTime - minTime)))
++        return leftX + CGFloat(t) * (rightX - leftX)
+     }
+ 
+     private func y(for gain: Double) -> CGFloat {
+         let span = max(maxGain - minGain, 1)
+-        let normalized = (gain - minGain) / span
+-        return size.height * CGFloat(1 - normalized)
++        let normalized = min(1, max(0, (gain - minGain) / span))
++        return topY + (bottomY - topY) * CGFloat(1 - normalized)
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/Muskometer/Views/MergerParityCardView.swift b/Muskometer/Views/MergerParityCardView.swift
+index 745d92f..40c58de 100644
+--- a/Muskometer/Views/MergerParityCardView.swift
++++ b/Muskometer/Views/MergerParityCardView.swift
+@@ -7,14 +7,16 @@ struct MergerParityCardView: View {
+     var animateValues = false
+ 
+     var body: some View {
+-        VStack(alignment: .leading, spacing: 8) {
++        VStack(alignment: .leading, spacing: 5) {
+             Text("If Tesla had SpaceX's market cap")
+                 .font(.caption)
++                .accessibilityIdentifier("merger-parity-title")
+                 .foregroundStyle(.secondary)
+ 
+             priceText(CurrencyFormatter.formatPrice(presentation.impliedTSLAPrice))
+                 .font(.system(.title2, design: .rounded, weight: .bold))
+                 .monospacedDigit()
++                .accessibilityIdentifier("merger-parity-price")
+ 
+             Text(caption)
+                 .font(.caption2)
+diff --git a/Muskometer/Views/PopoverContentView.swift b/Muskometer/Views/PopoverContentView.swift
+index 2d07ba8..d03d78c 100644
+--- a/Muskometer/Views/PopoverContentView.swift
++++ b/Muskometer/Views/PopoverContentView.swift
+@@ -116,10 +116,19 @@ struct PopoverContentView: View {
+ 
+     private func dataView(_ snapshot: GainsSnapshot) -> some View {
+         GlassEffectContainer(spacing: MuskometerGlass.containerSpacing) {
+-            VStack(alignment: .leading, spacing: 12) {
++            VStack(alignment: .leading, spacing: 10) {
+                 ownershipCard(snapshot)
+                 combinedCard(snapshot)
+ 
++                if viewModel.settings.showMergerParityCard,
++                   let presentation = viewModel.mergerParityPresentation {
++                    MergerParityCardView(
++                        presentation: presentation,
++                        animateValues: true
++                    )
++                }
++
++
+                 if hasDailyRecords {
+                     DailyRecordsCardView(
+                         bestRecord: viewModel.dailyRecordsSnapshot.bestRecord,
+@@ -136,15 +145,6 @@ struct PopoverContentView: View {
+                     )
+                 }
+ 
+-                if viewModel.settings.showMergerParityCard,
+-                   let presentation = viewModel.mergerParityPresentation {
+-                    MergerParityCardView(
+-                        presentation: presentation,
+-                        outstandingCaption: viewModel.mergerParityOutstandingCaption,
+-                        animateValues: true
+-                    )
+-                }
+-
+                 if viewModel.hasStaleData {
+                     Label {
+                         VStack(alignment: .leading, spacing: 2) {
+@@ -202,10 +202,6 @@ struct PopoverContentView: View {
+                         .accessibilityValue(ownershipToast)
+                 }
+ 
+-                Text("Form 4 common stock and vested options only; performance RSUs excluded until milestones.")
+-                    .font(.caption2)
+-                    .foregroundStyle(.tertiary)
+-                    .padding(.top, 2)
+             }
+             .frame(maxWidth: .infinity, alignment: .leading)
+ 
+@@ -213,35 +209,38 @@ struct PopoverContentView: View {
+                 viewModel.clearActiveMilestone()
+             }
+         }
+-        .padding(14)
++        .padding(12)
+         .frame(maxWidth: .infinity, alignment: .leading)
+         .muskometerGlassCard()
+     }
+ 
+     private func combinedCard(_ snapshot: GainsSnapshot) -> some View {
+-        VStack(alignment: .leading, spacing: 10) {
+-            VStack(alignment: .leading, spacing: 6) {
++        VStack(alignment: .leading, spacing: 8) {
++            VStack(alignment: .leading, spacing: 4) {
+                 Text("Combined today")
+                     .font(.caption)
+                     .foregroundStyle(.secondary)
+ 
+-                Text(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
+-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+-                    .monospacedDigit()
+-                    .foregroundStyle(combinedColor(snapshot))
+-                    .contentTransition(.numericText())
+-                    .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
+-                    .accessibilityLabel("Combined paper gain or loss today")
+-                    .accessibilityValue(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
+-
+-                Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
+-                    .font(.subheadline.weight(.semibold))
+-                    .monospacedDigit()
+-                    .foregroundStyle(combinedColor(snapshot))
+-                    .contentTransition(.numericText())
+-                    .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
+-                    .accessibilityLabel("Combined percent change today")
+-                    .accessibilityValue(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
++                HStack(alignment: .firstTextBaseline, spacing: 8) {
++                    Text(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
++                        .font(.system(size: 28, weight: .bold, design: .rounded))
++                        .monospacedDigit()
++                        .foregroundStyle(combinedColor(snapshot))
++                        .contentTransition(.numericText())
++                        .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
++                        .accessibilityLabel("Combined paper gain or loss today")
++                        .accessibilityValue(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
++
++                    Spacer(minLength: 0)
++                    Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
++                        .font(.subheadline.weight(.semibold))
++                        .monospacedDigit()
++                        .foregroundStyle(combinedColor(snapshot))
++                        .contentTransition(.numericText())
++                        .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
++                        .accessibilityLabel("Combined percent change today")
++                        .accessibilityValue(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
++                }
+ 
+                 HStack(spacing: 6) {
+                     Circle()
+@@ -288,7 +287,7 @@ struct PopoverContentView: View {
+                 .help("Open the system share sheet")
+             }
+         }
+-        .padding(14)
++        .padding(12)
+         .frame(maxWidth: .infinity, alignment: .leading)
+         // Untinted glass — full AccentColor tint washes the card solid blue in MenuBarExtra.
+         .muskometerGlassCard()
+@@ -390,4 +389,4 @@ struct PopoverContentView: View {
+         }
+         return .primary
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/Muskometer/Views/SettingsView.swift b/Muskometer/Views/SettingsView.swift
+index 27f04a8..49126db 100644
+--- a/Muskometer/Views/SettingsView.swift
++++ b/Muskometer/Views/SettingsView.swift
+@@ -299,6 +299,10 @@ struct SettingsView: View {
+ 
+     private var holdingsTab: some View {
+         groupedCard {
++            Text("Form 4 common stock and vested options only; performance RSUs excluded until milestones.")
++                .font(.caption)
++                .foregroundStyle(.secondary)
++
+             if let lastSync = settings.lastHoldingsSyncDate {
+                 Text("Last SEC sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
+                     .font(.caption)
+diff --git a/Muskometer/Views/ShareCardView.swift b/Muskometer/Views/ShareCardView.swift
+index 741a467..02f66ec 100644
+--- a/Muskometer/Views/ShareCardView.swift
++++ b/Muskometer/Views/ShareCardView.swift
+@@ -85,6 +85,7 @@ struct ShareCardView: View {
+ 
+             if !intradaySamples.isEmpty {
+                 GainSparklineView(samples: intradaySamples)
++                    .environment(\.colorScheme, .dark)
+                     .padding(.top, 4)
+             }
+         }
+diff --git a/MuskometerTests/InterfaceAndCalendarTests.swift b/MuskometerTests/InterfaceAndCalendarTests.swift
+index f973d13..1f8a458 100644
+--- a/MuskometerTests/InterfaceAndCalendarTests.swift
++++ b/MuskometerTests/InterfaceAndCalendarTests.swift
+@@ -2,6 +2,8 @@ import AppKit
+ import SwiftUI
+ import UserNotifications
+ import XCTest
++import Vision
++import ScreenCaptureKit
+ @testable import Muskometer
+ 
+ final class MarketHoursServiceTests: XCTestCase {
+@@ -789,38 +791,146 @@ final class LoginStatusRegressionTests: XCTestCase {
+     }
+ }
+ 
++// Read-only September 10 observations, using Codable Date's 2001 reference epoch.
++private enum VisualChartFixture {
++    static let gains = [13_855_060_779.811922, 14_187_615_509.983934,
++        13_385_345_764.31092, 16_083_600_343.614992, 14_670_726_847.679981,
++        14_618_948_881.370857, 15_949_845_655.179981, 15_827_663_635.18001,
++        15_921_438_748.099966]
++    static let times = [810753101.078183, 810753192.039462, 810753287.968565,
++        810753383.70998, 810753475.567488, 810753568.721071,
++        810753661.558663, 810753752.990089, 810753844.606051]
++    static let observed = zip(times, gains).map {
++        GainSample(timestamp: Date(timeIntervalSinceReferenceDate: $0.0), combinedPaperGain: $0.1)
++    }
++}
++
+ private struct InterfaceProbeStock: StockPriceServiceProtocol {
+     func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
+-        symbols.map { StockQuote(symbol: $0, displayName: $0,
+-            currentPrice: $0 == "TSLA" ? 400 : 100,
+-            previousClose: $0 == "TSLA" ? 395 : 98, currency: "USD") }
++        // Controlled quote changes sum to the latest observed gain, without adding a chart sample.
++        let tslaGain = (366.32 - 367.83) * 710_172_677
++        let spcxChange = (VisualChartFixture.gains.last! - tslaGain) / 5_116_475_230
++        return symbols.map { StockQuote(symbol: $0, displayName: $0,
++            currentPrice: $0 == "TSLA" ? 366.32 : 150.90,
++            previousClose: $0 == "TSLA" ? 367.83 : 150.90 - spcxChange, currency: "USD") }
++    }
++}
++
++final class SparklineLayoutRegressionTests: XCTestCase {
++    func testNarrowPositiveMovementUsesVisibleHeight() {
++        let samples = VisualChartFixture.observed
++        let layout = SparklineLayout(samples: samples, size: CGSize(width: 288, height: 60))
++        let ys = samples.map { layout.point(for: $0).y }
++        XCTAssertGreaterThan(layout.minGain, 0, "Distant zero must not flatten positive movement")
++        XCTAssertGreaterThan(ys.max()! - ys.min()!, 35, "Observed $2.7B range must be legible")
++    }
++    private func samples(_ gains: [Double]) -> [GainSample] {
++        gains.enumerated().map { GainSample(timestamp: Date(timeIntervalSinceReferenceDate: Double($0.offset * 60)), combinedPaperGain: $0.element) }
++    }
++
++    private func assertBounded(_ samples: [GainSample], file: StaticString = #filePath, line: UInt = #line) {
++        let layout = SparklineLayout(samples: samples, size: CGSize(width: 288, height: 60))
++        XCTAssertTrue(layout.minGain.isFinite && layout.maxGain.isFinite, file: file, line: line)
++        XCTAssertGreaterThan(layout.maxGain, layout.minGain, file: file, line: line)
++        XCTAssertEqual(layout.containsZero, layout.minGain <= 0 && layout.maxGain >= 0, file: file, line: line)
++        for sample in samples {
++            let point = layout.point(for: sample)
++            XCTAssertTrue(point.x.isFinite && point.y.isFinite, file: file, line: line)
++            XCTAssertTrue(CGRect(x: 0, y: 0, width: 288, height: 60).insetBy(dx: 3, dy: 3).contains(point), file: file, line: line)
++        }
++    }
++
++    func testNegativeOnlyKeepsDistantZeroOutsideDomain() {
++        let values = samples(VisualChartFixture.gains.map { -$0 })
++        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
++        XCTAssertLessThan(layout.maxGain, 0)
++        XCTAssertFalse(layout.containsZero)
++        assertBounded(values)
++    }
++
++    func testMixedSignsStraddleVisibleZero() {
++        let values = samples([-2e9, 1e9, -1e9, 2e9])
++        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
++        XCTAssertTrue(layout.containsZero)
++        XCTAssertGreaterThan(layout.point(for: values[0]).y, layout.zeroY)
++        XCTAssertLessThan(layout.point(for: values[1]).y, layout.zeroY)
++        assertBounded(values)
++    }
++
++    func testFlatPositiveNegativeAndZeroRemainHorizontal() {
++        for value in [16e9, -16e9, 0] {
++            let values = samples([value, value, value])
++            let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
++            XCTAssertEqual(Set(values.map { layout.point(for: $0).y }).count, 1)
++            XCTAssertEqual(layout.point(for: values[0]).y, 30, accuracy: 0.01)
++            assertBounded(values)
++        }
++    }
++
++    func testSingleSampleIsCenteredWithoutInventingHistory() {
++        let values = samples([16e9])
++        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
++        XCTAssertEqual(layout.point(for: values[0]), CGPoint(x: 144, y: 30))
++        assertBounded(values)
++    }
++
++    func testEmptyLayoutIsFiniteAndSafe() {
++        assertBounded([])
++        let layout = SparklineLayout(samples: [], size: CGSize(width: 288, height: 60))
++        XCTAssertTrue(layout.containsZero)
++        XCTAssertEqual(layout.zeroY, 30, accuracy: 0.01)
++    }
++
++    func testIrregularTimestampsKeepRelativeSpacing() {
++        let values = zip([0.0, 10, 100], [1e9, 2e9, 3e9]).map {
++            GainSample(timestamp: Date(timeIntervalSinceReferenceDate: $0.0), combinedPaperGain: $0.1)
++        }
++        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
++        let x = values.map { layout.point(for: $0).x }
++        XCTAssertEqual((x[1] - x[0]) / (x[2] - x[0]), 0.1, accuracy: 0.0001)
++        XCTAssertTrue(x[0] < x[1] && x[1] < x[2])
++        assertBounded(values)
++    }
++
++    func testFullCapacityMonotonicFixturePreservesOrderAndBounds() {
++        let values = samples((0..<400).map { 15e9 + Double($0) * 1e6 })
++        assertBounded(values)
++        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
++        let points = values.map { layout.point(for: $0) }
++        for pair in zip(points, points.dropFirst()) {
++            XCTAssertLessThan(pair.0.x, pair.1.x)
++            XCTAssertGreaterThan(pair.0.y, pair.1.y)
++        }
+     }
++
+ }
+ 
+ final class PopoverLayoutRegressionTests: XCTestCase {
++#if MUSKOMETER_TEST_HOST
++    @MainActor
++    func testUsesIsolatedApplicationEntryPoint() throws {
++        XCTAssertTrue(MuskometerApp.isIsolatedTestHost,
++                      "Hosted tests must use the inert application entry point")
++        let assets = try XCTUnwrap(Bundle.main.url(forResource: "Assets", withExtension: "car"))
++        let report = ["bundle": Bundle.main.bundlePath, "assets": assets.path, "isolated": "true"]
++        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted]),
++                                       uniformTypeIdentifier: "public.json")
++        attachment.name = "compiled-host-assets.json"
++        attachment.lifetime = .keepAlways
++        add(attachment)
++    }
++#endif
++
+     @MainActor
+     func testPopulatedPopoverFitsAvailableHeightAndRetainsScrolling() async throws {
+-        let defaults = UserDefaults(suiteName: "MuskometerTests-layout-\(UUID().uuidString)")!
+-        let settings = AppSettings(defaults: defaults, launchAtLoginManager: MockLaunchAtLoginManager())
+-        let now = try EasternTestDates.date(year: 2026, month: 9, day: 10, hour: 11)
+-        let tracker = DailyRecordTracker(defaults: defaults)
+-        _ = tracker.update(personID: "musk", paperGain: 2e9, at: now.addingTimeInterval(-86400), isQuotable: true)
+-        _ = tracker.update(personID: "musk", paperGain: 2e9, at: now.addingTimeInterval(-86400 + 6*3600), isQuotable: false)
+-        let vm = GainsViewModel(settings: settings, stockService: InterfaceProbeStock(),
+-            dailyRecordTracker: tracker,
+-            gainThresholdNotificationService: GainThresholdNotificationService(defaults: defaults),
+-            dayCloseSummaryNotificationService: DayCloseSummaryNotificationService(defaults: defaults),
+-            intradayGainSampleStore: IntradayGainSampleStore(defaults: defaults, now: { now }),
+-            netWorthMilestoneTracker: NetWorthMilestoneTracker(defaults: defaults), dateProvider: { now })
+-        await vm.refresh(force: true)
+-        XCTAssertNotNil(vm.snapshot)
+-        XCTAssertNotNil(vm.dailyRecordsSnapshot.bestRecord)
+-        XCTAssertNotNil(vm.mergerParityPresentation)
++        let vm = try await makeVisualModel()
+         for height in [600.0, 700.0, 800.0, 900.0] {
+-            let host = NSHostingView(rootView: PopoverContentView(viewModel: vm, availableHeight: height))
++            let host = NSHostingView(rootView: PopoverContentView(viewModel: vm, availableHeight: height)
++                .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark))
+             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: height),
+                                   styleMask: [.borderless], backing: .buffered, defer: false)
+             window.isReleasedWhenClosed = false
++            host.appearance = NSAppearance(named: .darkAqua)
+             window.contentView = host
+             window.orderFront(nil)
+             host.frame = NSRect(x: 0, y: 0, width: 360, height: height)
+@@ -830,14 +940,26 @@ final class PopoverLayoutRegressionTests: XCTestCase {
+             XCTAssertLessThanOrEqual(host.fittingSize.height, height)
+             let scroll = try XCTUnwrap(scrollViews(in: host).first)
+             let document = try XCTUnwrap(scroll.documentView)
+-            XCTAssertGreaterThan(document.bounds.height, scroll.contentView.bounds.height,
+-                                 "Populated cards must occupy a scrollable document")
++            if height <= 700 {
++                XCTAssertGreaterThan(document.bounds.height, scroll.contentView.bounds.height,
++                                     "Small panels must retain real secondary-content scrolling")
++            }
++            try await assertInitialParity(host, scroll: scroll, price: CurrencyFormatter.formatPrice(
++                try XCTUnwrap(vm.mergerParityPresentation).impliedTSLAPrice), name: "main-\(Int(height))-top")
+             let before = scroll.contentView.bounds.origin.y
+             document.scroll(NSPoint(x: 0, y: document.bounds.height))
+             scroll.reflectScrolledClipView(scroll.contentView)
+-            XCTAssertGreaterThan(scroll.contentView.bounds.origin.y, before)
+-            XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
+-            attachSnapshot(host, name: "main-\(Int(height))-scrolled")
++            if document.bounds.height > scroll.contentView.bounds.height {
++                XCTAssertGreaterThan(scroll.contentView.bounds.origin.y, before)
++                XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
++            } else {
++                XCTAssertEqual(scroll.contentView.bounds.origin.y, before)
++            }
++            await settle(host)
++            let detail = try await capture(host, name: "main-\(Int(height))-detail")
++            let detailText = try recognizedText(detail, size: host.bounds.size).map(\.0).joined(separator: " ")
++            XCTAssertFalse(detailText.lowercased().contains("vested options"))
++            XCTAssertTrue(detailText.contains("TSLA") && detailText.contains("SPCX"), "Both stock details must be reachable")
+ 
+             // SwiftUI exposes compact button focus/hit-test frames as direct subviews.
+             // Deduplicate overlapping focus proxies without relying on private class names.
+@@ -856,7 +978,22 @@ final class PopoverLayoutRegressionTests: XCTestCase {
+             XCTAssertFalse(scrollViews(in: host).isEmpty)
+             let back = try XCTUnwrap(compactControlFrames(in: host).first { $0.minY < 60 })
+             XCTAssertTrue(host.bounds.contains(back), "Back must remain visible")
+-            attachSnapshot(host, name: "settings-\(Int(height))")
++            let settingsImage = try await capture(host, name: "settings-\(Int(height))")
++            if height == 600 {
++                let text = try recognizedText(settingsImage, size: host.bounds.size)
++                let holdings = try XCTUnwrap(text.first { $0.0 == "Holdings" })
++                try click(CGPoint(x: holdings.1.midX, y: holdings.1.midY), in: host)
++                await settle(host)
++                let holdingsImage = try await capture(host, name: "holdings-600")
++                let lines = try recognizedText(holdingsImage, size: host.bounds.size).map(\.0)
++                let rendered = lines.joined(separator: " ").lowercased()
++                XCTAssertEqual(rendered.components(separatedBy: "vested options only").count - 1, 1)
++                XCTAssertTrue(rendered.contains("performance rsus excluded until milestones"))
++                let attachment = XCTAttachment(string: lines.joined(separator: "\n"))
++                attachment.name = "holdings-rendered-text.txt"
++                attachment.lifetime = .keepAlways
++                add(attachment)
++            }
+             let location = host.convert(NSPoint(x: back.midX, y: back.midY), to: nil)
+             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                 let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
+@@ -870,31 +1007,229 @@ final class PopoverLayoutRegressionTests: XCTestCase {
+         }
+     }
+ 
++    @MainActor
++    func testAssetBackedChartFixturesAndAppearances() async throws {
++        let vm = try await makeVisualModel()
++        let snapshot = try XCTUnwrap(vm.snapshot)
++        let parity = try XCTUnwrap(vm.mergerParityPresentation)
++        for (name, appearance) in [("light", NSAppearance.Name.aqua),
++                                   ("requested-high-contrast", .accessibilityHighContrastDarkAqua)] {
++            var observedContrast: ColorSchemeContrast?
++            let content = PopoverContentView(viewModel: vm, availableHeight: 900)
++                .background(VisualContrastProbe { observedContrast = $0 })
++                .background(Color(nsColor: .windowBackgroundColor))
++            let host = NSHostingView(rootView: content)
++            let window = makeWindow(host, size: CGSize(width: 360, height: 900), appearance: appearance)
++            await settle(host)
++            // macOS 26.4.1 normalizes a requested high-contrast hosting appearance
++            // to Dark Aqua; its read-only contrast follows system preferences. Record that fact;
++            // explicitly exercise the same renderer's accessibility inputs below.
++            let report = XCTAttachment(string: "Native appearance: \(host.effectiveAppearance.name.rawValue); SwiftUI contrast: \(String(describing: observedContrast))")
++            report.name = "appearance-\(name).txt"
++            report.lifetime = .keepAlways
++            add(report)
++            let scroll = try XCTUnwrap(scrollViews(in: host).first)
++            try await assertInitialParity(host, scroll: scroll, price: CurrencyFormatter.formatPrice(parity.impliedTSLAPrice),
++                                          name: "main-900-" + name)
++            window.close()
++        }
++        let accessibleChart = VStack(alignment: .leading, spacing: 10) {
++            Text("Increased contrast · reduced transparency fixture").font(.caption)
++            GainSparklineContent(samples: VisualChartFixture.observed, colorScheme: .dark,
++                                 contrast: .increased, reduceTransparency: true)
++        }.padding(12).frame(width: 328, height: 130, alignment: .topLeading)
++            .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark)
++        let accessibleHost = NSHostingView(rootView: accessibleChart)
++        let accessibleWindow = makeWindow(accessibleHost, size: CGSize(width: 328, height: 130), appearance: .accessibilityHighContrastDarkAqua)
++        await settle(accessibleHost)
++        let accessibleImage = try await capture(accessibleHost, name: "chart-increased-contrast-reduced-transparency")
++        let accessibleText = try recognizedText(accessibleImage, size: accessibleHost.bounds.size).map(\.0).joined(separator: " ")
++        XCTAssertTrue(accessibleText.contains("Range"))
++        XCTAssertTrue(accessibleText.contains("$13.2B") && accessibleText.contains("$16.3B"))
++        accessibleWindow.close()
++        let fixtures: [(String, [GainSample])] = [
++            ("observed", VisualChartFixture.observed),
++            ("negative", VisualChartFixture.observed.map { GainSample(timestamp: $0.timestamp, combinedPaperGain: -$0.combinedPaperGain) }),
++            ("mixed", fixture([-2e9, 1e9, -1e9, 2e9])),
++            ("flat-positive", fixture([16e9, 16e9, 16e9])),
++            ("flat-negative", fixture([-16e9, -16e9, -16e9])),
++            ("flat-zero", fixture([0, 0, 0])),
++            ("single", fixture([16e9])), ("empty", []),
++            ("400", fixture((0..<400).map { 15e9 + Double($0) * 1e6 }))]
++        for (name, samples) in fixtures {
++            let chart = VStack(alignment: .leading, spacing: 10) {
++                Text(name == "observed" ? "September 10 · observed samples" : "\(name) · synthetic test fixture")
++                    .font(.caption)
++                GainSparklineView(samples: samples)
++            }.padding(12).frame(width: 328, height: 130, alignment: .topLeading)
++                .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark)
++            let host = NSHostingView(rootView: chart)
++            let window = makeWindow(host, size: CGSize(width: 328, height: 130), appearance: .darkAqua)
++            await settle(host)
++            _ = try await capture(host, name: "chart-" + name)
++            window.close()
++            let target = samples.last?.combinedPaperGain ?? 0
++            let holdings = snapshot.holdings.map { holding in
++                let gain = holding.symbol == "SPCX" ? target - snapshot.holdings[0].paperGain : holding.paperGain
++                let quote = StockQuote(symbol: holding.symbol, displayName: holding.displayName,
++                    currentPrice: holding.quote.currentPrice,
++                    previousClose: holding.quote.currentPrice - gain / Double(holding.shareCount), currency: "USD")
++                return HoldingGain(id: holding.id, symbol: holding.symbol, displayName: holding.displayName,
++                                   shareCount: holding.shareCount, quote: quote)
++            }
++            let exportSnapshot = GainsSnapshot(holdings: holdings, lastUpdated: snapshot.lastUpdated, tradingSession: .regular)
++            XCTAssertEqual(exportSnapshot.combinedPaperGain, target, accuracy: 0.01)
++            let png = try XCTUnwrap(ShareImageExporter.renderPNGData(snapshot: exportSnapshot,
++                profile: vm.settings.selectedProfile, intradaySamples: samples, parity: parity))
++            let bitmap = try XCTUnwrap(NSBitmapImageRep(data: png))
++            XCTAssertEqual(bitmap.pixelsWide, 720, "Production export retains 2x resolution")
++            let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
++            attachment.name = "share-\(name).png"
++            attachment.lifetime = .keepAlways
++            add(attachment)
++        }
++    }
++
++    private func fixture(_ gains: [Double]) -> [GainSample] {
++        gains.enumerated().map { GainSample(timestamp: VisualChartFixture.observed[0].timestamp.addingTimeInterval(Double($0.offset * 60)), combinedPaperGain: $0.element) }
++    }
++
++    @MainActor
++    private func makeWindow<Content: View>(_ host: NSHostingView<Content>, size: CGSize,
++                                           appearance: NSAppearance.Name) -> NSWindow {
++        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
++        window.isReleasedWhenClosed = false
++        window.appearance = NSAppearance(named: appearance)
++        host.appearance = NSAppearance(named: appearance)
++        window.contentView = host
++        window.orderFront(nil)
++        host.frame = CGRect(origin: .zero, size: size)
++        return window
++    }
++
++    @MainActor
++    private func makeVisualModel() async throws -> GainsViewModel {
++        let defaults = UserDefaults(suiteName: "MuskometerTests-visual-\(UUID().uuidString)")!
++        let settings = AppSettings(defaults: defaults, launchAtLoginManager: MockLaunchAtLoginManager())
++        let now = try XCTUnwrap(VisualChartFixture.observed.last?.timestamp)
++        settings.showMergerParityCard = true
++        settings.lastHoldingsSyncDate = now
++        settings.holdingsSyncSource = "SEC EDGAR · Form 4 · September 10, 2026 (controlled fixture)"
++        let store = IntradayGainSampleStore(defaults: defaults, now: { now })
++        let tracker = DailyRecordTracker(defaults: defaults)
++        _ = tracker.update(personID: "musk", paperGain: -109e9, at: now.addingTimeInterval(-2*86400), isQuotable: true)
++        _ = tracker.update(personID: "musk", paperGain: -109e9, at: now.addingTimeInterval(-2*86400 + 6*3600), isQuotable: false)
++        _ = tracker.update(personID: "musk", paperGain: 116.4e9, at: now.addingTimeInterval(-86400), isQuotable: true)
++        _ = tracker.update(personID: "musk", paperGain: 116.4e9, at: now.addingTimeInterval(-86400 + 6*3600), isQuotable: false)
++        let vm = GainsViewModel(settings: settings, stockService: InterfaceProbeStock(),
++            holdingsSyncServiceFactory: { _ in MockHoldingsSyncService(result: .failure(URLError(.cancelled))) },
++            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) },
++            dailyRecordTracker: tracker,
++            gainThresholdNotificationService: GainThresholdNotificationService(defaults: defaults, deliverer: VisualNotificationSink()),
++            dayCloseSummaryNotificationService: DayCloseSummaryNotificationService(defaults: defaults, deliverer: VisualNotificationSink()),
++            intradayGainSampleStore: store,
++            netWorthMilestoneTracker: NetWorthMilestoneTracker(defaults: defaults), dateProvider: { now })
++        await vm.refresh(force: true)
++        // Replace only this test suite's persisted samples, then reload without a live refresh.
++        struct StoredSamples: Encodable { let dayKey: String; let samples: [GainSample] }
++        defaults.set(try JSONEncoder().encode(StoredSamples(dayKey: "2026-09-10", samples: VisualChartFixture.observed)),
++                     forKey: "intradayGainSampleStore_musk")
++        vm.reloadPersistedDisplayState()
++        XCTAssertEqual(vm.intradaySamples, VisualChartFixture.observed)
++        XCTAssertEqual(try XCTUnwrap(vm.snapshot).combinedPaperGain, VisualChartFixture.gains.last!, accuracy: 0.01)
++        XCTAssertNotNil(vm.snapshot)
++        XCTAssertNotNil(vm.dailyRecordsSnapshot.worstRecord)
++        XCTAssertNotNil(vm.dailyRecordsSnapshot.bestRecord)
++        XCTAssertNotNil(vm.mergerParityPresentation)
++        return vm
++    }
++
++    @MainActor
++    private func capture(_ host: NSView, name: String) async throws -> NSBitmapImageRep {
++        let window = try XCTUnwrap(host.window)
++        // Only this inert test process's own window is shareable without TCC consent.
++        // Window-server capture preserves Liquid Glass, whose compositor layers are
++        // absent (and primary text black) in cacheDisplay's offscreen bitmap.
++        let content = try await SCShareableContent.currentProcess
++        let surface = try XCTUnwrap(content.windows.first { $0.windowID == CGWindowID(window.windowNumber) })
++        let config = SCStreamConfiguration()
++        config.width = Int(host.bounds.width * 2)
++        config.height = Int(host.bounds.height * 2)
++        config.showsCursor = false
++        config.ignoreShadowsSingleWindow = true
++        config.shouldBeOpaque = true
++        let cgImage = try await SCScreenshotManager.captureImage(
++            contentFilter: SCContentFilter(desktopIndependentWindow: surface), configuration: config)
++        let bitmap = NSBitmapImageRep(cgImage: cgImage)
++        bitmap.size = host.bounds.size
++        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
++        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
++        attachment.name = name + ".png"
++        attachment.lifetime = .keepAlways
++        add(attachment)
++        return bitmap
++    }
++
++    @MainActor
++    private func recognizedText(_ bitmap: NSBitmapImageRep, size: CGSize) throws -> [(String, CGRect)] {
++        let request = VNRecognizeTextRequest()
++        request.recognitionLevel = .accurate
++        request.usesLanguageCorrection = false
++        try VNImageRequestHandler(cgImage: try XCTUnwrap(bitmap.cgImage), options: [:]).perform([request])
++        return (request.results ?? []).compactMap { observation in
++            guard let text = observation.topCandidates(1).first?.string else { return nil }
++            let box = observation.boundingBox
++            return (text, CGRect(x: box.minX * size.width, y: (1 - box.maxY) * size.height,
++                                 width: box.width * size.width, height: box.height * size.height))
++        }
++    }
++
++    @MainActor
++    private func assertInitialParity(_ host: NSView, scroll: NSScrollView, price: String, name: String) async throws {
++        let observed = try recognizedText(try await capture(host, name: name), size: host.bounds.size)
++        XCTAssertFalse(observed.map(\.0).joined(separator: " ").lowercased().contains("vested options"))
++        var clip = scroll.contentView.convert(scroll.contentView.bounds, to: host)
++        if !host.isFlipped { clip.origin.y = host.bounds.height - clip.maxY }
++        func normalize(_ value: String) -> String {
++            value.replacingOccurrences(of: "’", with: "'").split(whereSeparator: \.isWhitespace).joined(separator: " ")
++        }
++        for expected in ["If Tesla had SpaceX's market cap", price] {
++            if let match = observed.first(where: { normalize($0.0) == normalize(expected) }) {
++                XCTAssertTrue(clip.contains(match.1), "Complete \(expected) must lie inside initial viewport \(clip), got \(match.1)")
++            } else {
++                XCTFail("Complete \(expected) missing from initial viewport at \(host.bounds.height)")
++            }
++        }
++        let report: [String: Any] = ["clipRect": NSStringFromRect(clip), "hostBounds": NSStringFromRect(host.bounds),
++            "expectedTitle": "If Tesla had SpaceX's market cap", "expectedPrice": price,
++            "text": observed.map { ["text": $0.0, "rect": NSStringFromRect($0.1)] }]
++        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),
++                                       uniformTypeIdentifier: "public.json")
++        attachment.name = name + "-geometry.json"
++        attachment.lifetime = .keepAlways
++        add(attachment)
++    }
++
+     @MainActor
+     private func settle(_ host: NSView) async {
+         for _ in 0..<6 {
+             await Task.yield()
+             host.layoutSubtreeIfNeeded()
+         }
++        host.displayIfNeeded()
++        try? await Task.sleep(for: .milliseconds(150))
+     }
+ 
+     @MainActor
+-    private func attachSnapshot(_ host: NSView, name: String) {
+-        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+-            XCTFail("Unable to capture \(name)")
+-            return
++    private func click(_ imagePoint: CGPoint, in host: NSView) throws {
++        let window = try XCTUnwrap(host.window)
++        let point = host.isFlipped ? imagePoint : CGPoint(x: imagePoint.x, y: host.bounds.height - imagePoint.y)
++        let location = host.convert(point, to: nil)
++        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
++            let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
++                timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
++            window.sendEvent(event)
+         }
+-        host.cacheDisplay(in: host.bounds, to: bitmap)
+-        let image = NSImage(size: host.bounds.size, flipped: false) { rect in
+-            NSColor.windowBackgroundColor.setFill()
+-            rect.fill()
+-            bitmap.draw(in: rect)
+-            return true
+-        }
+-        let attachment = XCTAttachment(image: image)
+-        attachment.name = name
+-        attachment.lifetime = .keepAlways
+-        add(attachment)
+     }
+ 
+     @MainActor
+@@ -910,3 +1245,17 @@ final class PopoverLayoutRegressionTests: XCTestCase {
+         (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
+     }
+ }
++
++private struct VisualNotificationSink: GainThresholdNotificationDelivering, DayCloseSummaryNotificationDelivering {
++    func add(_ request: UNNotificationRequest) async throws {
++        XCTFail("Visual fixtures must not deliver notifications")
++    }
++}
++
++private struct VisualContrastProbe: View {
++    @Environment(\.colorSchemeContrast) private var contrast
++    let report: (ColorSchemeContrast) -> Void
++    var body: some View {
++        Color.clear.onAppear { report(contrast) }.onChange(of: contrast) { _, value in report(value) }
++    }
++}
+diff --git a/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/README.md b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/README.md
+new file mode 100644
+index 0000000..fa6a966
+--- /dev/null
++++ b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/README.md
+@@ -0,0 +1,26 @@
++# Popover visual correction validation
++
++The change restores the complete comparison heading and $518.51 implied price above secondary content at 600, 700, 800 and 900 points. Ownership methodology appears once in the actual Holdings tab and is absent from main-view OCR. Main records, both stock cards, footer controls and Settings/back remain reachable through real scrolling and clicks.
++
++`validation.json` binds final results and stable raw evidence paths to `source-manifest.json`. `test-identifiers.json` proves preservation of the 391 baseline cases. `initial-viewport-geometry.json` records the recognized complete title and exact price against the actual NSScrollView clip bounds before scrolling, using top-left image coordinates. `normal-release.json` identifies the normal Release app produced by the sole final verification run, copied to the controller for the later preview handoff. No preview was launched by this implementer.
++
++## Visual observations
++
++- Compared the original supplied images and a same-data red-run image against the corrected main600 and main900 images. The observed nine samples retain their actual timestamp spacing; the $2.7B range now spans about 45 of the 60 plotting points, with a clear endpoint and a modest area gradient. Labels disclose the approximately +$13.2B to +$16.3B displayed domain. The current +$15.9B total matches the latest sample.
++- The full comparison fits initially at each required height. Secondary cards remain readable, with scrolling on small screens. The 600-point detail image reaches both stock cards, and footer controls stay outside the scroll area.
++- Holdings shows the methodology once above the existing SEC, issuer provenance, share fields and reset control; only the tab and Back were clicked. No SEC sync, reset, notifications or real defaults were used.
++- The shared image uses the production ShareImageExporter path at 720 pixels wide, with the same chart and explicit dark range-label environment. Positive, negative and mixed exports retain their corresponding totals, parity and holdings, with no clipping.
++- Negative charts shade upward toward their visible domain edge. Genuine crossings retain green/red segmentation and visible zero; flat positive/negative/zero remain horizontal. Single input draws a centered dot, empty history draws no invented chart, and the labelled 400-point fixture preserves ordered monotonic movement.
++- Light and dark main images are legible. The increased-contrast/reduced-transparency renderer fixture has stronger labels and no transparent fill, with its real line and endpoint intact.
++
++## Capture fidelity and accessibility adaptation
++
++The initial cacheDisplay raster lost macOS Liquid Glass compositor layers and made primary labels black. Those early images are retained as harness diagnostics, not accepted visual evidence. Final main/Settings/chart images use ScreenCaptureKit currentProcess shareable content filtered to the test's own borderless NSWindow, preserving real composited glass and compiled Assets.car. No desktop or other app was captured, and no TCC permission/system preference was changed. Share images use the unchanged production exporter.
++
++The public NSHostingView/NSWindow high-contrast appearance request normalized to Dark Aqua on this macOS 26.4.1 host; SwiftUI's get-only contrast stayed standard. Initial assertions exposed that limitation rather than proving propagation. The final evidence records requested and observed appearances honestly. A narrow shared rendering component accepts explicit color-scheme/contrast/reduced-transparency inputs; production GainSparklineView always supplies its live environment, and tests supply accessible inputs to that same renderer. This uses no private environment keys, swizzling or global preferences. The requested-appearance main screenshot is not claimed as proof of system contrast propagation.
++
++## Isolation and preserved behavior
++
++The flagged test app has only an empty Settings scene and positive test marker. It cannot register AppDelegate or start settings, login, network, update, notification or menu-bar services. The original normal app declaration is byte-for-byte preserved under #else. The existing controller xcodebuild wrapper adds the flag only to test actions, retaining its nonparallel controls and unchanged aggregate launch lock. Exactly one bootstrap test executed and passed before presentation red. Focused/full suites include its positive assertion and actual compiled asset proof.
++
++All fixture settings use unique MuskometerTests-visual suites, MockLaunchAtLoginManager, controlled quotes, explicit mock SEC/outstanding factories, failing test notification sinks, fixed Eastern dates and a controlled store. The observed JSON is read-only; synthetic cases are labelled and never written into user history. The full verification skips only the optional live Yahoo network step, as instructed. Historical twelve-fix plans and review artifacts were preserved.
+diff --git a/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/initial-viewport-geometry.json b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/initial-viewport-geometry.json
+new file mode 100644
+index 0000000..5f3961d
+--- /dev/null
++++ b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/initial-viewport-geometry.json
+@@ -0,0 +1,570 @@
++{
++  "600": {
++    "clipRect": "{{16, 74}, {328, 424}}",
++    "expectedPrice": "$518.51",
++    "expectedTitle": "If Tesla had SpaceX's market cap",
++    "hostBounds": "{{0, 0}, {360, 600}}",
++    "text": [
++      {
++        "rect": "{{15.999999431250011, 22.000000043749978}, {91, 13.000000000000034}}",
++        "text": "Muskometer"
++      },
++      {
++        "rect": "{{15.000000229999998, 47.00000011000003}, {121.00000000000001, 10.999999999999988}}",
++        "text": "What's Elon up to today?"
++      },
++      {
++        "rect": "{{27.767070105850337, 87.975392490854887}, {84.462493896484375, 13.178997993469199}}",
++        "text": "Elon's Ownership"
++      },
++      {
++        "rect": "{{27.805804753865743, 108.32314859151863}, {78.388389587402344, 24.353702545166044}}",
++        "text": "$1.03T"
++      },
++      {
++        "rect": "{{26.809109180885713, 167.13988241354141}, {80.455657958984361, 13.023627758026146}}",
++        "text": "Combined today"
++      },
++      {
++        "rect": "{{23.941188512753246, 188.74148547776545}, {122.11762237548828, 28.517028808593814}}",
++        "text": "+$15.9B"
++      },
++      {
++        "rect": "{{24.563565185608059, 222.65357148787302}, {77.74271392822267, 16.642995834350561}}",
++        "text": "\u2022 Market open"
++      },
++      {
++        "rect": "{{285.93997187281025, 201.76560602599824}, {46.120056152343757, 12.468788146972631}}",
++        "text": "+1.57%"
++      },
++      {
++        "rect": "{{27.935669088059612, 310.81600150522758}, {31.128662109374996, 11.367997169494636}}",
++        "text": "Range"
++      },
++      {
++        "rect": "{{231.00000071428568, 309.99999994285713}, {100, 12.000000000000011}}",
++        "text": "+$13.2B - +$16.3B"
++      },
++      {
++        "rect": "{{61.97077803636418, 336.83008761724386}, {63.058444976806641, 11.339824676513688}}",
++        "text": "Copy Image"
++      },
++      {
++        "rect": "{{173.00000039999998, 337.00000001000001}, {40.000000000000014, 10.999999999999988}}",
++        "text": "Share..."
++      },
++      {
++        "rect": "{{25.999998460000029, 387.99999987999996}, {162.00000000000003, 12.000000000000011}}",
++        "text": "If Tesla had SpaceX's market cap"
++      },
++      {
++        "rect": "{{26.979026964643829, 410.91574487109585}, {72.041946411132812, 18.168510437011708}}",
++        "text": "$518.51"
++      },
++      {
++        "rect": "{{27.000001737499957, 438.99999993749998}, {139, 10.999999999999988}}",
++        "text": "SPCX $2.05T \u2022 TSLA $1.45T"
++      },
++      {
++        "rect": "{{45.999998925000028, 488.00000003749994}, {86, 10.999999999999988}}",
++        "text": "Intraday records"
++      },
++      {
++        "rect": "{{146.97773120527577, 518.90339343281005}, {56.044536590576179, 13.193213939666748}}",
++        "text": "C Refresh"
++      },
++      {
++        "rect": "{{14.999999160000014, 547.00000003000002}, {84, 10.999999999999988}}",
++        "text": "Updated 1:24 PM"
++      },
++      {
++        "rect": "{{109.99999878333337, 547.0000000583334}, {146, 10.999999999999988}}",
++        "text": "muskometer.org Disclaimer"
++      },
++      {
++        "rect": "{{14.999997690000043, 572.00000004999993}, {231.00000000000003, 10.999999999999988}}",
++        "text": "Quotes: Yahoo Finance \u2022 Holdings: SEC EDGAR"
++      },
++      {
++        "rect": "{{229.97149074820703, 518.87280163016214}, {53.057018280029318, 12.254396438598626}}",
++        "text": "Settings..."
++      },
++      {
++        "rect": "{{311.00000004000003, 517.99999988000002}, {23.999999999999993, 12.000000000000011}}",
++        "text": "Quit"
++      }
++    ]
++  },
++  "700": {
++    "clipRect": "{{16, 74}, {328, 524}}",
++    "expectedPrice": "$518.51",
++    "expectedTitle": "If Tesla had SpaceX's market cap",
++    "hostBounds": "{{0, 0}, {360, 700}}",
++    "text": [
++      {
++        "rect": "{{16.271187123626184, 21.366279267432631}, {91.525421142578125, 14.244185447692892}}",
++        "text": "Muskometer"
++      },
++      {
++        "rect": "{{15.254240509915391, 45.784883787354232}, {121.01694488525392, 12.215116024017302}}",
++        "text": "What's Elon up to today?"
++      },
++      {
++        "rect": "{{27.244112020486117, 87.876700789214368}, {84.873222351074219, 13.009877204895082}}",
++        "text": "Elon's Ownership"
++      },
++      {
++        "rect": "{{27.399000971754024, 108.65692288561202}, {79.439285278320327, 22.802433013916001}}",
++        "text": "$1.03T"
++      },
++      {
++        "rect": "{{27.457630451589793, 168.89534911017839}, {79.322029113769531, 11.191860198974602}}",
++        "text": "Combined today"
++      },
++      {
++        "rect": "{{24.308834178637326, 188.81901587477046}, {122.22978973388672, 29.338712692260781}}",
++        "text": "+$15.9B"
++      },
++      {
++        "rect": "{{25.423729863405413, 223.83720929549818}, {77.288131713867188, 11.191860198974602}}",
++        "text": "\u2022 Market open"
++      },
++      {
++        "rect": "{{285.76271196505746, 203.48837222878751}, {44.745761871337905, 10.174418449401813}}",
++        "text": "+1.57%"
++      },
++      {
++        "rect": "{{27.407613571441857, 310.17744012948805}, {31.62545013427734, 11.476514816284089}}",
++        "text": "Range"
++      },
++      {
++        "rect": "{{230.84745608539544, 310.31976761732477}, {99.661018371582031, 11.191860198974602}}",
++        "text": "+$13.2B -+$16.3B"
++      },
++      {
++        "rect": "{{62.00571106645787, 336.61235674255397}, {63.107223510742195, 11.513658523559567}}",
++        "text": "Copy Image"
++      },
++      {
++        "rect": "{{170.67514415303592, 337.69977813057346}, {42.168594360351591, 10.583501815795859}}",
++        "text": "Share..."
++      },
++      {
++        "rect": "{{26.440678240831431, 388.50000009178336}, {160.67796325683594, 11.500000000000021}}",
++        "text": "If Tesla had SpaceX's market cap"
++      },
++      {
++        "rect": "{{27.457625417799111, 411.04651213604831}, {72.203392028808594, 17.296510696411183}}",
++        "text": "$518.51"
++      },
++      {
++        "rect": "{{27.457629916371488, 439.49999977170017}, {137.28813171386722, 10.209302425384481}}",
++        "text": "SPCX $2.05T \u2022 TSLA $1.45T"
++      },
++      {
++        "rect": "{{28.474578307224078, 488.37209324959218}, {102.71186065673828, 11.191860198974602}}",
++        "text": "N Intraday records"
++      },
++      {
++        "rect": "{{45.76271169553803, 513.80813959521629}, {26.440677642822269, 9.1569766998290998}}",
++        "text": "Best"
++      },
++      {
++        "rect": "{{27.40937528530192, 531.88897224846141}, {58.062606811523438, 12.675543785095233}}",
++        "text": "+$116.4B"
++      },
++      {
++        "rect": "{{27.426702203951862, 552.31460642679326}, {61.078800201416016, 12.521949291229252}}",
++        "text": "Sep 9, 2026"
++      },
++      {
++        "rect": "{{211.44355234531631, 513.51810522539449}, {31.689167022705075, 9.7370452880859446}}",
++        "text": "Worst"
++      },
++      {
++        "rect": "{{189.12069993207038, 531.98375930677992}, {57.012836456298821, 13.503411293029743}}",
++        "text": "-$109.0B"
++      },
++      {
++        "rect": "{{191.17277551384612, 552.40233064212407}, {61.044281005859375, 12.346500873565681}}",
++        "text": "Sep 8, 2026"
++      },
++      {
++        "rect": "{{147.45762750807401, 619.50000013318231}, {54.915252685546854, 12.499999999999956}}",
++        "text": "C Refresh"
++      },
++      {
++        "rect": "{{229.78802689064881, 619.43192736612809}, {53.983268737792997, 12.589633941650369}}",
++        "text": "Settings..."
++      },
++      {
++        "rect": "{{15.254236313261401, 647.00000018197943}, {83.38983154296875, 11.500000000000021}}",
++        "text": "Updated 1:24PM"
++      },
++      {
++        "rect": "{{108.81355945617884, 648.11046521933986}, {82.372879028320298, 10.174418449401889}}",
++        "text": "muskometer.org"
++      },
++      {
++        "rect": "{{200.30392035002063, 646.90043314282775}, {54.985378265380845, 10.559598922729464}}",
++        "text": "Disclaimer"
++      },
++      {
++        "rect": "{{15.254239714453123, 672.50000011191855}, {229.83050537109372, 11.22093009948728}}",
++        "text": "Quotes: Yahoo Finance \u2022 Holdings: SEC EDGAR"
++      },
++      {
++        "rect": "{{310.16949210679064, 618.60465147340074}, {24.406778335571289, 12.209301948547392}}",
++        "text": "Quit"
++      }
++    ]
++  },
++  "800": {
++    "clipRect": "{{16, 74}, {328, 624}}",
++    "expectedPrice": "$518.51",
++    "expectedTitle": "If Tesla had SpaceX's market cap",
++    "hostBounds": "{{0, 0}, {360, 800}}",
++    "text": [
++      {
++        "rect": "{{16.258066393827193, 22.093023150624091}, {89.419349670410156, 13.953488349914611}}",
++        "text": "Muskometer"
++      },
++      {
++        "rect": "{{15.09677355626104, 46.499999883510412}, {120.77419281005859, 11.639534950256269}}",
++        "text": "What's Elon up to today?"
++      },
++      {
++        "rect": "{{26.7096767288417, 89.499999862731187}, {84.774192810058594, 11.662790775299126}}",
++        "text": "Elon's Ownership"
++      },
++      {
++        "rect": "{{26.709678887424403, 109.3023258024278}, {80.1290283203125, 23.255813598632802}}",
++        "text": "$1.03T"
++      },
++      {
++        "rect": "{{26.709680166295357, 168.49999991667283}, {80.1290283203125, 11.73255825042725}}",
++        "text": "Combined today"
++      },
++      {
++        "rect": "{{24.283223275445067, 187.92696487515775}, {123.30451965332031, 29.960023880004805}}",
++        "text": "+$15.9B"
++      },
++      {
++        "rect": "{{24.387096662996179, 223.25581431448293}, {77.806449890136719, 12.790697097778381}}",
++        "text": "\u2022 Market open"
++      },
++      {
++        "rect": "{{285.64623666862383, 203.36602780383456}, {45.352687835693352, 11.872595787048468}}",
++        "text": "+1.57%"
++      },
++      {
++        "rect": "{{26.662931958968255, 310.33343972626}, {32.609619140625, 11.891260147094762}}",
++        "text": "Range"
++      },
++      {
++        "rect": "{{231.09677675273369, 310.46511630133847}, {99.870964050292983, 11.627906799316534}}",
++        "text": "+$13.2B - +$16.3B"
++      },
++      {
++        "rect": "{{61.522642175458778, 335.91702387428592}, {63.922458648681634, 13.049673080444357}}",
++        "text": "Copy Image"
++      },
++      {
++        "rect": "{{170.70967735681324, 337.20930241429528}, {42.967742919921889, 11.627906799316445}}",
++        "text": "Share..."
++      },
++      {
++        "rect": "{{26.709678206549228, 388.37209308289999}, {161.41935729980469, 11.627906799316357}}",
++        "text": "If Tesla had SpaceX's market cap"
++      },
++      {
++        "rect": "{{27.764811786987238, 410.01722120976029}, {72.212310791015611, 18.337650299072283}}",
++        "text": "$518.51"
++      },
++      {
++        "rect": "{{26.70968138299142, 439.49999994994056}, {138.19354248046875, 11.662790775299037}}",
++        "text": "SPCX $2.05T \u2022 TSLA $1.45T"
++      },
++      {
++        "rect": "{{27.870969033206251, 488.37209304220221}, {104.51612854003906, 11.627906799316357}}",
++        "text": "N Intraday records"
++      },
++      {
++        "rect": "{{47.596644042601582, 513.91080498627559}, {24.419614791870114, 9.3876924514770366}}",
++        "text": "Best"
++      },
++      {
++        "rect": "{{26.669108518235305, 532.35260190145641}, {58.145652770996101, 12.038982391357411}}",
++        "text": "+$116.4B"
++      },
++      {
++        "rect": "{{26.653592604832454, 552.05076148412354}, {61.660556793212884, 13.340337753295906}}",
++        "text": "Sep 9, 2026"
++      },
++      {
++        "rect": "{{210.193548308045, 513.95348858494322}, {32.516128540039041, 9.3023252487182795}}",
++        "text": "Worst"
++      },
++      {
++        "rect": "{{190.43064451182426, 532.45491527426907}, {56.945163726806626, 11.834355354309078}}",
++        "text": "-$109.0B"
++      },
++      {
++        "rect": "{{190.43417670433794, 552.24136667924836}, {61.583259582519524, 12.959127426147443}}",
++        "text": "Sep 8, 2026"
++      },
++      {
++        "rect": "{{26.689314313945403, 601.11192376672727}, {34.879436492919929, 14.055222511291543}}",
++        "text": "TSLA"
++      },
++      {
++        "rect": "{{26.709679089653175, 622.00000018970582}, {92.903221130371094, 11.720930099487337}}",
++        "text": "710,172,677 shares"
++      },
++      {
++        "rect": "{{26.709676849098276, 645.3488376188518}, {60.387096405029297, 10.651162147521998}}",
++        "text": "Elon's Stake"
++      },
++      {
++        "rect": "{{26.709677322988753, 668.49999991667278}, {63.870967864990234, 11.73255825042725}}",
++        "text": "Today's Loss"
++      },
++      {
++        "rect": "{{272.88102526030173, 599.91906524763067}, {59.270206451416001, 16.440938949584982}}",
++        "text": "$366.32"
++      },
++      {
++        "rect": "{{290.26642810022133, 621.87111702688594}, {40.7574653625488, 10.908928871154799}}",
++        "text": "-0.41%"
++      },
++      {
++        "rect": "{{282.14331507145744, 642.84178102598457}, {50.035949707031271, 14.316437721252484}}",
++        "text": "$260.2B"
++      },
++      {
++        "rect": "{{290.28593706263291, 668.48754701161079}, {40.71844863891598, 13.024906158447269}}",
++        "text": "-$1.1B"
++      },
++      {
++        "rect": "{{147.44868026152585, 718.44991572604408}, {55.812316894531264, 13.100168228149389}}",
++        "text": "C Refresh"
++      },
++      {
++        "rect": "{{229.91947470845116, 719.69363850373361}, {53.451374053955099, 11.775513648986813}}",
++        "text": "Settings..."
++      },
++      {
++        "rect": "{{15.096773993680387, 747.49999988340517}, {84.774192810058594, 12.000000000000011}}",
++        "text": "Updated 1:24 PM"
++      },
++      {
++        "rect": "{{109.161290585865, 747.6744188387139}, {82.451614379882841, 11.627906799316445}}",
++        "text": "muskometer.org"
++      },
++      {
++        "rect": "{{202.04620307104739, 746.41551016903645}, {54.617271423339815, 10.657351493835421}}",
++        "text": "Disclaimer"
++      },
++      {
++        "rect": "{{15.096774114916826, 772.00000016063609}, {229.93548583984375, 11.720930099487337}}",
++        "text": "Quotes: Yahoo Finance \u2022 Holdings: SEC EDGAR"
++      },
++      {
++        "rect": "{{310.06451648128427, 719.76744180771232}, {23.225805282592802, 10.46511650085451}}",
++        "text": "Quit"
++      }
++    ]
++  },
++  "900": {
++    "clipRect": "{{16, 74}, {328, 724}}",
++    "expectedPrice": "$518.51",
++    "expectedTitle": "If Tesla had SpaceX's market cap",
++    "hostBounds": "{{0, 0}, {360, 900}}",
++    "text": [
++      {
++        "rect": "{{15.70909192304422, 22.238371939842729}, {91.636360168457031, 14.389534950256333}}",
++        "text": "Muskometer"
++      },
++      {
++        "rect": "{{15.617418265585272, 45.693982154167777}, {121.91304779052736, 12.000508308410641}}",
++        "text": "What's Elon up to today?"
++      },
++      {
++        "rect": "{{28.800002850584136, 88.953488555911747}, {83.781814575195327, 11.77325534820557}}",
++        "text": "Elon's Ownership"
++      },
++      {
++        "rect": "{{26.181818314865069, 108.57558173028281}, {81.163635253906264, 23.54651069641114}}",
++        "text": "$1.03T"
++      },
++      {
++        "rect": "{{27.490909793914568, 168.75000035060654}, {79.854545593261733, 11.77325534820557}}",
++        "text": "Combined today"
++      },
++      {
++        "rect": "{{23.48589843283202, 189.34461369690592}, {123.21002197265624, 29.450307846069322}}",
++        "text": "+$15.9B"
++      },
++      {
++        "rect": "{{24.872728997256402, 224.99999994143326}, {77.236358642578125, 10.500000000000043}}",
++        "text": "\u2022 Market open"
++      },
++      {
++        "rect": "{{286.69091033970392, 202.76162808534494}, {45.818180084228494, 11.77325534820557}}",
++        "text": "+1.57%"
++      },
++      {
++        "rect": "{{27.490909061336126, 310.02906985315013}, {32.727272033691406, 11.77325534820557}}",
++        "text": "Range"
++      },
++      {
++        "rect": "{{231.70909445790923, 310.00000005074793}, {100.7999954223633, 11.999999999999977}}",
++        "text": "+$13.2B - +$16.3B"
++      },
++      {
++        "rect": "{{60.10608436210876, 335.6065428780559}, {65.678741455078125, 14.252030372619561}}",
++        "text": "Copy Image"
++      },
++      {
++        "rect": "{{173.97945619586528, 336.99105300627605}, {39.531997680664062, 11.483010292053198}}",
++        "text": "Share..."
++      },
++      {
++        "rect": "{{27.490915403840514, 388.49999996729656}, {161.01817321777344, 10.499999999999943}}",
++        "text": "If Tesla had SpaceX's market cap"
++      },
++      {
++        "rect": "{{27.3905455528391, 410.34602673919738}, {73.509819030761705, 19.133527755737255}}",
++        "text": "$518.51"
++      },
++      {
++        "rect": "{{26.181818956573181, 439.50000017629935}, {140.07272338867185, 10.500000000000043}}",
++        "text": "SPCX $2.05T \u2022 TSLA $1.45T"
++      },
++      {
++        "rect": "{{27.490909647154282, 487.93604674224503}, {104.72727203369143, 13.0813951492309}}",
++        "text": "W Intraday records"
++      },
++      {
++        "rect": "{{48.436364545599915, 514.09883734594302}, {23.563634872436523, 9.1569766998290447}}",
++        "text": "Best"
++      },
++      {
++        "rect": "{{26.162985819703533, 532.31796191536318}, {58.94675445556642, 11.962913513183626}}",
++        "text": "+$116.4B"
++      },
++      {
++        "rect": "{{27.385709444725478, 551.5328917051761}, {60.428581237792969, 14.085379600524961}}",
++        "text": "Sep 9, 2026"
++      },
++      {
++        "rect": "{{193.74545468893703, 514.09883720306118}, {9.1636362075805344, 10.465116500854577}}",
++        "text": "\u2192"
++      },
++      {
++        "rect": "{{212.07272766096906, 512.79069745887512}, {31.418180465698214, 10.465116500854476}}",
++        "text": "Worst"
++      },
++      {
++        "rect": "{{189.7939491404743, 532.29323218237482}, {57.648464202880859, 12.012372970581076}}",
++        "text": "-$109.0B"
++      },
++      {
++        "rect": "{{191.03731341025531, 551.5984320185828}, {61.707191467285163, 13.954298973083478}}",
++        "text": "Sep 8, 2026"
++      },
++      {
++        "rect": "{{26.145309562304789, 601.64503543401656}, {35.418472290039062, 13.279696464538604}}",
++        "text": "TSLA"
++      },
++      {
++        "rect": "{{26.181818134975117, 621.3662791041636}, {94.254547119140625, 13.13372087478637}}",
++        "text": "710,172,677 shares"
++      },
++      {
++        "rect": "{{27.490909696764465, 644.91279054317738}, {60.218181610107422, 10.587209224700977}}",
++        "text": "Elon's Stake"
++      },
++      {
++        "rect": "{{27.435780742046621, 668.11791619558915}, {62.946620941162102, 11.147888183593757}}",
++        "text": "Today's Loss"
++      },
++      {
++        "rect": "{{273.53958631470294, 598.91651773542367}, {59.02991867065429, 17.428592681884737}}",
++        "text": "$366.32"
++      },
++      {
++        "rect": "{{291.92727282470526, 621.36627944980705}, {40.581817626953132, 11.77325534820557}}",
++        "text": "-0.41%"
++      },
++      {
++        "rect": "{{281.44000871149154, 644.85736576068223}, {49.774528503417969, 13.192245483398501}}",
++        "text": "$260.2B"
++      },
++      {
++        "rect": "{{290.6181822156143, 668.45930253439622}, {40.581817626953132, 13.0813951492309}}",
++        "text": "-$1.1B"
++      },
++      {
++        "rect": "{{26.181819592698417, 719.4767442204427}, {37.963634490966797, 13.081395149231001}}",
++        "text": "SPCX"
++      },
++      {
++        "rect": "{{26.181818502427035, 739.00000006427854}, {104.72727203369141, 13.180232524871871}}",
++        "text": "5,116,475,230 shares"
++      },
++      {
++        "rect": "{{27.49090962507616, 762.50000012136468}, {60.218181610107422, 10.610465049743578}}",
++        "text": "Elon's Stake"
++      },
++      {
++        "rect": "{{26.13015145737721, 785.90397127670508}, {64.248786926269531, 12.349034309387196}}",
++        "text": "Today's Gain"
++      },
++      {
++        "rect": "{{273.5873984989862, 719.42111174987019}, {57.625202178955071, 13.192660331726092}}",
++        "text": "$150.90"
++      },
++      {
++        "rect": "{{290.61818306892843, 739.09883738767053}, {41.890907287597663, 11.77325534820557}}",
++        "text": "+2.25%"
++      },
++      {
++        "rect": "{{281.45454573047942, 761.33720923861119}, {49.745452880859361, 13.0813951492309}}",
++        "text": "$772.1B"
++      },
++      {
++        "rect": "{{281.41359828768464, 786.04541486193386}, {51.136440277099609, 14.682426452636765}}",
++        "text": "+$17.0B"
++      },
++      {
++        "rect": "{{310.25454555978513, 820.20348880344477}, {24.872726440429723, 10.465115547180236}}",
++        "text": "Quit"
++      },
++      {
++        "rect": "{{146.58582773454205, 818.75158412538917}, {57.664707183837898, 13.368925094604467}}",
++        "text": "C Refresh"
++      },
++      {
++        "rect": "{{230.34428082612959, 818.65740480492855}, {55.093257904052727, 13.557283401489261}}",
++        "text": "Settings..."
++      },
++      {
++        "rect": "{{14.399998517060567, 846.36627933308796}, {86.40000152587892, 13.133720874786469}}",
++        "text": "Updated 1:24PM"
++      },
++      {
++        "rect": "{{111.0944957201049, 847.03745087904804}, {81.53255462646483, 11.228862762451197}}",
++        "text": "muskometer.org"
++      },
++      {
++        "rect": "{{204.12145232371068, 845.76113168818347}, {53.866188049316406, 10.367271423339874}}",
++        "text": "Disclaimer"
++      },
++      {
++        "rect": "{{17.018189522231836, 872.49999993045537}, {229.09089660644531, 10.500000000000043}}",
++        "text": "Quotes: Yahoo Finance \u2022 Holdings: SEC EDGAR"
++      }
++    ]
++  }
++}
+diff --git a/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/normal-release.json b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/normal-release.json
+new file mode 100644
+index 0000000..37aa654
+--- /dev/null
++++ b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/normal-release.json
+@@ -0,0 +1,12 @@
++{
++  "assets_sha256": "3654f9914d1d4f28cb51aa4184a65a4198e6ed8ae71010b0faeb9fb1baecf89b",
++  "configuration": "normal Release; no DEBUG or MUSKOMETER_TEST_HOST flag; produced by sole scripts/verify.sh run",
++  "executable_sha256": "1dbcc777d2a91762b196369a61cb88dee6815d1f3f258bef39342d462de726c8",
++  "origin": "/Users/jlgolson/Library/Developer/Xcode/DerivedData/Muskometer-fzklqjmgqizkzdhbwdvccabdiwgk/Build/Products/Release/Muskometer.app",
++  "source_aggregate_sha256": "19f27e41cf450d64a0e6dfaa354413eee825b84563ff84a65fdef4ef8fb1f3db",
++  "stable_app": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/normal-release/Muskometer.app",
++  "workspace_identity": {
++    "LastAccessedDate": "2026-09-10 18:41:00",
++    "WorkspacePath": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/a1112795-cbfc-4108-8e4a-3e2cc5deb47b-task-1/Muskometer.xcodeproj"
++  }
++}
+diff --git a/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/source-manifest.json b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/source-manifest.json
+new file mode 100644
+index 0000000..56592ee
+--- /dev/null
++++ b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/source-manifest.json
+@@ -0,0 +1,111 @@
++{
++  "aggregate_sha256": "19f27e41cf450d64a0e6dfaa354413eee825b84563ff84a65fdef4ef8fb1f3db",
++  "base": "862ef0005069bd01a85aa8daafaed151d6ba3e06",
++  "checkout": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/a1112795-cbfc-4108-8e4a-3e2cc5deb47b-task-1",
++  "files": {
++    "Muskometer.xcodeproj/project.pbxproj": "200041cc3407707b155053266dd03e2c88a21ea28d70fd5dbd03677edf76fb56",
++    "Muskometer.xcodeproj/xcshareddata/xcschemes/Muskometer.xcscheme": "06d8a2645225b94d0f18df65b563c401100cbda7f45da9042093c54cf26eb7e2",
++    "Muskometer/App/AppDelegate.swift": "73f6de81ae7456a4cd332c08296e233686595a4dd357ab8e8aa0b00ebf92fd72",
++    "Muskometer/App/AppNotifications.swift": "a9c51fd02138f68f499a095e4aadb7268fbafc761440841230ccd9efe4cca5b7",
++    "Muskometer/App/MenuBarDisplayModeCycleController.swift": "0c8f4f0b49dbfd38beb11edc06ba63bb473c6c2230006c91238c054d2ea62e0e",
++    "Muskometer/App/MenuBarPopoverPresenter.swift": "9a568e642fc171f84a5c9a10494a5d8a6b060296fbeaec9b9c4f92813d52323a",
++    "Muskometer/App/MuskometerApp.swift": "69936362a55a2b6b237c3526628cc6aa4ddcc806b0f83552406248af5f05dc81",
++    "Muskometer/App/NotificationResponseRouter.swift": "5b2c27cfd923ab005faa2204f07d8ee2dde507b1bcee6e6edb3c1cb9fb18ea7c",
++    "Muskometer/App/ShareShortcutController.swift": "15e4e2d438a68b666a1c786ea3a225f5f0946ea2753156ab32de213280c69004",
++    "Muskometer/Assets.xcassets/AccentColor.colorset/Contents.json": "0da710dad7020e78291ff8cfe9361aa2ce351d2b7e76f2471f4e48bf7ce5459f",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/Contents.json": "60bfa3e1a7282b11ad18fc8e61874393338d1bb2a1ac92294eb1fda9f4da639e",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_128x128.png": "0fe568f674bf7b04e94442c577e95454ee63dd6287c5539f3309d62dc6fe0b11",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png": "089bcbed53b2883b0dbd08b7ee6fdb46717f30dfbed049a5c782e0252dd49533",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_16x16.png": "3b4fcdca86bce745607ebf6f43df4aaefbd7abf7c2627ab3ef81d83d62e4070a",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_16x16@2x.png": "6db8ea10e7259a8ae1cbffa9375961b3abf370a6991894bec5f0672a6b2d2e34",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_256x256.png": "089bcbed53b2883b0dbd08b7ee6fdb46717f30dfbed049a5c782e0252dd49533",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png": "a178294fa2feb4a265188ddd8350b27a8906183546fa6600739b7844ff99b0ca",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_32x32.png": "6db8ea10e7259a8ae1cbffa9375961b3abf370a6991894bec5f0672a6b2d2e34",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_32x32@2x.png": "a79d2463035bfdbeb4be95466f8d007cd609d273d8d9c5c6eddbefa831bddf7d",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_512x512.png": "a178294fa2feb4a265188ddd8350b27a8906183546fa6600739b7844ff99b0ca",
++    "Muskometer/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png": "d0971f8aa22b878250bd4db7253672b20e5bad39b7972ea052fe75bccc509221",
++    "Muskometer/Assets.xcassets/Contents.json": "3068ae11b833a8ea03990d2ea2a2b5fe7b3c47fbda56de956a4b84888f6c6af8",
++    "Muskometer/Assets.xcassets/GainNegative.colorset/Contents.json": "28e846b344b72d24acbb39fedb62d44b0f65e586ff46959dd1cb7cf839561d75",
++    "Muskometer/Assets.xcassets/GainPositive.colorset/Contents.json": "c1ca855205372067837237e793964e70cc9b52b00cb966bd3fb217a507a6db24",
++    "Muskometer/Models/DailyGainRecord.swift": "88700edf951f1a6187eb81f731e4928bc6f0a2fcf538280015003c77255cac75",
++    "Muskometer/Models/GainNotificationThreshold.swift": "0a1151ce53deb8a449307a7f66ee7209b3257ac8b069108c0cb0bec12534e769",
++    "Muskometer/Models/GainSample.swift": "7c0a3fa4b6bde407f2e82b8dd77de863f93fc2ad46429e0a9116ed7eb6091042",
++    "Muskometer/Models/GainsSnapshot.swift": "68f4a2da8a416b00321bcf11cb9bdf67ba5dda034df52706c1426f2bdc473edf",
++    "Muskometer/Models/MenuBarDisplayMode.swift": "73b0c47f2efd89250e213f8a88a19d7b71fa007cc2da98cb3818824addf09ac6",
++    "Muskometer/Models/NetWorthMilestone.swift": "cae4858bdf2128798c3f3793cd519987eaf1490d4fe9ab8c7aab45c4d43e160f",
++    "Muskometer/Models/PortfolioHolding.swift": "9b679c9a595b8afcd879aa14cedc01c7a71364d197d62e454a1a340ed65c02a2",
++    "Muskometer/Models/ShareFormat.swift": "d11dccc970d1a3967c536e771c1daac83d0ad793e5f6d3e29d3f59c3444f3226",
++    "Muskometer/Models/StockQuote.swift": "637e7815453cda07724e8d4dde349f9ff3ad3e54453b75b2ccbd0391b774cd11",
++    "Muskometer/Models/TrackedPersonProfile.swift": "5cd96f20a8b48ace075fe1b8165b32825f2d3a0fb0c97f97bd402ec679b0c085",
++    "Muskometer/Muskometer.entitlements": "42794c2d4ae9006f31aa16d1d1fda4a4fe05fc01ba15723e0badedaaea837368",
++    "Muskometer/Resources/Info.plist": "579bf20f7ba2e03bbb541deef2852fa47cf8e550f588ab7502882b133bfc577a",
++    "Muskometer/Services/CompanyFactsOutstandingResolver.swift": "5fb2abaa9d8b1135d51b068fa34764b61855515d0521d4dc08a6e7bfdbd1fffa",
++    "Muskometer/Services/DailyRecordTracker.swift": "4113df69d9bc3f961ba6908a4850a5e728eff42f2258760a942d2d458ed84786",
++    "Muskometer/Services/DayCloseSummaryNotificationService.swift": "f5ff012c000d726cfe0e9b8547a3ad0baa4993e29eb6196561e493711e42592e",
++    "Muskometer/Services/Form4OwnershipParser.swift": "056917fb204935dea3576ba262d8fac780a9df0ca85bb45fe9ec0af5800fcad6",
++    "Muskometer/Services/GainThresholdNotificationService.swift": "f233c20585caf3855355ee412b8d989d4f1bd216b14da60e0cae0554db0c7dfd",
++    "Muskometer/Services/GitHubReleaseUpdateChecker.swift": "3e43b45e64364abe23dff456fa1d4a5c427391d1840e69f04962962e6ca988e3",
++    "Muskometer/Services/HoldingsSyncServiceProtocol.swift": "6b09982143b6cd3d892905e46d64b37ad68d510f83bb2aece4920ee9bb5603ca",
++    "Muskometer/Services/IntradayGainSampleStore.swift": "4c90a22d0de10817adf4c80b1b5abe2a6cd11c11fd17c0ba300113a2d8ba8993",
++    "Muskometer/Services/IssuerOutstandingSyncService.swift": "a634af08e8fab4057ecdbbe520e865d0c8b3861830a3188c33302e0a4743e7e5",
++    "Muskometer/Services/MarketHoursService.swift": "a428e13f4b5538d197600ab695571a0bcd7fb5db47d2315fbd1ec788c2487dea",
++    "Muskometer/Services/NetWorthMilestoneTracker.swift": "4fd8bb4ea6c4b0b2219c439a374a51a8859a12f92a39c52b497b8f22c7872042",
++    "Muskometer/Services/QuotePriceResolver.swift": "b46c9799d71ca0b5bad474beac9b625d8a843d28357626ed5b9d8a99dfaa7b6a",
++    "Muskometer/Services/SECHoldingsSyncService.swift": "5644ff12b87e97aeac5ba73d7919893c82b97d240b99f346a5d7689517934f02",
++    "Muskometer/Services/StockPriceServiceProtocol.swift": "f234139979f395d07a14e6693361b75f1798dd56fbba722d297646480cd6a428",
++    "Muskometer/Services/UpdateChecking.swift": "93d1b28a2e978d9bbf1290e0c843f6cf234d492545e53164e3b3f9adbc21c719",
++    "Muskometer/Services/UpdateCoordinator.swift": "5a1d9cc425f7db736146b9d5ef188fb6cc5dd17d0420c4737c87fedbdbe0edb5",
++    "Muskometer/Services/YahooFinanceStockPriceService.swift": "900741e3a88f6ac314d973e170d2aeb8492c3d21bfe62fec662700929ae531c2",
++    "Muskometer/Utilities/AppSettings.swift": "b6da42151b3aa25fd6a48e6f31bf7a746a2cb0dda97d38df4acc91483efbc364",
++    "Muskometer/Utilities/AppURLs.swift": "e0e0c3c58f8d3a3c4000ce4b8d658f40243c8e059ccf45568170f92dee5293ad",
++    "Muskometer/Utilities/AppVersion.swift": "7a75946a58942bec581c0e4c40d1be49baf18598a6a36ba1192a914dd3cb77e5",
++    "Muskometer/Utilities/CurrencyFormatter.swift": "533842b144412e46463f188245d79c9a43eea5ef06a391cd38af2eb2ce671044",
++    "Muskometer/Utilities/GainSummaryFormatter.swift": "9af8ca0f4918c78bde3c01787446ce89ea5b7c83f479db8ae09d9d8c178dca9e",
++    "Muskometer/Utilities/IssuerSharesOutstanding.swift": "1676b32782a8d23385316df47437d445607dc571eb778ea0864843679aa26265",
++    "Muskometer/Utilities/LaunchAtLoginManager.swift": "4ef78d2d89283ec210c0f4d6e5f3cb187e1d195b4b1c9bb1f44111756b6fcd54",
++    "Muskometer/Utilities/MarketStatusFormatter.swift": "097ebcce0d794f9b19ed1e76c0d532b916092f00c72e6dc7cbf17586df368828",
++    "Muskometer/Utilities/MergerMarketCapParity.swift": "6d4e7bffd730df6d957089c85e6f666a0fc3c6bbd6172080052cee68ed37b8d6",
++    "Muskometer/Utilities/MuskometerGlass.swift": "8359e7de1a2fc47888a0484519ecc811b8ba33deb2dab55660c9f19b28cc1492",
++    "Muskometer/Utilities/MuskometerNetworking.swift": "0240e0071af6410d2422b42fd832d3f98bc34a083cd8fd7814e3b3889e1f478b",
++    "Muskometer/Utilities/NotificationAuthorization.swift": "10adc903542d92d72d7a16d9a70b89e7ae06af63e3ccf0a5193b4ee501c4ae57",
++    "Muskometer/Utilities/SPCXHoldings.swift": "ec19bec51e7f34cee7663d2a3e08138dea6fcb0c65dce60d9825c62ae98e74c6",
++    "Muskometer/Utilities/SPCXOwnershipCalculator.swift": "35ef57667f36824a005e5d21655d73af58a4560551638e197238d1e0dd36adcf",
++    "Muskometer/Utilities/SemanticVersion.swift": "2ba9a136c215d900598e972de1f889eedf1d47e155a6797d8ccbdfb59d6e0d55",
++    "Muskometer/Utilities/ShareCountTextInput.swift": "d112671714b8b30f9ae4a782b223eff212aacbb3d4c98b3a3a7fdcd5a96efee0",
++    "Muskometer/Utilities/ShareImageExporter.swift": "934bcf7df2f6946531962aa4cfc2510161ab8bb26696dcbe9eade5768f132728",
++    "Muskometer/Utilities/ShareSheetPresenter.swift": "a48237cfe926bbab94eb9ab840acd31f12345df57dc513adc424cb143b64d03e",
++    "Muskometer/Utilities/String+Truncation.swift": "86d8d1b655e0ab4ccee81028871d0ea2be0fc68243401146fe4a331241f7f670",
++    "Muskometer/Utilities/TradingDayCalendar.swift": "56839334253183c826f05139364961d73f5763da06af2128e96e713e4b70a351",
++    "Muskometer/ViewModels/GainsViewModel.swift": "6ee016f3df69e69741ad74599b827a84a0f19186fb118adfd3d5a28f3c50355a",
++    "Muskometer/Views/AboutView.swift": "068f98904e412d7ead195688693309ac3af649f5144d2699bcd0cae6d4360d6b",
++    "Muskometer/Views/DailyRecordsCardView.swift": "3f84ba3bac70990582b24dfd6d3f49dcd85ba187cc3f42697d15b288bd64ba91",
++    "Muskometer/Views/GainSparklineView.swift": "4b5e770cf4cac40f7f0173ecf774c58abbc38abbfafe61b1e04788a8a15e3bda",
++    "Muskometer/Views/MenuBarLabelView.swift": "1eff48616c7f65bb31a7bd2ea54f11b7d3afdb051245a16754c1bea161f40519",
++    "Muskometer/Views/MergerParityCardView.swift": "c9f39acaed6c00465a8ab3fc23a1d1f60c0b9c3a13dd626d64769bd3b8cda943",
++    "Muskometer/Views/MilestoneCelebrationOverlay.swift": "b7b115766f1c840f490e09672030882a7da710ced963b64a1a13620fd9756120",
++    "Muskometer/Views/PopoverContentView.swift": "42e3f4b17ef3e77a33d2ec75fd78bd0f029a3b96385aeb5c09e367e45e8381d8",
++    "Muskometer/Views/SettingsContentHeightKey.swift": "8805cddbd2a6aebbb5ae92446119209b4fb3dbfc8eae53469a69243f13a07e15",
++    "Muskometer/Views/SettingsView.swift": "bd038d9611e8c2ff749a5af16aa84902d5b8ac962804e3de8f36880c0aaccec8",
++    "Muskometer/Views/ShareCardView.swift": "880d63dd7824b78da04a559650e3075be173de1011db595e3616019b83b09e06",
++    "Muskometer/Views/StockRowView.swift": "53a11054ffe300c42ee5008e0de755a3b95d1a7da8f26d1c834277dc43beb89a",
++    "MuskometerTests/Fixtures/Ownership/spcx-anchor.xml": "4feb60ac96c2bd1c1a5a286f60417ec0f5403016796647deafe04dbce345b559",
++    "MuskometerTests/Fixtures/Ownership/tsla-anchor.xml": "0de09e841962987ce3cfea602d65671521ca7467d6a003afd82cc7dce95b5915",
++    "MuskometerTests/InterfaceAndCalendarTests.swift": "3a0e233e650c97292989255ffd19e64fc80f8e64af2579b81fabd8e5a65f6482",
++    "MuskometerTests/MuskometerTests.swift": "9399fe9554dd5b44fef577b5ea74a1cbebae992aa8cf800c562cdc837febe453",
++    "MuskometerTests/NotificationServicesTests.swift": "72a7dbf8be71cbf6d3b7572c48b8968a007d9d2bcafa0f3d4dd0336ebfc671ad",
++    "MuskometerTests/OwnershipSyncTests.swift": "8bfa83473214b75ef560af3d7c32a96cad6b99a29e9151e4c45200a533492a26",
++    "MuskometerTests/RefreshLifecycleTests.swift": "0a2271a22f386f9e65b5f8ece9737368704480e064e0d3aaddd5ab0544b4730e",
++    "docs/index.html": "726aa89b51338ce2eee5f54011c7b8f3f4e227a206071516d5184a639e2c15af",
++    "docs/screenshots/app-capture.png": "b0d3bad0d9401914ca8e07c7e8aee347173863a876e23b4d559ff3d063bd4a9b",
++    "docs/screenshots/app-preview.png": "2b2c89444ba8527dfef374ed3c804c33686da6321bed99e2ce184eabbb2777b1",
++    "docs/screenshots/generate-sparkline.py": "2a734d057f4046ee78962d56d088d8eb60a2922363c7c4c00150ae14c204f257",
++    "docs/screenshots/og-image.png": "7275c503502a87dd2e5180723878b39ec25dcd2062da3f03fc4d92068be5de78",
++    "docs/screenshots/render-capture.html": "37e216d99f683f7da5359058586816f3287ac847071e1d02bb9659b0a8be591a",
++    "docs/screenshots/render-og.html": "c87c4c82c5f85550e13dfd666c32351f674cbaa25c58db63253b67c93d0d1123",
++    "docs/screenshots/render-pngs.swift": "d411d606d24c765ff8ce90eca8d98dbb405fe7ac22e0ed8a47c1fc3a9e5e7c7f",
++    "docs/screenshots/render-popover.html": "80629feceea1181c3e300d25a3b078c1fddbef706dbf126ec005d163691de34e",
++    "scripts/verify.sh": "2934442b578b3949605e42c9fcda2b36ba7997217517ac2c40913e685f68c0cd"
++  },
++  "test_wrapper_path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/test-tools/xcodebuild",
++  "test_wrapper_sha256": "0db21fef492abc64c581c298fbb29409e5e404e4f45ea27ea90492a18ac81957"
++}
+diff --git a/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/test-identifiers.json b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/test-identifiers.json
+new file mode 100644
+index 0000000..e674a92
+--- /dev/null
++++ b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/test-identifiers.json
+@@ -0,0 +1,814 @@
++{
++  "added": [
++    "PopoverLayoutRegressionTests/testAssetBackedChartFixturesAndAppearances()",
++    "PopoverLayoutRegressionTests/testUsesIsolatedApplicationEntryPoint()",
++    "SparklineLayoutRegressionTests/testEmptyLayoutIsFiniteAndSafe()",
++    "SparklineLayoutRegressionTests/testFlatPositiveNegativeAndZeroRemainHorizontal()",
++    "SparklineLayoutRegressionTests/testFullCapacityMonotonicFixturePreservesOrderAndBounds()",
++    "SparklineLayoutRegressionTests/testIrregularTimestampsKeepRelativeSpacing()",
++    "SparklineLayoutRegressionTests/testMixedSignsStraddleVisibleZero()",
++    "SparklineLayoutRegressionTests/testNarrowPositiveMovementUsesVisibleHeight()",
++    "SparklineLayoutRegressionTests/testNegativeOnlyKeepsDistantZeroOutsideDomain()",
++    "SparklineLayoutRegressionTests/testSingleSampleIsCenteredWithoutInventingHistory()"
++  ],
++  "baseline_count": 391,
++  "baseline_identifiers": [
++    "AppSettingsHoldingsSyncTests/testCompleteResultWithZeroSharesAppliesFullDisposal()",
++    "AppSettingsHoldingsSyncTests/testEmptyResultDoesNotSetLastHoldingsSyncDate()",
++    "AppSettingsHoldingsSyncTests/testFullResultSetsLastHoldingsSyncDate()",
++    "AppSettingsHoldingsSyncTests/testPartialApplySuppressesNeedsHoldingsSyncUntilIntervalElapses()",
++    "AppSettingsHoldingsSyncTests/testPartialResultDoesNotSetLastHoldingsSyncDate()",
++    "AppSettingsHoldingsSyncTests/testPartialResultWithOnlyZeroForOneSymbolRemainsIncomplete()",
++    "AppSettingsHoldingsSyncTests/testUnknownPersonIDFallsBackToMusk()",
++    "AppSettingsLaunchAtLoginTests/testDisableFailureRevertsToggleAndSurfacesError()",
++    "AppSettingsLaunchAtLoginTests/testEnableFailureRevertsToggleAndSurfacesError()",
++    "AppSettingsLaunchAtLoginTests/testEnableSuccessClearsErrorAndPersistsTrue()",
++    "AppSettingsLaunchAtLoginTests/testResetToDefaultsClearsStaleLaunchAtLoginErrorWhenAlreadyOff()",
++    "AppSettingsLaunchAtLoginTests/testResetToDefaultsDisablesLaunchAtLoginAndClearsError()",
++    "AppSettingsLaunchAtLoginTests/testSoftDisableMismatchAdoptsServiceReality()",
++    "AppSettingsLaunchAtLoginTests/testSoftEnableKeepsDesiredTrueAndSurfacesPendingApproval()",
++    "AppSettingsLaunchAtLoginTests/testSoftEnableSyncClearsErrorWhenServiceBecomesEnabled()",
++    "AppSettingsLaunchAtLoginTests/testSoftEnableSyncReattemptsWithoutWipingDesiredTrue()",
++    "AppSettingsLaunchAtLoginTests/testSuccessfulToggleClearsPreviousError()",
++    "AppSettingsLaunchAtLoginTests/testSyncAppliesDesiredAndResolvesFromServiceOnFailure()",
++    "AppSettingsLaunchAtLoginTests/testSyncSucceedsWhenServiceAcceptsDesiredState()",
++    "AppSettingsLaunchAtLoginTests/testSyncWhenAlreadyMatchedClearsErrorWithoutCallingSet()",
++    "AppSettingsTests/testDefaultShareCounts()",
++    "AppSettingsTests/testRefreshIntervalClampsTo120()",
++    "AppSettingsTests/testResetToDefaultsTurnsMergerParityCardBackOn()",
++    "AppSettingsTests/testShowMenuBarIconPersists()",
++    "AppSettingsTests/testShowMergerParityCardDefaultsOnAndPersists()",
++    "AppSettingsTests/testTotalWorthDisplayModePersists()",
++    "BoundedThresholdObservationTests/testBelowAndClosedDayRolloverDiscardObsoletePendingCrossing()",
++    "BoundedThresholdObservationTests/testCoalescesRepeatedRecrossingsAndDeliversNewestPendingValue()",
++    "BoundedThresholdObservationTests/testDisableBeforeWorkerRunsPreventsSubmissionAndAllowsLaterAboveRetry()",
++    "BoundedThresholdObservationTests/testDisableQueuedRecrossThenReenableWithDisabledObservation()",
++    "BoundedThresholdObservationTests/testDisableQueuedRecrossThenReenableWithoutObservation()",
++    "BoundedThresholdObservationTests/testDisableThenReenableWhileOldPhysicalDeliveryStillWaits()",
++    "BoundedThresholdObservationTests/testFailureRetriesOnNextAboveObservationWithoutTightLoop()",
++    "BoundedThresholdObservationTests/testObservesAllPresetsSynchronouslyBeforeStartingDelivery()",
++    "BoundedThresholdObservationTests/testRepeatedResetKeepsPhysicalSlotUntilOldDeliveryReturns()",
++    "BoundedThresholdObservationTests/testWorkerRechecksStoredEnablementImmediatelyBeforeSubmission()",
++    "CompanyFactsDeduplicationTests/testCompanyFactsInt64BoundaryAndInvalidNumbers()",
++    "CompanyFactsDeduplicationTests/testCompanyFactsPreservesLargeIntegralDecimalExactly()",
++    "CompanyFactsDeduplicationTests/testConflictingFactsWithinSameAccessionAreUnresolved()",
++    "CompanyFactsDeduplicationTests/testConflictingTiedFactsDoNotFallBackToOlderGAAP()",
++    "CompanyFactsDeduplicationTests/testEqualOriginalAndAmendmentTotalsCountOnce()",
++    "CompanyFactsDeduplicationTests/testFractionsBeyondDecimalPrecisionAreRejectedExactly()",
++    "CompanyFactsDeduplicationTests/testLongExactIntegersAndExponentFormsRemainUsable()",
++    "CompanyFactsDeduplicationTests/testNonintegralOutstandingIsRejected()",
++    "CompanyFactsDeduplicationTests/testNumericTokensCannotBeForgedByStringsObjectsOrInvalidSyntax()",
++    "CompanyFactsOutstandingResolverTests/testConflictingSameEndFiledTotalsAreUnresolved()",
++    "CompanyFactsOutstandingResolverTests/testFallsBackToCommonStockSharesOutstandingWhenEntityMissing()",
++    "CompanyFactsOutstandingResolverTests/testInvalidJSONReturnsNil()",
++    "CompanyFactsOutstandingResolverTests/testPrefers10QOverNonPreferredFormWithLaterEndOrFiled()",
++    "CompanyFactsOutstandingResolverTests/testSingleEntityCommonStockSharesOutstanding()",
++    "CompanyFactsOutstandingResolverTests/testWASOOnlyReturnsNil()",
++    "CurrencyFormatterTests/testFormatCurrencyBillionsNegative()",
++    "CurrencyFormatterTests/testFormatCurrencyBillionsPositive()",
++    "CurrencyFormatterTests/testFormatPercentNegative()",
++    "CurrencyFormatterTests/testFormatPercentNegativeKeepsMinusWithPOSIXLocale()",
++    "CurrencyFormatterTests/testFormatPercentPositive()",
++    "CurrencyFormatterTests/testFormatPrice()",
++    "CurrencyFormatterTests/testFormatShareCountUsesUSGrouping()",
++    "CurrencyFormatterTests/testFormattersUsePeriodDecimalNotLocaleComma()",
++    "DailyRecordTrackerTests/testMidDayRestartContinuesPeakAndTroughFromPersistedExtremes()",
++    "DailyRecordTrackerTests/testNoRecordsUntilFirstTradingDayCompletes()",
++    "DailyRecordTrackerTests/testNonQuotableAfterCloseDoesNotUpdatePeakOrTrough()",
++    "DailyRecordTrackerTests/testNonQuotableOvernightDoesNotPolluteNextDayAfterRollover()",
++    "DailyRecordTrackerTests/testNonQuotableSampleDoesNotSeedPeakOrTroughForNewDay()",
++    "DailyRecordTrackerTests/testPeekPendingSurvivesFailedDeliveryUntilConsume()",
++    "DailyRecordTrackerTests/testPendingFinalizedDaySurvivesRelaunchUntilConsume()",
++    "DailyRecordTrackerTests/testPersistsAcrossReload()",
++    "DailyRecordTrackerTests/testPostMarketSamplesDoNotUpdateExtremesAfterRTHFinalize()",
++    "DailyRecordTrackerTests/testQuotableSamplesStillUpdatePeakAndTrough()",
++    "DailyRecordTrackerTests/testRecordsAreScopedPerPersonID()",
++    "DailyRecordTrackerTests/testResetPersistedStateClearsUnfinishedDayExtremes()",
++    "DailyRecordTrackerTests/testTracksBestAndWorstAfterFirstDayCompletes()",
++    "DailyRecordTrackerTests/testUnfinishedDayExtremesFinalizeAfterRestartPastPostMarketClose()",
++    "DailyRecordTrackerTests/testUnfinishedDayExtremesPersistAcrossRestartAndFinalizeOnNextDay()",
++    "DayCloseSummaryNotificationServiceTests/testConcurrentDeliverIfNeededPostsOnlyOnce()",
++    "DayCloseSummaryNotificationServiceTests/testDeliversOncePerDayWhenEnabled()",
++    "DayCloseSummaryNotificationServiceTests/testKeepsPendingRetryWhenDeliveryFailsThenSucceeds()",
++    "Form4OwnershipParserTests/testPrefersDirectOwnershipOverHigherIndirectRows()",
++    "Form4OwnershipParserTests/testSPCXUsesOwnershipAggregatorNotSingleRow()",
++    "Form4OwnershipParserTests/testUsesLastDirectTransactionNotMaxAcrossRows()",
++    "GainNotificationThresholdTests/testPresetLookupByID()",
++    "GainNotificationThresholdTests/testPresetsIncludeSignedFiveTenTwentyFiftyBillions()",
++    "GainSummaryFormatterTests/testFormatOmitsLegalDisclaimer()",
++    "GainSummaryFormatterTests/testTodaysGainLossLabel()",
++    "GainThresholdNotificationServiceTests/testDoesNotFireWhenMarketClosed()",
++    "GainThresholdNotificationServiceTests/testFiresLossThresholdOnDownwardCross()",
++    "GainThresholdNotificationServiceTests/testFiresWhenCrossingEnabledGainThreshold()",
++    "GainThresholdNotificationServiceTests/testKeepsArmedWhenDeliveryFailsThenRetries()",
++    "GainThresholdNotificationServiceTests/testPersistsStateAcrossServiceReload()",
++    "GainThresholdNotificationServiceTests/testRearmsAfterDroppingBelowThreshold()",
++    "GainsSnapshotTests/testCombinedMarketValue()",
++    "GainsSnapshotTests/testCombinedPaperGain()",
++    "GainsSnapshotTests/testCombinedPercentChange()",
++    "GainsSnapshotTests/testFormatMarketValueTrillions()",
++    "GainsViewModelCopyShareTests/testCopyShareReturnsFalseWithoutSnapshot()",
++    "GainsViewModelCopyShareTests/testCopyShareReturnsTrueAndWritesPasteboard()",
++    "GainsViewModelDayCloseNotificationTests/testFailedDayCloseDeliveryKeepsPending()",
++    "GainsViewModelDayCloseNotificationTests/testSkippedDayCloseDeliveryConsumesPending()",
++    "GainsViewModelDayCloseNotificationTests/testSuccessfulDayCloseDeliveryConsumesPending()",
++    "GainsViewModelExtendedHoursTests/testClosedSessionShowsAsOfCloseLabel()",
++    "GainsViewModelExtendedHoursTests/testSnapshotUsesTradingSessionFromMarketHours()",
++    "GainsViewModelHoldingsSyncBackoffTests/testFailedSyncRecordsAttemptAndSuppressesAutoRetry()",
++    "GainsViewModelHoldingsSyncBackoffTests/testForceSyncRunsWhenWithinInterval()",
++    "GainsViewModelIssuerOutstandingSyncTests/testOutstandingAppliedAfterForm4FailureWithoutChangingMessage()",
++    "GainsViewModelIssuerOutstandingSyncTests/testOutstandingEmptyResultDoesNotChangeDefaultsOrForm4SuccessMessage()",
++    "GainsViewModelLifecycleRegressionTests/testCancelledRefreshDiscardsCancellationUnawareResult()",
++    "GainsViewModelLifecycleRegressionTests/testConsecutiveDaysEachHaveOneClosingRequest()",
++    "GainsViewModelLifecycleRegressionTests/testCountChangeDuringFetchUsesCurrentHoldings()",
++    "GainsViewModelLifecycleRegressionTests/testEarlyCloseSleepAndStopCancellationDoNotFetchAgain()",
++    "GainsViewModelLifecycleRegressionTests/testFailedClosingFetchFinalizesLastRealObservationAndUpdatesSession()",
++    "GainsViewModelLifecycleRegressionTests/testFailedNextDayQuoteInvalidatesPendingPriorDayGainDelivery()",
++    "GainsViewModelLifecycleRegressionTests/testGatedSECDoesNotBlockInitialQuotesAndChangedCountsRefreshOnce()",
++    "GainsViewModelLifecycleRegressionTests/testGatedThresholdDoesNotSuspendScheduledQuotesOrClosingClock()",
++    "GainsViewModelLifecycleRegressionTests/testInitialFailureSpanningClosePreservesClockAndClosingRecovery()",
++    "GainsViewModelLifecycleRegressionTests/testInitialSuccessSpanningClosePreservesClockAndClosingRecovery()",
++    "GainsViewModelLifecycleRegressionTests/testLateClosingFailureStillGetsOneBoundedRecovery()",
++    "GainsViewModelLifecycleRegressionTests/testLatePreSECFetchCannotResurrectPreviousCounts()",
++    "GainsViewModelLifecycleRegressionTests/testLateQuoteSuccessAndFailureCannotReplaceNewGeneration()",
++    "GainsViewModelLifecycleRegressionTests/testLoopBoundsCloseRetryAndRefreshesImmediatelyNextOpen()",
++    "GainsViewModelLifecycleRegressionTests/testNextOpenSupersedesPendingClosingQuoteImmediately()",
++    "GainsViewModelLifecycleRegressionTests/testOldSECFailureCannotOverwriteRestartedSyncStatus()",
++    "GainsViewModelLifecycleRegressionTests/testOlderDaySummaryCannotAcknowledgeNewPendingDay()",
++    "GainsViewModelLifecycleRegressionTests/testOlderFailedSummaryRetainsPendingAndNewSamplesOrMilestone()",
++    "GainsViewModelLifecycleRegressionTests/testOlderSuccessfulSummaryCannotOverwriteNewSamplesOrMilestone()",
++    "GainsViewModelLifecycleRegressionTests/testPartialClosingQuoteUsesTrueObservedStatus()",
++    "GainsViewModelLifecycleRegressionTests/testPartialClosingQuotesAdvanceClockWithoutReplacingObservation()",
++    "GainsViewModelLifecycleRegressionTests/testRepeatedModelResetsBoundPhysicalGainDeliveryAndAllowDeallocation()",
++    "GainsViewModelLifecycleRegressionTests/testRepeatedRecrossingsBoundActualSuspendedDeliveriesAndRetainedWork()",
++    "GainsViewModelLifecycleRegressionTests/testRepeatedResetBoundsDayClosePhysicalWorkWithoutBlockingQuotes()",
++    "GainsViewModelLifecycleRegressionTests/testResetAndStopInvalidateOldSummaryWithoutConsumingReplacement()",
++    "GainsViewModelLifecycleRegressionTests/testRestartInitialFailureSpanningEarlyClosePreservesClosingRecovery()",
++    "GainsViewModelLifecycleRegressionTests/testRestartStormBoundsCancellationUnawareQuoteAndSECRequests()",
++    "GainsViewModelLifecycleRegressionTests/testRestartedQuoteLoadingCannotBeClearedByOldCompletion()",
++    "GainsViewModelLifecycleRegressionTests/testSECCanFinishAfterPartialQuotesAndStillRefreshAcceptedCountsOnce()",
++    "GainsViewModelLifecycleRegressionTests/testSaturatedCloseAdmitsAfterWindowAndRetainsOneRetry()",
++    "GainsViewModelLifecycleRegressionTests/testSaturatedCloseAdmitsWhenCapacityFreesBeforeRecoveryWindow()",
++    "GainsViewModelLifecycleRegressionTests/testStaleStatusUsesObservationTimeAndObservableCurrentClock()",
++    "GainsViewModelLifecycleRegressionTests/testStopCancelsSaturatedCloseObligation()",
++    "GainsViewModelLifecycleRegressionTests/testStopInvalidatesLateQuoteSuccessAndFailure()",
++    "GainsViewModelLifecycleRegressionTests/testStopRestartOldSECCannotApplyOrClearNewSync()",
++    "GainsViewModelLifecycleRegressionTests/testStoppedOutstandingServiceDoesNotRetainViewModel()",
++    "GainsViewModelLifecycleRegressionTests/testStoppedOwnedServicesDoNotRetainViewModel()",
++    "GainsViewModelLifecycleRegressionTests/testStoppedSummaryDeliveryDoesNotRetainViewModel()",
++    "GainsViewModelLifecycleRegressionTests/testSuccessfulDeferredCloseDoesNotAddRetry()",
++    "GainsViewModelLifecycleRegressionTests/testThresholdObservationsFollowAcceptedSnapshotsWhileOldSummaryWaits()",
++    "GainsViewModelLifecycleRegressionTests/testUnchangedSECSyncDoesNotAddQuoteRefresh()",
++    "GainsViewModelMenuBarTitleTests/testSplitMenuBarTitleTruncatesLongValues()",
++    "GainsViewModelMergerParityPresentationTests/testPresentationNilWithoutSnapshot()",
++    "GainsViewModelMergerParityPresentationTests/testPresentationUsesDefaultOutstandingWhenUnset()",
++    "GainsViewModelMergerParityPresentationTests/testPresentationUsesSnapshotPricesAndSettingsOutstanding()",
++    "GainsViewModelOffMarketSparklineTests/testSyncIntradaySamplesFromStoreKeepsPriorRTHAfterETDayRollover()",
++    "GainsViewModelOffMarketSparklineTests/testSyncIntradaySamplesFromStorePreservesSameDaySamples()",
++    "GainsViewModelOpenSessionRefreshTimingTests/testFirstQuotableCycleRefreshesImmediately()",
++    "GainsViewModelOpenSessionRefreshTimingTests/testOffMarketAlwaysWaits()",
++    "GainsViewModelOpenSessionRefreshTimingTests/testSessionTransitionSequence()",
++    "GainsViewModelOpenSessionRefreshTimingTests/testSubsequentOpenSessionCyclesSleepThenRefresh()",
++    "GainsViewModelResetTests/testResetToDefaultsClearsIntradaySamplesInViewModel()",
++    "GainsViewModelTrillionEasterEggTests/testClearsTrillionEasterEggWhenNetWorthRecoversAboveOneTrillion()",
++    "GitHubReleaseUpdateCheckerTests/testReturnsNilWhenCurrentVersionIsUpToDate()",
++    "GitHubReleaseUpdateCheckerTests/testReturnsUpdateWhenRemoteVersionIsNewer()",
++    "GitHubReleaseUpdateCheckerTests/testSkipsPrerelease()",
++    "GitHubReleaseUpdateCheckerTests/testThrowsOnNon200Response()",
++    "IntradayGainSampleStoreTests/testAppendWhenMarketOpen()",
++    "IntradayGainSampleStoreTests/testCapsAt400Samples()",
++    "IntradayGainSampleStoreTests/testDayRolloverOnQuotableAppendStillWorks()",
++    "IntradayGainSampleStoreTests/testDoesNotAppendDuringPostMarketHours()",
++    "IntradayGainSampleStoreTests/testDoesNotAppendWhenMarketClosed()",
++    "IntradayGainSampleStoreTests/testETDayRolloverClearsPriorSamples()",
++    "IntradayGainSampleStoreTests/testFirstRTHAppendNextDayClearsPriorSessionSamples()",
++    "IntradayGainSampleStoreTests/testLoadYesterdaysSamplesDuringClosedSessionKeepsPriorRTHSamples()",
++    "IntradayGainSampleStoreTests/testNonQuotableAppendAfterMidnightKeepsYesterdaysSamples()",
++    "IntradayGainSampleStoreTests/testOvernightLoadKeepsPriorRTHSamples()",
++    "IntradayGainSampleStoreTests/testPersistsAcrossReload()",
++    "IntradayGainSampleStoreTests/testSameDayLoadPreservesSamples()",
++    "IssuerSharesOutstandingTests/testBundledDefaultsAndKeys()",
++    "IssuerSharesOutstandingTests/testCompanyfactsProvenancePersistsAsOf()",
++    "IssuerSharesOutstandingTests/testDefaultsReturnedWhenNoKeySet()",
++    "IssuerSharesOutstandingTests/testLoadRemigratesPriorSPCXCoverOutstandingAndPersists()",
++    "IssuerSharesOutstandingTests/testMigrateStoredOutstandingLeavesOtherValues()",
++    "IssuerSharesOutstandingTests/testMigrateStoredOutstandingRewritesPriorSPCXCoverDefault()",
++    "IssuerSharesOutstandingTests/testMissingOutstandingKeyReturnsNewBundledDefault()",
++    "IssuerSharesOutstandingTests/testMuskHoldingsHaveIssuerCIKs()",
++    "IssuerSharesOutstandingTests/testResetToDefaultsReseedsOutstanding()",
++    "IssuerSharesOutstandingTests/testResetToDefaultsRestoresBundledProvenance()",
++    "IssuerSharesOutstandingTests/testSetGetRoundTripIndependentOfShareCount()",
++    "IssuerSharesOutstandingTests/testSetSharesOutstandingIgnoresNonPositive()",
++    "LoginStatusRegressionTests/testDisableNotRegisteredIsNoOp()",
++    "LoginStatusRegressionTests/testDisableUnregistersPendingAndEnabledOnlyOnce()",
++    "LoginStatusRegressionTests/testFailedDisablePreservesPendingRegistrationAndPreference()",
++    "LoginStatusRegressionTests/testPendingRegistrationSurvivesReopenRestartAndApproval()",
++    "LoginStatusRegressionTests/testRepeatedEnableDoesNotRegisterPendingOrEnabledServiceAgain()",
++    "LoginStatusRegressionTests/testUnavailableDoesNotAttemptRegistrationAndSurfacesError()",
++    "MarketHoursServiceTests/test2027GoodFridayIsClosed()",
++    "MarketHoursServiceTests/test2027HolidayIsClosed()",
++    "MarketHoursServiceTests/test2028GoodFridayAndIndependenceDayAreClosed()",
++    "MarketHoursServiceTests/test2028July3EarlyClose()",
++    "MarketHoursServiceTests/test2028MLKIsClosedAndNextDayOpen()",
++    "MarketHoursServiceTests/test2028ThanksgivingAndDayAfterEarlyClose()",
++    "MarketHoursServiceTests/testDecember31_2027IsRegularTradingBeforeSaturdayNewYear()",
++    "MarketHoursServiceTests/testEarlyCloseAfternoonIsClosed()",
++    "MarketHoursServiceTests/testEarlyCloseChristmasEve2026()",
++    "MarketHoursServiceTests/testEarlyCloseDayAfterThanksgiving2027()",
++    "MarketHoursServiceTests/testHolidayIsClosed()",
++    "MarketHoursServiceTests/testHolidayTableCoversCurrentAndNextYear()",
++    "MarketHoursServiceTests/testHolidayTableMaxKeyYearMatchesThroughYear()",
++    "MarketHoursServiceTests/testLastMarketCloseAfterHoursSameDay()",
++    "MarketHoursServiceTests/testLastMarketCloseBeforeOpenUsesPreviousTradingDay()",
++    "MarketHoursServiceTests/testLastMarketCloseOnEarlyCloseDayIs1PM()",
++    "MarketHoursServiceTests/testLastMarketCloseOnHolidayUsesPreviousTradingDay()",
++    "MarketHoursServiceTests/testNextOpenAfterHoursIsRegularOpenNotPreMarket()",
++    "MarketHoursServiceTests/testNextOpenBeforeRegularOpenSameDayIs930AM()",
++    "MarketHoursServiceTests/testPreMarketHoursAreClosedAndNotQuotable()",
++    "MarketHoursServiceTests/testRegularCloseDateUsesEarlyCloseWhenApplicable()",
++    "MarketHoursServiceTests/testTradingSessionBoundariesAreRTHOnly()",
++    "MarketHoursServiceTests/testWeekdayDuringMarketHoursIsOpen()",
++    "MarketHoursServiceTests/testWeekendIsClosed()",
++    "MarketStatusFormatterTests/testAsOfCloseLabelUsesLocalTimeZone()",
++    "MenuBarDisplayModeCycleMatcherTests/testNilOrOrdinaryWindowDoesNotCycle()",
++    "MenuBarDisplayModeCycleMatcherTests/testOptionClickOnStatusBarWindowShouldCycle()",
++    "MenuBarDisplayModeCycleMatcherTests/testRejectsCommandOptionShiftAndPlainClick()",
++    "MenuBarDisplayModeCycleTests/testCycleMenuBarDisplayModePersists()",
++    "MenuBarDisplayModeCycleTests/testNextCyclesThroughAllCasesInOrder()",
++    "MenuBarDisplayModeTests/testTotalWorthLabel()",
++    "MergerMarketCapParityTests/testHappyPathImpliedEqualsSPCXMarketCapOverTSLAShares()",
++    "MergerMarketCapParityTests/testNonFiniteInputsReturnNil()",
++    "MergerMarketCapParityTests/testRealishOrdersOfMagnitude()",
++    "MergerMarketCapParityTests/testZeroOrNegativeInputsReturnNil()",
++    "NetWorthMilestoneTrackerTests/testCelebratesCrossingOneTrillion()",
++    "NetWorthMilestoneTrackerTests/testCelebratesCrossingTwoTrillion()",
++    "NetWorthMilestoneTrackerTests/testHysteresisPreventsFlickerAroundOneTrillion()",
++    "NetWorthMilestoneTrackerTests/testJumpFromBelowOneTrillionToAboveTwoTrillionCelebratesTwoTrillion()",
++    "NetWorthMilestoneTrackerTests/testNoCelebrationWhenAlreadyAboveTrillion()",
++    "NetWorthMilestoneTrackerTests/testSadMessageUsesLoneliestNumberCopy()",
++    "NetWorthMilestoneTrackerTests/testZonesAreScopedPerPerson()",
++    "NotificationResponseRouterTests/testDayCloseTapOpensPopover()",
++    "NotificationResponseRouterTests/testDismissActionIsIgnored()",
++    "NotificationResponseRouterTests/testGainThresholdTapOpensPopover()",
++    "NotificationResponseRouterTests/testUntrustedReleaseURLIsIgnored()",
++    "NotificationResponseRouterTests/testUpdateTapOpensTrustedReleaseURL()",
++    "NotificationSuspensionRegressionTests/testAdvanceClockFinalizesCloseWithoutAddingSample()",
++    "NotificationSuspensionRegressionTests/testAdvanceClockRelaunchLoadsRealUnfinishedDayAtCloseAndNextOpen()",
++    "NotificationSuspensionRegressionTests/testAdvanceClockRespectsEarlyClose()",
++    "NotificationSuspensionRegressionTests/testAdvanceClockWithoutAnyQuoteCreatesNoDay()",
++    "NotificationSuspensionRegressionTests/testAllGainAndLossPresetsCommitBeforeDeliveryAndRetainRearm()",
++    "NotificationSuspensionRegressionTests/testBackwardClockAndSampleCannotRegressCurrentTradingDay()",
++    "NotificationSuspensionRegressionTests/testCanceledMultiPresetDeliveryLeavesEveryUnconfirmedCrossingRetryable()",
++    "NotificationSuspensionRegressionTests/testCancelledDayCloseCannotConfirmAfterRestart()",
++    "NotificationSuspensionRegressionTests/testCancelledGainDeliveryCanRetryAfterRuntimeRestart()",
++    "NotificationSuspensionRegressionTests/testClosedMarketDayRolloverInvalidatesSuspendedThresholdDelivery()",
++    "NotificationSuspensionRegressionTests/testDayCloseCancellationWithoutResetDoesNotPersistSuccess()",
++    "NotificationSuspensionRegressionTests/testDayCloseContentUsesLastObservedSessionAndSampleTime()",
++    "NotificationSuspensionRegressionTests/testDayCloseInFlightFailureRetainsDurablePendingDay()",
++    "NotificationSuspensionRegressionTests/testDayCloseResetInvalidatesSuspendedSuccessWithoutDeletingPending()",
++    "NotificationSuspensionRegressionTests/testEveryPresetObservationAndClaimIsCommittedBeforeFirstAwait()",
++    "NotificationSuspensionRegressionTests/testFailureAfterBelowObservationKeepsDistinctRecross()",
++    "NotificationSuspensionRegressionTests/testFailureAfterNewerAboveObservationRemainsRetryable()",
++    "NotificationSuspensionRegressionTests/testFailureCannotUndoNewerRecrossSuccess()",
++    "NotificationSuspensionRegressionTests/testGainResetInvalidatesOldSuccessWithoutErasingNewObservation()",
++    "NotificationSuspensionRegressionTests/testGainRolloverInvalidatesOldSuccess()",
++    "NotificationSuspensionRegressionTests/testIdentityConsumeRequiresExactFinalizedValueAndPersistsClear()",
++    "NotificationSuspensionRegressionTests/testLegacyThresholdStateDecodesAndRearmsNormally()",
++    "NotificationSuspensionRegressionTests/testMultiPresetOlderSuccessCannotEraseNewerBelowObservations()",
++    "NotificationSuspensionRegressionTests/testOldDayCloseFailureCannotRemoveRestartedSameDayClaim()",
++    "NotificationSuspensionRegressionTests/testOldDayCloseSuccessCannotRemoveRestartedSameDayClaim()",
++    "NotificationSuspensionRegressionTests/testOldThresholdFailureCannotClearNewerSuspendedCrossingClaim()",
++    "NotificationSuspensionRegressionTests/testOlderDayCompletingFirstPreservesNewerInFlightClaim()",
++    "NotificationSuspensionRegressionTests/testOlderDifferentDayCompletionCannotRegressNotifiedDayOrConsumeNewPending()",
++    "NotificationSuspensionRegressionTests/testOlderSuccessCannotEraseBelowThresholdRearm()",
++    "NotificationSuspensionRegressionTests/testOverlappingAboveObservationsReserveOneCrossing()",
++    "OwnershipArchiveBudgetTests/testAnchorBeyondPageBudgetDoesNotClaimCompleteCoverage()",
++    "OwnershipArchiveBudgetTests/testArchivesContainingOnlyVisitedAccessionsStillConsumePageBudget()",
++    "OwnershipArchiveBudgetTests/testDuplicateArchiveNamesAreFetchedOnlyOnce()",
++    "OwnershipArchiveBudgetTests/testEmptyArchivePagesHaveAFixedBudgetOnEveryAttempt()",
++    "OwnershipArchiveBudgetTests/testMalformedArchiveStopsWithoutFurtherRequests()",
++    "OwnershipArchiveBudgetTests/testVerifiedAnchorsCanStillBeDiscoveredInAnArchive()",
++    "OwnershipChangeToastTests/testOwnershipChangeToastFormatsDeltas()",
++    "OwnershipChangeToastTests/testOwnershipChangeToastNilWhenUnchanged()",
++    "OwnershipReconciliationTests/testAggregateOverflowWithValidInt64BalanceIsRefused()",
++    "OwnershipReconciliationTests/testAmendmentCannotChooseAmongMultipleOriginalRowsOnOneDay()",
++    "OwnershipReconciliationTests/testCancellationStopsTheBoundedScan()",
++    "OwnershipReconciliationTests/testClassAOnlySalePreservesClassBTrustsAndOptionsAndIsIdempotent()",
++    "OwnershipReconciliationTests/testConflictingSameDayFilingsAreRefused()",
++    "OwnershipReconciliationTests/testDistinctHighPrecisionOptionStrikeCannotReplaceAnchorBucket()",
++    "OwnershipReconciliationTests/testEmptyIssuerTickerPreservesSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testEmptyOwnershipTablesPreserveSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testEquivalentOptionStrikeSpellingsReplaceAnchorBucket()",
++    "OwnershipReconciliationTests/testExactIntegerParsingDoesNotRoundThroughDouble()",
++    "OwnershipReconciliationTests/testExternalDoctypeIsRejectedWithoutReadingResources()",
++    "OwnershipReconciliationTests/testFullDisposalZerosEveryPositiveAnchorBucket()",
++    "OwnershipReconciliationTests/testHundredAccessionBudgetDoesNotClaimTruncatedCoverage()",
++    "OwnershipReconciliationTests/testIndividualInt64BoundsAndPreferredMultiplicationOverflow()",
++    "OwnershipReconciliationTests/testIntentionallyUntrackedTSLARowsRemainComplete()",
++    "OwnershipReconciliationTests/testInvalidNumbersAreUnresolvedInsteadOfZero()",
++    "OwnershipReconciliationTests/testLateHistoricalAmendmentCannotReplaceNewerBalance()",
++    "OwnershipReconciliationTests/testMalformedOptionStrikeRemainsUnresolved()",
++    "OwnershipReconciliationTests/testMalformedXMLCannotProducePartialBalance()",
++    "OwnershipReconciliationTests/testMissingAnchorCoverageIsRefused()",
++    "OwnershipReconciliationTests/testMissingIssuerTickerPreservesSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testMissingOwnershipTablesPreserveSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testNewDirectTSLAOrdinaryBalancePreservesSPCX()",
++    "OwnershipReconciliationTests/testOptionGrantIdentityMustMatchStrikeAndExpiry()",
++    "OwnershipReconciliationTests/testOptionStrikeIdentityNormalizesOnlyInsignificantZeros()",
++    "OwnershipReconciliationTests/testOptionStrikeIdentityPreservesSignificantDecimalDigits()",
++    "OwnershipReconciliationTests/testOwnershipContainersWithoutRowsPreserveSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testRecognizedZeroDisposalSurvivesParser()",
++    "OwnershipReconciliationTests/testSameDayRowsInOrdinaryFilingUseDocumentOrder()",
++    "OwnershipReconciliationTests/testSelfClosingOwnershipTablesPreserveSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testSupersededOrdinaryObservationDoesNotRegressAnchor()",
++    "OwnershipReconciliationTests/testUniquelyTargetedAmendmentCorrectsOriginalBalance()",
++    "OwnershipReconciliationTests/testUnknownAmendmentTargetIsRefused()",
++    "OwnershipReconciliationTests/testUnknownUndatedMalformedAndUnsupportedUpdatesAreRefused()",
++    "OwnershipReconciliationTests/testValidSingleOwnershipTableStillAppliesBalance()",
++    "OwnershipReconciliationTests/testValidUnrelatedIssuerDoesNotInvalidateAnchorCoverage()",
++    "OwnershipReconciliationTests/testVerifiedAnchorTranscriptionMatchesSourceAndKeepsZeros()",
++    "OwnershipReconciliationTests/testVerifiedAnchorsRemainUnchangedDespiteFebruaryReportDate()",
++    "OwnershipReconciliationTests/testWhitespaceIssuerTickerPreservesSyncedHoldingsOnReplay()",
++    "OwnershipReconciliationTests/testWhitespaceOnlyOwnershipTablesPreserveSyncedHoldingsOnReplay()",
++    "PopoverLayoutRegressionTests/testPopulatedPopoverFitsAvailableHeightAndRetainsScrolling()",
++    "QuoteBatchMergerTests/testAllFailuresPreferNetworkError()",
++    "QuoteBatchMergerTests/testAllFailuresThrow()",
++    "QuoteBatchMergerTests/testEmptyRequestReturnsEmptyWithoutThrowing()",
++    "QuoteBatchMergerTests/testOneFailureDoesNotDropPeerSuccess()",
++    "QuoteBatchMergerTests/testPartialSuccessReturnsSuccessfulQuotesInRequestedOrder()",
++    "QuotePriceResolverTests/testAlwaysUsesRegularMarketPriceRegardlessOfSession()",
++    "QuotePriceResolverTests/testReturnsNilWhenRegularPriceMissing()",
++    "SECHoldingsSyncServiceFormTypeTests/testAcceptsForm4AndAmendment()",
++    "SECHoldingsSyncServiceFormTypeTests/testMaxForm4AccessionsToScanIsDeepEnoughForMultiIssuerProfiles()",
++    "SECHoldingsSyncServiceFormTypeTests/testRejectsOtherFormTypes()",
++    "SPCXHoldingsTests/testAppSettingsLeavesCurrentTSLADefaultUntouched()",
++    "SPCXHoldingsTests/testAppSettingsLeavesCustomTSLAShareCountUntouched()",
++    "SPCXHoldingsTests/testAppSettingsLeavesUnknownSPCXShareCountUnderNewKey()",
++    "SPCXHoldingsTests/testAppSettingsRewritesLegacyFingerprintUnderNewKey()",
++    "SPCXHoldingsTests/testAppSettingsRewritesLegacyTSLAFingerprintUnderNewKey()",
++    "SPCXHoldingsTests/testDefaultShareCountIsSellableOwnership()",
++    "SPCXHoldingsTests/testEmptySuiteReturnsNewTSLADefault()",
++    "SPCXHoldingsTests/testLeavesSellableDefaultAndUnknownUntouched()",
++    "SPCXHoldingsTests/testMigratesLegacyMisparseLastRow()",
++    "SPCXHoldingsTests/testMigratesLegacyPartialAggregateDefault()",
++    "SPCXHoldingsTests/testMigratesLegacyScaledDefault()",
++    "SPCXHoldingsTests/testMigratesLegacySingleRowParse()",
++    "SPCXHoldingsTests/testMigratesPriorBundledDefaultWithPerformanceRSUs()",
++    "SPCXOwnershipCalculatorTests/testAggregatesJune2026Form4Holdings()",
++    "SPCXOwnershipCalculatorTests/testConvertsSeriesAPreferredToClassAEquivalentTimes50()",
++    "SPCXOwnershipCalculatorTests/testOptionTitleCountsUnderlyingShares()",
++    "SPCXOwnershipCalculatorTests/testRemarksPerformanceSharesAreNotAdded()",
++    "SPCXOwnershipCalculatorTests/testUsesLatestRowNotMaxWhenLaterRowHasLowerShares()",
++    "SPCXOwnershipCalculatorTests/testUsesLatestZeroRowWhenTrustFullyDisposed()",
++    "SemanticVersionTests/testEqualVersions()",
++    "SemanticVersionTests/testNewerMinorVersion()",
++    "SemanticVersionTests/testNewerPatchVersion()",
++    "SemanticVersionTests/testOlderVersionIsNotNewer()",
++    "ShareCountTextInputTests/testCommasAreStrippedBeforeParsing()",
++    "ShareCountTextInputTests/testEmptyDoesNotOverwriteStoredCountIdentity()",
++    "ShareCountTextInputTests/testEmptyFieldRestoresStoredCountWithoutError()",
++    "ShareCountTextInputTests/testInvalidNonEmptyRestoresStoredCountWithError()",
++    "ShareCountTextInputTests/testValidPositiveCountIsAccepted()",
++    "ShareCountTextInputTests/testZeroAndNegativeAreRejected()",
++    "ShareImageExporterTests/testCopiesTextSummaryToPasteboard()",
++    "ShareImageExporterTests/testCopiesTextSummaryWithParityPunchline()",
++    "ShareImageExporterTests/testRendersLargerPNGWhenParityIncluded()",
++    "ShareImageExporterTests/testRendersNonEmptyPNG()",
++    "ShareImageExporterTests/testShareItemsImageReturnsNSImage()",
++    "ShareImageExporterTests/testShareItemsTextContainsSummary()",
++    "ShareShortcutMatcherTests/testMatchesCommandShiftC()",
++    "ShareShortcutMatcherTests/testRejectsCommandOnly()",
++    "ShareShortcutMatcherTests/testRejectsWrongKey()",
++    "ShareShortcutMatcherTests/testShouldConsumeEventOnSucceededAndDebounced()",
++    "StockQuoteTests/testPaperGainUsesShareCount()",
++    "StockQuoteTests/testPercentChange()",
++    "StringTruncationTests/testTruncatedMiddleLeavesShortStringsUntouched()",
++    "StringTruncationTests/testTruncatedMiddleUsesMiddleEllipsis()",
++    "TradingDayCalendarTests/testDayKeyUsesEasternCalendarDay()",
++    "TradingDayCalendarTests/testDefaultCalendarIsGregorianEastern()",
++    "TradingDayCalendarTests/testHasTradingDayCompletedAfterEarlyClose()",
++    "TradingDayCalendarTests/testHasTradingDayCompletedAfterRegularClose()",
++    "TradingDayCalendarTests/testHasTradingDayNotCompletedBeforeRegularClose()",
++    "TradingDayCalendarTests/testHasTradingDayNotCompletedDuringSession()",
++    "TradingDayCalendarTests/testIsSameTradingDayAcrossMidnightEastern()",
++    "UpdateCoordinatorTests/testDoesNotNotifyWhenDisabled()",
++    "UpdateCoordinatorTests/testIgnoresUntrustedReleasePageURL()",
++    "UpdateCoordinatorTests/testManualCheckReportsUpToDate()",
++    "UpdateCoordinatorTests/testManualCheckSurfacesHTTPErrorAndClearsStaleUpdate()",
++    "UpdateCoordinatorTests/testNotifiesWhenEnabledAndNewerVersionFound()",
++    "YahooFinanceStockPriceServiceTests/testAllSymbolFailuresThrow()",
++    "YahooFinanceStockPriceServiceTests/testEmptySymbolsReturnsEmpty()",
++    "YahooFinanceStockPriceServiceTests/testFallsBackToLocalSessionWhenMarketStateMissing()",
++    "YahooFinanceStockPriceServiceTests/testPartialSymbolFailureReturnsSuccessfulQuotes()",
++    "YahooFinanceStockPriceServiceTests/testYahooPostStateStillUsesRegularMarketPrice()",
++    "YahooMarketStateMapperTests/testMappingIsCaseInsensitiveAndTrimsWhitespace()",
++    "YahooMarketStateMapperTests/testMapsKnownMarketStatesRTHOnly()",
++    "YahooMarketStateMapperTests/testNilEmptyAndUnknownReturnNilForLocalFallback()"
++  ],
++  "final_count": 401,
++  "final_results": {
++    "AppSettingsHoldingsSyncTests/testCompleteResultWithZeroSharesAppliesFullDisposal()": "Passed",
++    "AppSettingsHoldingsSyncTests/testEmptyResultDoesNotSetLastHoldingsSyncDate()": "Passed",
++    "AppSettingsHoldingsSyncTests/testFullResultSetsLastHoldingsSyncDate()": "Passed",
++    "AppSettingsHoldingsSyncTests/testPartialApplySuppressesNeedsHoldingsSyncUntilIntervalElapses()": "Passed",
++    "AppSettingsHoldingsSyncTests/testPartialResultDoesNotSetLastHoldingsSyncDate()": "Passed",
++    "AppSettingsHoldingsSyncTests/testPartialResultWithOnlyZeroForOneSymbolRemainsIncomplete()": "Passed",
++    "AppSettingsHoldingsSyncTests/testUnknownPersonIDFallsBackToMusk()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testDisableFailureRevertsToggleAndSurfacesError()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testEnableFailureRevertsToggleAndSurfacesError()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testEnableSuccessClearsErrorAndPersistsTrue()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testResetToDefaultsClearsStaleLaunchAtLoginErrorWhenAlreadyOff()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testResetToDefaultsDisablesLaunchAtLoginAndClearsError()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSoftDisableMismatchAdoptsServiceReality()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSoftEnableKeepsDesiredTrueAndSurfacesPendingApproval()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSoftEnableSyncClearsErrorWhenServiceBecomesEnabled()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSoftEnableSyncReattemptsWithoutWipingDesiredTrue()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSuccessfulToggleClearsPreviousError()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSyncAppliesDesiredAndResolvesFromServiceOnFailure()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSyncSucceedsWhenServiceAcceptsDesiredState()": "Passed",
++    "AppSettingsLaunchAtLoginTests/testSyncWhenAlreadyMatchedClearsErrorWithoutCallingSet()": "Passed",
++    "AppSettingsTests/testDefaultShareCounts()": "Passed",
++    "AppSettingsTests/testRefreshIntervalClampsTo120()": "Passed",
++    "AppSettingsTests/testResetToDefaultsTurnsMergerParityCardBackOn()": "Passed",
++    "AppSettingsTests/testShowMenuBarIconPersists()": "Passed",
++    "AppSettingsTests/testShowMergerParityCardDefaultsOnAndPersists()": "Passed",
++    "AppSettingsTests/testTotalWorthDisplayModePersists()": "Passed",
++    "BoundedThresholdObservationTests/testBelowAndClosedDayRolloverDiscardObsoletePendingCrossing()": "Passed",
++    "BoundedThresholdObservationTests/testCoalescesRepeatedRecrossingsAndDeliversNewestPendingValue()": "Passed",
++    "BoundedThresholdObservationTests/testDisableBeforeWorkerRunsPreventsSubmissionAndAllowsLaterAboveRetry()": "Passed",
++    "BoundedThresholdObservationTests/testDisableQueuedRecrossThenReenableWithDisabledObservation()": "Passed",
++    "BoundedThresholdObservationTests/testDisableQueuedRecrossThenReenableWithoutObservation()": "Passed",
++    "BoundedThresholdObservationTests/testDisableThenReenableWhileOldPhysicalDeliveryStillWaits()": "Passed",
++    "BoundedThresholdObservationTests/testFailureRetriesOnNextAboveObservationWithoutTightLoop()": "Passed",
++    "BoundedThresholdObservationTests/testObservesAllPresetsSynchronouslyBeforeStartingDelivery()": "Passed",
++    "BoundedThresholdObservationTests/testRepeatedResetKeepsPhysicalSlotUntilOldDeliveryReturns()": "Passed",
++    "BoundedThresholdObservationTests/testWorkerRechecksStoredEnablementImmediatelyBeforeSubmission()": "Passed",
++    "CompanyFactsDeduplicationTests/testCompanyFactsInt64BoundaryAndInvalidNumbers()": "Passed",
++    "CompanyFactsDeduplicationTests/testCompanyFactsPreservesLargeIntegralDecimalExactly()": "Passed",
++    "CompanyFactsDeduplicationTests/testConflictingFactsWithinSameAccessionAreUnresolved()": "Passed",
++    "CompanyFactsDeduplicationTests/testConflictingTiedFactsDoNotFallBackToOlderGAAP()": "Passed",
++    "CompanyFactsDeduplicationTests/testEqualOriginalAndAmendmentTotalsCountOnce()": "Passed",
++    "CompanyFactsDeduplicationTests/testFractionsBeyondDecimalPrecisionAreRejectedExactly()": "Passed",
++    "CompanyFactsDeduplicationTests/testLongExactIntegersAndExponentFormsRemainUsable()": "Passed",
++    "CompanyFactsDeduplicationTests/testNonintegralOutstandingIsRejected()": "Passed",
++    "CompanyFactsDeduplicationTests/testNumericTokensCannotBeForgedByStringsObjectsOrInvalidSyntax()": "Passed",
++    "CompanyFactsOutstandingResolverTests/testConflictingSameEndFiledTotalsAreUnresolved()": "Passed",
++    "CompanyFactsOutstandingResolverTests/testFallsBackToCommonStockSharesOutstandingWhenEntityMissing()": "Passed",
++    "CompanyFactsOutstandingResolverTests/testInvalidJSONReturnsNil()": "Passed",
++    "CompanyFactsOutstandingResolverTests/testPrefers10QOverNonPreferredFormWithLaterEndOrFiled()": "Passed",
++    "CompanyFactsOutstandingResolverTests/testSingleEntityCommonStockSharesOutstanding()": "Passed",
++    "CompanyFactsOutstandingResolverTests/testWASOOnlyReturnsNil()": "Passed",
++    "CurrencyFormatterTests/testFormatCurrencyBillionsNegative()": "Passed",
++    "CurrencyFormatterTests/testFormatCurrencyBillionsPositive()": "Passed",
++    "CurrencyFormatterTests/testFormatPercentNegative()": "Passed",
++    "CurrencyFormatterTests/testFormatPercentNegativeKeepsMinusWithPOSIXLocale()": "Passed",
++    "CurrencyFormatterTests/testFormatPercentPositive()": "Passed",
++    "CurrencyFormatterTests/testFormatPrice()": "Passed",
++    "CurrencyFormatterTests/testFormatShareCountUsesUSGrouping()": "Passed",
++    "CurrencyFormatterTests/testFormattersUsePeriodDecimalNotLocaleComma()": "Passed",
++    "DailyRecordTrackerTests/testMidDayRestartContinuesPeakAndTroughFromPersistedExtremes()": "Passed",
++    "DailyRecordTrackerTests/testNoRecordsUntilFirstTradingDayCompletes()": "Passed",
++    "DailyRecordTrackerTests/testNonQuotableAfterCloseDoesNotUpdatePeakOrTrough()": "Passed",
++    "DailyRecordTrackerTests/testNonQuotableOvernightDoesNotPolluteNextDayAfterRollover()": "Passed",
++    "DailyRecordTrackerTests/testNonQuotableSampleDoesNotSeedPeakOrTroughForNewDay()": "Passed",
++    "DailyRecordTrackerTests/testPeekPendingSurvivesFailedDeliveryUntilConsume()": "Passed",
++    "DailyRecordTrackerTests/testPendingFinalizedDaySurvivesRelaunchUntilConsume()": "Passed",
++    "DailyRecordTrackerTests/testPersistsAcrossReload()": "Passed",
++    "DailyRecordTrackerTests/testPostMarketSamplesDoNotUpdateExtremesAfterRTHFinalize()": "Passed",
++    "DailyRecordTrackerTests/testQuotableSamplesStillUpdatePeakAndTrough()": "Passed",
++    "DailyRecordTrackerTests/testRecordsAreScopedPerPersonID()": "Passed",
++    "DailyRecordTrackerTests/testResetPersistedStateClearsUnfinishedDayExtremes()": "Passed",
++    "DailyRecordTrackerTests/testTracksBestAndWorstAfterFirstDayCompletes()": "Passed",
++    "DailyRecordTrackerTests/testUnfinishedDayExtremesFinalizeAfterRestartPastPostMarketClose()": "Passed",
++    "DailyRecordTrackerTests/testUnfinishedDayExtremesPersistAcrossRestartAndFinalizeOnNextDay()": "Passed",
++    "DayCloseSummaryNotificationServiceTests/testConcurrentDeliverIfNeededPostsOnlyOnce()": "Passed",
++    "DayCloseSummaryNotificationServiceTests/testDeliversOncePerDayWhenEnabled()": "Passed",
++    "DayCloseSummaryNotificationServiceTests/testKeepsPendingRetryWhenDeliveryFailsThenSucceeds()": "Passed",
++    "Form4OwnershipParserTests/testPrefersDirectOwnershipOverHigherIndirectRows()": "Passed",
++    "Form4OwnershipParserTests/testSPCXUsesOwnershipAggregatorNotSingleRow()": "Passed",
++    "Form4OwnershipParserTests/testUsesLastDirectTransactionNotMaxAcrossRows()": "Passed",
++    "GainNotificationThresholdTests/testPresetLookupByID()": "Passed",
++    "GainNotificationThresholdTests/testPresetsIncludeSignedFiveTenTwentyFiftyBillions()": "Passed",
++    "GainSummaryFormatterTests/testFormatOmitsLegalDisclaimer()": "Passed",
++    "GainSummaryFormatterTests/testTodaysGainLossLabel()": "Passed",
++    "GainThresholdNotificationServiceTests/testDoesNotFireWhenMarketClosed()": "Passed",
++    "GainThresholdNotificationServiceTests/testFiresLossThresholdOnDownwardCross()": "Passed",
++    "GainThresholdNotificationServiceTests/testFiresWhenCrossingEnabledGainThreshold()": "Passed",
++    "GainThresholdNotificationServiceTests/testKeepsArmedWhenDeliveryFailsThenRetries()": "Passed",
++    "GainThresholdNotificationServiceTests/testPersistsStateAcrossServiceReload()": "Passed",
++    "GainThresholdNotificationServiceTests/testRearmsAfterDroppingBelowThreshold()": "Passed",
++    "GainsSnapshotTests/testCombinedMarketValue()": "Passed",
++    "GainsSnapshotTests/testCombinedPaperGain()": "Passed",
++    "GainsSnapshotTests/testCombinedPercentChange()": "Passed",
++    "GainsSnapshotTests/testFormatMarketValueTrillions()": "Passed",
++    "GainsViewModelCopyShareTests/testCopyShareReturnsFalseWithoutSnapshot()": "Passed",
++    "GainsViewModelCopyShareTests/testCopyShareReturnsTrueAndWritesPasteboard()": "Passed",
++    "GainsViewModelDayCloseNotificationTests/testFailedDayCloseDeliveryKeepsPending()": "Passed",
++    "GainsViewModelDayCloseNotificationTests/testSkippedDayCloseDeliveryConsumesPending()": "Passed",
++    "GainsViewModelDayCloseNotificationTests/testSuccessfulDayCloseDeliveryConsumesPending()": "Passed",
++    "GainsViewModelExtendedHoursTests/testClosedSessionShowsAsOfCloseLabel()": "Passed",
++    "GainsViewModelExtendedHoursTests/testSnapshotUsesTradingSessionFromMarketHours()": "Passed",
++    "GainsViewModelHoldingsSyncBackoffTests/testFailedSyncRecordsAttemptAndSuppressesAutoRetry()": "Passed",
++    "GainsViewModelHoldingsSyncBackoffTests/testForceSyncRunsWhenWithinInterval()": "Passed",
++    "GainsViewModelIssuerOutstandingSyncTests/testOutstandingAppliedAfterForm4FailureWithoutChangingMessage()": "Passed",
++    "GainsViewModelIssuerOutstandingSyncTests/testOutstandingEmptyResultDoesNotChangeDefaultsOrForm4SuccessMessage()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testCancelledRefreshDiscardsCancellationUnawareResult()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testConsecutiveDaysEachHaveOneClosingRequest()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testCountChangeDuringFetchUsesCurrentHoldings()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testEarlyCloseSleepAndStopCancellationDoNotFetchAgain()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testFailedClosingFetchFinalizesLastRealObservationAndUpdatesSession()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testFailedNextDayQuoteInvalidatesPendingPriorDayGainDelivery()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testGatedSECDoesNotBlockInitialQuotesAndChangedCountsRefreshOnce()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testGatedThresholdDoesNotSuspendScheduledQuotesOrClosingClock()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testInitialFailureSpanningClosePreservesClockAndClosingRecovery()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testInitialSuccessSpanningClosePreservesClockAndClosingRecovery()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testLateClosingFailureStillGetsOneBoundedRecovery()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testLatePreSECFetchCannotResurrectPreviousCounts()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testLateQuoteSuccessAndFailureCannotReplaceNewGeneration()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testLoopBoundsCloseRetryAndRefreshesImmediatelyNextOpen()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testNextOpenSupersedesPendingClosingQuoteImmediately()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testOldSECFailureCannotOverwriteRestartedSyncStatus()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testOlderDaySummaryCannotAcknowledgeNewPendingDay()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testOlderFailedSummaryRetainsPendingAndNewSamplesOrMilestone()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testOlderSuccessfulSummaryCannotOverwriteNewSamplesOrMilestone()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testPartialClosingQuoteUsesTrueObservedStatus()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testPartialClosingQuotesAdvanceClockWithoutReplacingObservation()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testRepeatedModelResetsBoundPhysicalGainDeliveryAndAllowDeallocation()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testRepeatedRecrossingsBoundActualSuspendedDeliveriesAndRetainedWork()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testRepeatedResetBoundsDayClosePhysicalWorkWithoutBlockingQuotes()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testResetAndStopInvalidateOldSummaryWithoutConsumingReplacement()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testRestartInitialFailureSpanningEarlyClosePreservesClosingRecovery()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testRestartStormBoundsCancellationUnawareQuoteAndSECRequests()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testRestartedQuoteLoadingCannotBeClearedByOldCompletion()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testSECCanFinishAfterPartialQuotesAndStillRefreshAcceptedCountsOnce()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testSaturatedCloseAdmitsAfterWindowAndRetainsOneRetry()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testSaturatedCloseAdmitsWhenCapacityFreesBeforeRecoveryWindow()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStaleStatusUsesObservationTimeAndObservableCurrentClock()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStopCancelsSaturatedCloseObligation()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStopInvalidatesLateQuoteSuccessAndFailure()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStopRestartOldSECCannotApplyOrClearNewSync()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStoppedOutstandingServiceDoesNotRetainViewModel()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStoppedOwnedServicesDoNotRetainViewModel()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testStoppedSummaryDeliveryDoesNotRetainViewModel()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testSuccessfulDeferredCloseDoesNotAddRetry()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testThresholdObservationsFollowAcceptedSnapshotsWhileOldSummaryWaits()": "Passed",
++    "GainsViewModelLifecycleRegressionTests/testUnchangedSECSyncDoesNotAddQuoteRefresh()": "Passed",
++    "GainsViewModelMenuBarTitleTests/testSplitMenuBarTitleTruncatesLongValues()": "Passed",
++    "GainsViewModelMergerParityPresentationTests/testPresentationNilWithoutSnapshot()": "Passed",
++    "GainsViewModelMergerParityPresentationTests/testPresentationUsesDefaultOutstandingWhenUnset()": "Passed",
++    "GainsViewModelMergerParityPresentationTests/testPresentationUsesSnapshotPricesAndSettingsOutstanding()": "Passed",
++    "GainsViewModelOffMarketSparklineTests/testSyncIntradaySamplesFromStoreKeepsPriorRTHAfterETDayRollover()": "Passed",
++    "GainsViewModelOffMarketSparklineTests/testSyncIntradaySamplesFromStorePreservesSameDaySamples()": "Passed",
++    "GainsViewModelOpenSessionRefreshTimingTests/testFirstQuotableCycleRefreshesImmediately()": "Passed",
++    "GainsViewModelOpenSessionRefreshTimingTests/testOffMarketAlwaysWaits()": "Passed",
++    "GainsViewModelOpenSessionRefreshTimingTests/testSessionTransitionSequence()": "Passed",
++    "GainsViewModelOpenSessionRefreshTimingTests/testSubsequentOpenSessionCyclesSleepThenRefresh()": "Passed",
++    "GainsViewModelResetTests/testResetToDefaultsClearsIntradaySamplesInViewModel()": "Passed",
++    "GainsViewModelTrillionEasterEggTests/testClearsTrillionEasterEggWhenNetWorthRecoversAboveOneTrillion()": "Passed",
++    "GitHubReleaseUpdateCheckerTests/testReturnsNilWhenCurrentVersionIsUpToDate()": "Passed",
++    "GitHubReleaseUpdateCheckerTests/testReturnsUpdateWhenRemoteVersionIsNewer()": "Passed",
++    "GitHubReleaseUpdateCheckerTests/testSkipsPrerelease()": "Passed",
++    "GitHubReleaseUpdateCheckerTests/testThrowsOnNon200Response()": "Passed",
++    "IntradayGainSampleStoreTests/testAppendWhenMarketOpen()": "Passed",
++    "IntradayGainSampleStoreTests/testCapsAt400Samples()": "Passed",
++    "IntradayGainSampleStoreTests/testDayRolloverOnQuotableAppendStillWorks()": "Passed",
++    "IntradayGainSampleStoreTests/testDoesNotAppendDuringPostMarketHours()": "Passed",
++    "IntradayGainSampleStoreTests/testDoesNotAppendWhenMarketClosed()": "Passed",
++    "IntradayGainSampleStoreTests/testETDayRolloverClearsPriorSamples()": "Passed",
++    "IntradayGainSampleStoreTests/testFirstRTHAppendNextDayClearsPriorSessionSamples()": "Passed",
++    "IntradayGainSampleStoreTests/testLoadYesterdaysSamplesDuringClosedSessionKeepsPriorRTHSamples()": "Passed",
++    "IntradayGainSampleStoreTests/testNonQuotableAppendAfterMidnightKeepsYesterdaysSamples()": "Passed",
++    "IntradayGainSampleStoreTests/testOvernightLoadKeepsPriorRTHSamples()": "Passed",
++    "IntradayGainSampleStoreTests/testPersistsAcrossReload()": "Passed",
++    "IntradayGainSampleStoreTests/testSameDayLoadPreservesSamples()": "Passed",
++    "IssuerSharesOutstandingTests/testBundledDefaultsAndKeys()": "Passed",
++    "IssuerSharesOutstandingTests/testCompanyfactsProvenancePersistsAsOf()": "Passed",
++    "IssuerSharesOutstandingTests/testDefaultsReturnedWhenNoKeySet()": "Passed",
++    "IssuerSharesOutstandingTests/testLoadRemigratesPriorSPCXCoverOutstandingAndPersists()": "Passed",
++    "IssuerSharesOutstandingTests/testMigrateStoredOutstandingLeavesOtherValues()": "Passed",
++    "IssuerSharesOutstandingTests/testMigrateStoredOutstandingRewritesPriorSPCXCoverDefault()": "Passed",
++    "IssuerSharesOutstandingTests/testMissingOutstandingKeyReturnsNewBundledDefault()": "Passed",
++    "IssuerSharesOutstandingTests/testMuskHoldingsHaveIssuerCIKs()": "Passed",
++    "IssuerSharesOutstandingTests/testResetToDefaultsReseedsOutstanding()": "Passed",
++    "IssuerSharesOutstandingTests/testResetToDefaultsRestoresBundledProvenance()": "Passed",
++    "IssuerSharesOutstandingTests/testSetGetRoundTripIndependentOfShareCount()": "Passed",
++    "IssuerSharesOutstandingTests/testSetSharesOutstandingIgnoresNonPositive()": "Passed",
++    "LoginStatusRegressionTests/testDisableNotRegisteredIsNoOp()": "Passed",
++    "LoginStatusRegressionTests/testDisableUnregistersPendingAndEnabledOnlyOnce()": "Passed",
++    "LoginStatusRegressionTests/testFailedDisablePreservesPendingRegistrationAndPreference()": "Passed",
++    "LoginStatusRegressionTests/testPendingRegistrationSurvivesReopenRestartAndApproval()": "Passed",
++    "LoginStatusRegressionTests/testRepeatedEnableDoesNotRegisterPendingOrEnabledServiceAgain()": "Passed",
++    "LoginStatusRegressionTests/testUnavailableDoesNotAttemptRegistrationAndSurfacesError()": "Passed",
++    "MarketHoursServiceTests/test2027GoodFridayIsClosed()": "Passed",
++    "MarketHoursServiceTests/test2027HolidayIsClosed()": "Passed",
++    "MarketHoursServiceTests/test2028GoodFridayAndIndependenceDayAreClosed()": "Passed",
++    "MarketHoursServiceTests/test2028July3EarlyClose()": "Passed",
++    "MarketHoursServiceTests/test2028MLKIsClosedAndNextDayOpen()": "Passed",
++    "MarketHoursServiceTests/test2028ThanksgivingAndDayAfterEarlyClose()": "Passed",
++    "MarketHoursServiceTests/testDecember31_2027IsRegularTradingBeforeSaturdayNewYear()": "Passed",
++    "MarketHoursServiceTests/testEarlyCloseAfternoonIsClosed()": "Passed",
++    "MarketHoursServiceTests/testEarlyCloseChristmasEve2026()": "Passed",
++    "MarketHoursServiceTests/testEarlyCloseDayAfterThanksgiving2027()": "Passed",
++    "MarketHoursServiceTests/testHolidayIsClosed()": "Passed",
++    "MarketHoursServiceTests/testHolidayTableCoversCurrentAndNextYear()": "Passed",
++    "MarketHoursServiceTests/testHolidayTableMaxKeyYearMatchesThroughYear()": "Passed",
++    "MarketHoursServiceTests/testLastMarketCloseAfterHoursSameDay()": "Passed",
++    "MarketHoursServiceTests/testLastMarketCloseBeforeOpenUsesPreviousTradingDay()": "Passed",
++    "MarketHoursServiceTests/testLastMarketCloseOnEarlyCloseDayIs1PM()": "Passed",
++    "MarketHoursServiceTests/testLastMarketCloseOnHolidayUsesPreviousTradingDay()": "Passed",
++    "MarketHoursServiceTests/testNextOpenAfterHoursIsRegularOpenNotPreMarket()": "Passed",
++    "MarketHoursServiceTests/testNextOpenBeforeRegularOpenSameDayIs930AM()": "Passed",
++    "MarketHoursServiceTests/testPreMarketHoursAreClosedAndNotQuotable()": "Passed",
++    "MarketHoursServiceTests/testRegularCloseDateUsesEarlyCloseWhenApplicable()": "Passed",
++    "MarketHoursServiceTests/testTradingSessionBoundariesAreRTHOnly()": "Passed",
++    "MarketHoursServiceTests/testWeekdayDuringMarketHoursIsOpen()": "Passed",
++    "MarketHoursServiceTests/testWeekendIsClosed()": "Passed",
++    "MarketStatusFormatterTests/testAsOfCloseLabelUsesLocalTimeZone()": "Passed",
++    "MenuBarDisplayModeCycleMatcherTests/testNilOrOrdinaryWindowDoesNotCycle()": "Passed",
++    "MenuBarDisplayModeCycleMatcherTests/testOptionClickOnStatusBarWindowShouldCycle()": "Passed",
++    "MenuBarDisplayModeCycleMatcherTests/testRejectsCommandOptionShiftAndPlainClick()": "Passed",
++    "MenuBarDisplayModeCycleTests/testCycleMenuBarDisplayModePersists()": "Passed",
++    "MenuBarDisplayModeCycleTests/testNextCyclesThroughAllCasesInOrder()": "Passed",
++    "MenuBarDisplayModeTests/testTotalWorthLabel()": "Passed",
++    "MergerMarketCapParityTests/testHappyPathImpliedEqualsSPCXMarketCapOverTSLAShares()": "Passed",
++    "MergerMarketCapParityTests/testNonFiniteInputsReturnNil()": "Passed",
++    "MergerMarketCapParityTests/testRealishOrdersOfMagnitude()": "Passed",
++    "MergerMarketCapParityTests/testZeroOrNegativeInputsReturnNil()": "Passed",
++    "NetWorthMilestoneTrackerTests/testCelebratesCrossingOneTrillion()": "Passed",
++    "NetWorthMilestoneTrackerTests/testCelebratesCrossingTwoTrillion()": "Passed",
++    "NetWorthMilestoneTrackerTests/testHysteresisPreventsFlickerAroundOneTrillion()": "Passed",
++    "NetWorthMilestoneTrackerTests/testJumpFromBelowOneTrillionToAboveTwoTrillionCelebratesTwoTrillion()": "Passed",
++    "NetWorthMilestoneTrackerTests/testNoCelebrationWhenAlreadyAboveTrillion()": "Passed",
++    "NetWorthMilestoneTrackerTests/testSadMessageUsesLoneliestNumberCopy()": "Passed",
++    "NetWorthMilestoneTrackerTests/testZonesAreScopedPerPerson()": "Passed",
++    "NotificationResponseRouterTests/testDayCloseTapOpensPopover()": "Passed",
++    "NotificationResponseRouterTests/testDismissActionIsIgnored()": "Passed",
++    "NotificationResponseRouterTests/testGainThresholdTapOpensPopover()": "Passed",
++    "NotificationResponseRouterTests/testUntrustedReleaseURLIsIgnored()": "Passed",
++    "NotificationResponseRouterTests/testUpdateTapOpensTrustedReleaseURL()": "Passed",
++    "NotificationSuspensionRegressionTests/testAdvanceClockFinalizesCloseWithoutAddingSample()": "Passed",
++    "NotificationSuspensionRegressionTests/testAdvanceClockRelaunchLoadsRealUnfinishedDayAtCloseAndNextOpen()": "Passed",
++    "NotificationSuspensionRegressionTests/testAdvanceClockRespectsEarlyClose()": "Passed",
++    "NotificationSuspensionRegressionTests/testAdvanceClockWithoutAnyQuoteCreatesNoDay()": "Passed",
++    "NotificationSuspensionRegressionTests/testAllGainAndLossPresetsCommitBeforeDeliveryAndRetainRearm()": "Passed",
++    "NotificationSuspensionRegressionTests/testBackwardClockAndSampleCannotRegressCurrentTradingDay()": "Passed",
++    "NotificationSuspensionRegressionTests/testCanceledMultiPresetDeliveryLeavesEveryUnconfirmedCrossingRetryable()": "Passed",
++    "NotificationSuspensionRegressionTests/testCancelledDayCloseCannotConfirmAfterRestart()": "Passed",
++    "NotificationSuspensionRegressionTests/testCancelledGainDeliveryCanRetryAfterRuntimeRestart()": "Passed",
++    "NotificationSuspensionRegressionTests/testClosedMarketDayRolloverInvalidatesSuspendedThresholdDelivery()": "Passed",
++    "NotificationSuspensionRegressionTests/testDayCloseCancellationWithoutResetDoesNotPersistSuccess()": "Passed",
++    "NotificationSuspensionRegressionTests/testDayCloseContentUsesLastObservedSessionAndSampleTime()": "Passed",
++    "NotificationSuspensionRegressionTests/testDayCloseInFlightFailureRetainsDurablePendingDay()": "Passed",
++    "NotificationSuspensionRegressionTests/testDayCloseResetInvalidatesSuspendedSuccessWithoutDeletingPending()": "Passed",
++    "NotificationSuspensionRegressionTests/testEveryPresetObservationAndClaimIsCommittedBeforeFirstAwait()": "Passed",
++    "NotificationSuspensionRegressionTests/testFailureAfterBelowObservationKeepsDistinctRecross()": "Passed",
++    "NotificationSuspensionRegressionTests/testFailureAfterNewerAboveObservationRemainsRetryable()": "Passed",
++    "NotificationSuspensionRegressionTests/testFailureCannotUndoNewerRecrossSuccess()": "Passed",
++    "NotificationSuspensionRegressionTests/testGainResetInvalidatesOldSuccessWithoutErasingNewObservation()": "Passed",
++    "NotificationSuspensionRegressionTests/testGainRolloverInvalidatesOldSuccess()": "Passed",
++    "NotificationSuspensionRegressionTests/testIdentityConsumeRequiresExactFinalizedValueAndPersistsClear()": "Passed",
++    "NotificationSuspensionRegressionTests/testLegacyThresholdStateDecodesAndRearmsNormally()": "Passed",
++    "NotificationSuspensionRegressionTests/testMultiPresetOlderSuccessCannotEraseNewerBelowObservations()": "Passed",
++    "NotificationSuspensionRegressionTests/testOldDayCloseFailureCannotRemoveRestartedSameDayClaim()": "Passed",
++    "NotificationSuspensionRegressionTests/testOldDayCloseSuccessCannotRemoveRestartedSameDayClaim()": "Passed",
++    "NotificationSuspensionRegressionTests/testOldThresholdFailureCannotClearNewerSuspendedCrossingClaim()": "Passed",
++    "NotificationSuspensionRegressionTests/testOlderDayCompletingFirstPreservesNewerInFlightClaim()": "Passed",
++    "NotificationSuspensionRegressionTests/testOlderDifferentDayCompletionCannotRegressNotifiedDayOrConsumeNewPending()": "Passed",
++    "NotificationSuspensionRegressionTests/testOlderSuccessCannotEraseBelowThresholdRearm()": "Passed",
++    "NotificationSuspensionRegressionTests/testOverlappingAboveObservationsReserveOneCrossing()": "Passed",
++    "OwnershipArchiveBudgetTests/testAnchorBeyondPageBudgetDoesNotClaimCompleteCoverage()": "Passed",
++    "OwnershipArchiveBudgetTests/testArchivesContainingOnlyVisitedAccessionsStillConsumePageBudget()": "Passed",
++    "OwnershipArchiveBudgetTests/testDuplicateArchiveNamesAreFetchedOnlyOnce()": "Passed",
++    "OwnershipArchiveBudgetTests/testEmptyArchivePagesHaveAFixedBudgetOnEveryAttempt()": "Passed",
++    "OwnershipArchiveBudgetTests/testMalformedArchiveStopsWithoutFurtherRequests()": "Passed",
++    "OwnershipArchiveBudgetTests/testVerifiedAnchorsCanStillBeDiscoveredInAnArchive()": "Passed",
++    "OwnershipChangeToastTests/testOwnershipChangeToastFormatsDeltas()": "Passed",
++    "OwnershipChangeToastTests/testOwnershipChangeToastNilWhenUnchanged()": "Passed",
++    "OwnershipReconciliationTests/testAggregateOverflowWithValidInt64BalanceIsRefused()": "Passed",
++    "OwnershipReconciliationTests/testAmendmentCannotChooseAmongMultipleOriginalRowsOnOneDay()": "Passed",
++    "OwnershipReconciliationTests/testCancellationStopsTheBoundedScan()": "Passed",
++    "OwnershipReconciliationTests/testClassAOnlySalePreservesClassBTrustsAndOptionsAndIsIdempotent()": "Passed",
++    "OwnershipReconciliationTests/testConflictingSameDayFilingsAreRefused()": "Passed",
++    "OwnershipReconciliationTests/testDistinctHighPrecisionOptionStrikeCannotReplaceAnchorBucket()": "Passed",
++    "OwnershipReconciliationTests/testEmptyIssuerTickerPreservesSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testEmptyOwnershipTablesPreserveSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testEquivalentOptionStrikeSpellingsReplaceAnchorBucket()": "Passed",
++    "OwnershipReconciliationTests/testExactIntegerParsingDoesNotRoundThroughDouble()": "Passed",
++    "OwnershipReconciliationTests/testExternalDoctypeIsRejectedWithoutReadingResources()": "Passed",
++    "OwnershipReconciliationTests/testFullDisposalZerosEveryPositiveAnchorBucket()": "Passed",
++    "OwnershipReconciliationTests/testHundredAccessionBudgetDoesNotClaimTruncatedCoverage()": "Passed",
++    "OwnershipReconciliationTests/testIndividualInt64BoundsAndPreferredMultiplicationOverflow()": "Passed",
++    "OwnershipReconciliationTests/testIntentionallyUntrackedTSLARowsRemainComplete()": "Passed",
++    "OwnershipReconciliationTests/testInvalidNumbersAreUnresolvedInsteadOfZero()": "Passed",
++    "OwnershipReconciliationTests/testLateHistoricalAmendmentCannotReplaceNewerBalance()": "Passed",
++    "OwnershipReconciliationTests/testMalformedOptionStrikeRemainsUnresolved()": "Passed",
++    "OwnershipReconciliationTests/testMalformedXMLCannotProducePartialBalance()": "Passed",
++    "OwnershipReconciliationTests/testMissingAnchorCoverageIsRefused()": "Passed",
++    "OwnershipReconciliationTests/testMissingIssuerTickerPreservesSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testMissingOwnershipTablesPreserveSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testNewDirectTSLAOrdinaryBalancePreservesSPCX()": "Passed",
++    "OwnershipReconciliationTests/testOptionGrantIdentityMustMatchStrikeAndExpiry()": "Passed",
++    "OwnershipReconciliationTests/testOptionStrikeIdentityNormalizesOnlyInsignificantZeros()": "Passed",
++    "OwnershipReconciliationTests/testOptionStrikeIdentityPreservesSignificantDecimalDigits()": "Passed",
++    "OwnershipReconciliationTests/testOwnershipContainersWithoutRowsPreserveSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testRecognizedZeroDisposalSurvivesParser()": "Passed",
++    "OwnershipReconciliationTests/testSameDayRowsInOrdinaryFilingUseDocumentOrder()": "Passed",
++    "OwnershipReconciliationTests/testSelfClosingOwnershipTablesPreserveSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testSupersededOrdinaryObservationDoesNotRegressAnchor()": "Passed",
++    "OwnershipReconciliationTests/testUniquelyTargetedAmendmentCorrectsOriginalBalance()": "Passed",
++    "OwnershipReconciliationTests/testUnknownAmendmentTargetIsRefused()": "Passed",
++    "OwnershipReconciliationTests/testUnknownUndatedMalformedAndUnsupportedUpdatesAreRefused()": "Passed",
++    "OwnershipReconciliationTests/testValidSingleOwnershipTableStillAppliesBalance()": "Passed",
++    "OwnershipReconciliationTests/testValidUnrelatedIssuerDoesNotInvalidateAnchorCoverage()": "Passed",
++    "OwnershipReconciliationTests/testVerifiedAnchorTranscriptionMatchesSourceAndKeepsZeros()": "Passed",
++    "OwnershipReconciliationTests/testVerifiedAnchorsRemainUnchangedDespiteFebruaryReportDate()": "Passed",
++    "OwnershipReconciliationTests/testWhitespaceIssuerTickerPreservesSyncedHoldingsOnReplay()": "Passed",
++    "OwnershipReconciliationTests/testWhitespaceOnlyOwnershipTablesPreserveSyncedHoldingsOnReplay()": "Passed",
++    "PopoverLayoutRegressionTests/testAssetBackedChartFixturesAndAppearances()": "Passed",
++    "PopoverLayoutRegressionTests/testPopulatedPopoverFitsAvailableHeightAndRetainsScrolling()": "Passed",
++    "PopoverLayoutRegressionTests/testUsesIsolatedApplicationEntryPoint()": "Passed",
++    "QuoteBatchMergerTests/testAllFailuresPreferNetworkError()": "Passed",
++    "QuoteBatchMergerTests/testAllFailuresThrow()": "Passed",
++    "QuoteBatchMergerTests/testEmptyRequestReturnsEmptyWithoutThrowing()": "Passed",
++    "QuoteBatchMergerTests/testOneFailureDoesNotDropPeerSuccess()": "Passed",
++    "QuoteBatchMergerTests/testPartialSuccessReturnsSuccessfulQuotesInRequestedOrder()": "Passed",
++    "QuotePriceResolverTests/testAlwaysUsesRegularMarketPriceRegardlessOfSession()": "Passed",
++    "QuotePriceResolverTests/testReturnsNilWhenRegularPriceMissing()": "Passed",
++    "SECHoldingsSyncServiceFormTypeTests/testAcceptsForm4AndAmendment()": "Passed",
++    "SECHoldingsSyncServiceFormTypeTests/testMaxForm4AccessionsToScanIsDeepEnoughForMultiIssuerProfiles()": "Passed",
++    "SECHoldingsSyncServiceFormTypeTests/testRejectsOtherFormTypes()": "Passed",
++    "SPCXHoldingsTests/testAppSettingsLeavesCurrentTSLADefaultUntouched()": "Passed",
++    "SPCXHoldingsTests/testAppSettingsLeavesCustomTSLAShareCountUntouched()": "Passed",
++    "SPCXHoldingsTests/testAppSettingsLeavesUnknownSPCXShareCountUnderNewKey()": "Passed",
++    "SPCXHoldingsTests/testAppSettingsRewritesLegacyFingerprintUnderNewKey()": "Passed",
++    "SPCXHoldingsTests/testAppSettingsRewritesLegacyTSLAFingerprintUnderNewKey()": "Passed",
++    "SPCXHoldingsTests/testDefaultShareCountIsSellableOwnership()": "Passed",
++    "SPCXHoldingsTests/testEmptySuiteReturnsNewTSLADefault()": "Passed",
++    "SPCXHoldingsTests/testLeavesSellableDefaultAndUnknownUntouched()": "Passed",
++    "SPCXHoldingsTests/testMigratesLegacyMisparseLastRow()": "Passed",
++    "SPCXHoldingsTests/testMigratesLegacyPartialAggregateDefault()": "Passed",
++    "SPCXHoldingsTests/testMigratesLegacyScaledDefault()": "Passed",
++    "SPCXHoldingsTests/testMigratesLegacySingleRowParse()": "Passed",
++    "SPCXHoldingsTests/testMigratesPriorBundledDefaultWithPerformanceRSUs()": "Passed",
++    "SPCXOwnershipCalculatorTests/testAggregatesJune2026Form4Holdings()": "Passed",
++    "SPCXOwnershipCalculatorTests/testConvertsSeriesAPreferredToClassAEquivalentTimes50()": "Passed",
++    "SPCXOwnershipCalculatorTests/testOptionTitleCountsUnderlyingShares()": "Passed",
++    "SPCXOwnershipCalculatorTests/testRemarksPerformanceSharesAreNotAdded()": "Passed",
++    "SPCXOwnershipCalculatorTests/testUsesLatestRowNotMaxWhenLaterRowHasLowerShares()": "Passed",
++    "SPCXOwnershipCalculatorTests/testUsesLatestZeroRowWhenTrustFullyDisposed()": "Passed",
++    "SemanticVersionTests/testEqualVersions()": "Passed",
++    "SemanticVersionTests/testNewerMinorVersion()": "Passed",
++    "SemanticVersionTests/testNewerPatchVersion()": "Passed",
++    "SemanticVersionTests/testOlderVersionIsNotNewer()": "Passed",
++    "ShareCountTextInputTests/testCommasAreStrippedBeforeParsing()": "Passed",
++    "ShareCountTextInputTests/testEmptyDoesNotOverwriteStoredCountIdentity()": "Passed",
++    "ShareCountTextInputTests/testEmptyFieldRestoresStoredCountWithoutError()": "Passed",
++    "ShareCountTextInputTests/testInvalidNonEmptyRestoresStoredCountWithError()": "Passed",
++    "ShareCountTextInputTests/testValidPositiveCountIsAccepted()": "Passed",
++    "ShareCountTextInputTests/testZeroAndNegativeAreRejected()": "Passed",
++    "ShareImageExporterTests/testCopiesTextSummaryToPasteboard()": "Passed",
++    "ShareImageExporterTests/testCopiesTextSummaryWithParityPunchline()": "Passed",
++    "ShareImageExporterTests/testRendersLargerPNGWhenParityIncluded()": "Passed",
++    "ShareImageExporterTests/testRendersNonEmptyPNG()": "Passed",
++    "ShareImageExporterTests/testShareItemsImageReturnsNSImage()": "Passed",
++    "ShareImageExporterTests/testShareItemsTextContainsSummary()": "Passed",
++    "ShareShortcutMatcherTests/testMatchesCommandShiftC()": "Passed",
++    "ShareShortcutMatcherTests/testRejectsCommandOnly()": "Passed",
++    "ShareShortcutMatcherTests/testRejectsWrongKey()": "Passed",
++    "ShareShortcutMatcherTests/testShouldConsumeEventOnSucceededAndDebounced()": "Passed",
++    "SparklineLayoutRegressionTests/testEmptyLayoutIsFiniteAndSafe()": "Passed",
++    "SparklineLayoutRegressionTests/testFlatPositiveNegativeAndZeroRemainHorizontal()": "Passed",
++    "SparklineLayoutRegressionTests/testFullCapacityMonotonicFixturePreservesOrderAndBounds()": "Passed",
++    "SparklineLayoutRegressionTests/testIrregularTimestampsKeepRelativeSpacing()": "Passed",
++    "SparklineLayoutRegressionTests/testMixedSignsStraddleVisibleZero()": "Passed",
++    "SparklineLayoutRegressionTests/testNarrowPositiveMovementUsesVisibleHeight()": "Passed",
++    "SparklineLayoutRegressionTests/testNegativeOnlyKeepsDistantZeroOutsideDomain()": "Passed",
++    "SparklineLayoutRegressionTests/testSingleSampleIsCenteredWithoutInventingHistory()": "Passed",
++    "StockQuoteTests/testPaperGainUsesShareCount()": "Passed",
++    "StockQuoteTests/testPercentChange()": "Passed",
++    "StringTruncationTests/testTruncatedMiddleLeavesShortStringsUntouched()": "Passed",
++    "StringTruncationTests/testTruncatedMiddleUsesMiddleEllipsis()": "Passed",
++    "TradingDayCalendarTests/testDayKeyUsesEasternCalendarDay()": "Passed",
++    "TradingDayCalendarTests/testDefaultCalendarIsGregorianEastern()": "Passed",
++    "TradingDayCalendarTests/testHasTradingDayCompletedAfterEarlyClose()": "Passed",
++    "TradingDayCalendarTests/testHasTradingDayCompletedAfterRegularClose()": "Passed",
++    "TradingDayCalendarTests/testHasTradingDayNotCompletedBeforeRegularClose()": "Passed",
++    "TradingDayCalendarTests/testHasTradingDayNotCompletedDuringSession()": "Passed",
++    "TradingDayCalendarTests/testIsSameTradingDayAcrossMidnightEastern()": "Passed",
++    "UpdateCoordinatorTests/testDoesNotNotifyWhenDisabled()": "Passed",
++    "UpdateCoordinatorTests/testIgnoresUntrustedReleasePageURL()": "Passed",
++    "UpdateCoordinatorTests/testManualCheckReportsUpToDate()": "Passed",
++    "UpdateCoordinatorTests/testManualCheckSurfacesHTTPErrorAndClearsStaleUpdate()": "Passed",
++    "UpdateCoordinatorTests/testNotifiesWhenEnabledAndNewerVersionFound()": "Passed",
++    "YahooFinanceStockPriceServiceTests/testAllSymbolFailuresThrow()": "Passed",
++    "YahooFinanceStockPriceServiceTests/testEmptySymbolsReturnsEmpty()": "Passed",
++    "YahooFinanceStockPriceServiceTests/testFallsBackToLocalSessionWhenMarketStateMissing()": "Passed",
++    "YahooFinanceStockPriceServiceTests/testPartialSymbolFailureReturnsSuccessfulQuotes()": "Passed",
++    "YahooFinanceStockPriceServiceTests/testYahooPostStateStillUsesRegularMarketPrice()": "Passed",
++    "YahooMarketStateMapperTests/testMappingIsCaseInsensitiveAndTrimsWhitespace()": "Passed",
++    "YahooMarketStateMapperTests/testMapsKnownMarketStatesRTHOnly()": "Passed",
++    "YahooMarketStateMapperTests/testNilEmptyAndUnknownReturnNilForLocalFallback()": "Passed"
++  },
++  "missing": [],
++  "preserved_baseline_count": 391
++}
+diff --git a/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/validation.json b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/validation.json
+new file mode 100644
+index 0000000..b606b8b
+--- /dev/null
++++ b/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/validation.json
+@@ -0,0 +1,106 @@
++{
++  "accessibility": {
++    "observed_native_appearance": "NSAppearanceNameDarkAqua",
++    "observed_swiftui_contrast": "standard",
++    "propagation_claimed": false,
++    "requested_native_appearance": "NSAppearanceNameAccessibilityDarkAqua",
++    "validated_path": "GainSparklineView reads live environment and passes explicit inputs to GainSparklineContent; test supplies increased contrast and reduced transparency to that same renderer, with faithful compositor screenshot and legible range OCR. No private API or system preference change."
++  },
++  "actual_current_gain": 15921438748.099966,
++  "actual_data_source": "/Users/jlgolson/grok/muskometer/build/popover-visual-validation/observed-chart-samples.json",
++  "actual_samples": 9,
++  "approved_plan_sha256": "8a5a88427beafd416fc1c38d40bef9f84efd12cf4167d92dac5820c13080fe2b",
++  "base": "862ef0005069bd01a85aa8daafaed151d6ba3e06",
++  "bootstrap": {
++    "assets": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/bootstrap-test-host/Muskometer.app/Contents/Resources/Assets.car",
++    "executed": 1,
++    "isolated_branch_no_services": true,
++    "normal_declaration_verbatim": true,
++    "passed": 1,
++    "result_bundle": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/raw/bootstrap.xcresult",
++    "test": "PopoverLayoutRegressionTests/testUsesIsolatedApplicationEntryPoint()"
++  },
++  "branch": "codex/popover-impl-a1112795",
++  "checkout": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/a1112795-cbfc-4108-8e4a-3e2cc5deb47b-task-1",
++  "focused": {
++    "failed": 0,
++    "passed": 11,
++    "result_bundle": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/raw/green-r4.xcresult"
++  },
++  "full_suite": {
++    "all_391_baseline_identifiers_preserved": true,
++    "conditional_bootstrap_added": 1,
++    "failed": 0,
++    "passed": 401,
++    "presentation_tests_added": 9,
++    "result_bundle": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/raw/verify.xcresult",
++    "skipped": 0
++  },
++  "images": {
++    "0459A368-7D35-40DB-9322-8FBB27C296ED.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/0459A368-7D35-40DB-9322-8FBB27C296ED.png",
++    "060F9C16-35A6-4854-B318-637C6477EA85.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/060F9C16-35A6-4854-B318-637C6477EA85.png",
++    "0AB0B7C6-A830-4DC7-93E2-8C8588DA03CD.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/0AB0B7C6-A830-4DC7-93E2-8C8588DA03CD.png",
++    "0DE13231-30D2-4B64-BC45-A3C5FA32C1C0.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/0DE13231-30D2-4B64-BC45-A3C5FA32C1C0.png",
++    "1E5CCD81-D512-4E71-96E7-A92B60F91F92.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/1E5CCD81-D512-4E71-96E7-A92B60F91F92.png",
++    "2AF0B518-E8A3-47B1-972E-06B8DC139195.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/2AF0B518-E8A3-47B1-972E-06B8DC139195.png",
++    "310FDB12-2B4C-47B8-9875-D4BF90B49409.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/310FDB12-2B4C-47B8-9875-D4BF90B49409.png",
++    "37C395A1-5F5A-4B16-9E04-08788B900829.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/37C395A1-5F5A-4B16-9E04-08788B900829.png",
++    "388881E6-E9D4-4F64-B056-F6039458921F.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/388881E6-E9D4-4F64-B056-F6039458921F.png",
++    "4AE8EAB3-6380-418E-80FD-B77E05322968.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/4AE8EAB3-6380-418E-80FD-B77E05322968.png",
++    "53CAE85C-CA30-4EB8-9FE6-DD2E9DA416B4.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/53CAE85C-CA30-4EB8-9FE6-DD2E9DA416B4.png",
++    "614CA326-C744-4976-B4CE-48681D5C55CA.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/614CA326-C744-4976-B4CE-48681D5C55CA.png",
++    "6F1560DC-C37E-4269-B1E4-407A00366D93.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/6F1560DC-C37E-4269-B1E4-407A00366D93.png",
++    "73AE25D5-64C1-43E3-88FF-9E743A5C33D6.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/73AE25D5-64C1-43E3-88FF-9E743A5C33D6.png",
++    "7638BFAD-20F3-4424-9A56-9BD5B2CCDF69.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/7638BFAD-20F3-4424-9A56-9BD5B2CCDF69.png",
++    "79FD227F-D9A3-41BF-9822-8A2EA09D052B.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/79FD227F-D9A3-41BF-9822-8A2EA09D052B.png",
++    "8216FA25-F434-4F15-81DE-A3B9E3671258.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/8216FA25-F434-4F15-81DE-A3B9E3671258.png",
++    "chart-400.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-400.png",
++    "chart-empty.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-empty.png",
++    "chart-flat-negative.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-flat-negative.png",
++    "chart-flat-positive.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-flat-positive.png",
++    "chart-flat-zero.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-flat-zero.png",
++    "chart-increased-contrast-reduced-transparency.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-increased-contrast-reduced-transparency.png",
++    "chart-mixed.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-mixed.png",
++    "chart-negative.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-negative.png",
++    "chart-observed.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-observed.png",
++    "chart-single.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/chart-single.png",
++    "holdings-600.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/holdings-600.png",
++    "main-600-detail.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-600-detail.png",
++    "main-600-top.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-600-top.png",
++    "main-700-detail.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-700-detail.png",
++    "main-700-top.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-700-top.png",
++    "main-800-detail.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-800-detail.png",
++    "main-800-top.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-800-top.png",
++    "main-900-detail.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-900-detail.png",
++    "main-900-light.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-900-light.png",
++    "main-900-requested-high-contrast.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-900-requested-high-contrast.png",
++    "main-900-top.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/main-900-top.png",
++    "settings-600.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/settings-600.png",
++    "settings-700.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/settings-700.png",
++    "settings-800.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/settings-800.png",
++    "settings-900.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/settings-900.png",
++    "share-400.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-400.png",
++    "share-empty.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-empty.png",
++    "share-flat-negative.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-flat-negative.png",
++    "share-flat-positive.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-flat-positive.png",
++    "share-flat-zero.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-flat-zero.png",
++    "share-mixed.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-mixed.png",
++    "share-negative.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-negative.png",
++    "share-observed.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-observed.png",
++    "share-single.png": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/accepted/share-single.png"
++  },
++  "normal_release": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/normal-release/Muskometer.app",
++  "red": {
++    "cause": "Distant zero compressed the real $2.7B movement; complete parity was absent from initial viewport.",
++    "failed": 2,
++    "passed": 1,
++    "result_bundle": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/raw/red-r3.xcresult"
++  },
++  "source_aggregate_sha256": "19f27e41cf450d64a0e6dfaa354413eee825b84563ff84a65fdef4ef8fb1f3db",
++  "spec_sha256": "9f8abc106b8008600b4f1eaf5d3d6ed7d2ab055ccbe18e15b0d5285e334c40d2",
++  "status": "PASS",
++  "verify_command": "env MARSHAL_AUTONOMOUS=1 MARSHAL_LINEAR_ENABLED=0 MARSHAL_LINEAR_PHASE_MIRROR=0 MARSHAL_TELEMETRY_ENABLED=0 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer python3 /Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/run-aggregate.py /Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/a1112795-cbfc-4108-8e4a-3e2cc5deb47b-task-1 env MUSKOMETER_SKIP_LIVE_YAHOO=1 bash scripts/verify.sh",
++  "verify_log": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/popover-visual-correction/raw/verify.log",
++  "verify_runs": 1,
++  "wrapper_sha256": "0db21fef492abc64c581c298fbb29409e5e404e4f45ea27ea90492a18ac81957"
++}

@@ -1,0 +1,36 @@
+[
+  {
+    "dispatch_id": "e801b958-23f4-4797-9681-fbe72ad58bd0-task-1",
+    "parent_dispatch_id": "78d9aad7-1a76-488d-8972-d596903eac62-task-1",
+    "role": "spec-reviewer",
+    "task_id": 1,
+    "round": 1,
+    "plan_slug": "2026-09-10-popover-visual-correction",
+    "base_sha": "862ef0005069bd01a85aa8daafaed151d6ba3e06",
+    "head_sha": "bfda1d2e9b31c473c205523301534ee375e9d0cb",
+    "worktree": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/9e1e8f3b-d8bb-4765-b4a3-bfbe324963bc-task-1",
+    "canonical_verdict": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/9e1e8f3b-d8bb-4765-b4a3-bfbe324963bc-task-1/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-spec.md",
+    "timestamp": "2026-09-10T18:50:31.593445+00:00",
+    "backend": "native-collaboration",
+    "telemetry_enabled": false,
+    "prompt_path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/9e1e8f3b-d8bb-4765-b4a3-bfbe324963bc-task-1/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-spec-round-1-dispatch.md",
+    "prompt_sha256": "69567f1348cd219f25747272650cd5ee050b3d1c1c0daad292dcf5993226c127"
+  },
+  {
+    "dispatch_id": "384268ec-e6b5-4ebc-be91-f5b9ef5668df-task-1",
+    "parent_dispatch_id": "78d9aad7-1a76-488d-8972-d596903eac62-task-1",
+    "role": "code-quality-reviewer",
+    "task_id": 1,
+    "round": 1,
+    "plan_slug": "2026-09-10-popover-visual-correction",
+    "base_sha": "862ef0005069bd01a85aa8daafaed151d6ba3e06",
+    "head_sha": "bfda1d2e9b31c473c205523301534ee375e9d0cb",
+    "worktree": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/9e1e8f3b-d8bb-4765-b4a3-bfbe324963bc-task-1",
+    "canonical_verdict": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/9e1e8f3b-d8bb-4765-b4a3-bfbe324963bc-task-1/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-quality.md",
+    "timestamp": "2026-09-10T18:50:31.594879+00:00",
+    "backend": "native-collaboration",
+    "telemetry_enabled": false,
+    "prompt_path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.marshal-cache/agent-wt/9e1e8f3b-d8bb-4765-b4a3-bfbe324963bc-task-1/docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-quality-round-1-dispatch.md",
+    "prompt_sha256": "27f7d22713d1c421435bda670afe65b15c972e5176e0ca663638f1814f84733d"
+  }
+]

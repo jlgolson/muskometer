@@ -1,0 +1,204 @@
+[
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-1/verification-summary.json",
+    "sha256": "64f70fefe679a60297783c81e44cea6527866dd92cc1eb8d7bf07f082ce0a483",
+    "counts": {
+      "result": "PASS",
+      "test_count": 248,
+      "failures": 0,
+      "skipped": 0
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-2/red-assertions.json",
+    "sha256": "0b0ad03449bc407a62f1ecb7b276c3e787b58dd389baac60c45b96643868759c",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 18,
+      "passedTests": 6,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 24
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-2/round-5/validation-results.json",
+    "sha256": "72381e4b550b961554474bce5b67b789ae20034d784d9ead3f395f6d194ec352",
+    "counts": {
+      "red": {
+        "passed": 3,
+        "failed": 5,
+        "skipped": 0,
+        "exit_code": 65,
+        "summary": "build/task-2-evidence/round-5/red-summary.json",
+        "log": "build/task-2-evidence/round-5/red.log",
+        "xcresult": "build/task-2-evidence/round-5/red.xcresult",
+        "warning_count": 4,
+        "production_sha256": "db148bf7ad422fbb1b8145a8ea4d084e4fc969173b15582f1fbf199b887178be",
+        "raw_assertion_failures": 189
+      },
+      "targeted": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "exit_code": 0,
+        "summary": "build/task-2-evidence/round-5/targeted-summary.json",
+        "log": "build/task-2-evidence/round-5/targeted.log",
+        "xcresult": "build/task-2-evidence/round-5/targeted.xcresult",
+        "warning_count": 2
+      },
+      "ownership": {
+        "passed": 93,
+        "failed": 0,
+        "skipped": 0,
+        "exit_code": 0,
+        "summary": "build/task-2-evidence/round-5/ownership-summary.json",
+        "log": "build/task-2-evidence/round-5/ownership.log",
+        "xcresult": "build/task-2-evidence/round-5/ownership.xcresult",
+        "warning_count": 0
+      },
+      "full-suite": {
+        "passed": 303,
+        "failed": 0,
+        "skipped": 0,
+        "exit_code": 0,
+        "summary": "build/task-2-evidence/round-5/full-suite-summary.json",
+        "log": "build/task-2-evidence/round-5/full-suite.log",
+        "xcresult": "build/task-2-evidence/round-5/full-suite.xcresult",
+        "warning_count": 0
+      },
+      "production_sha256": "056917fb204935dea3576ba262d8fac780a9df0ca85bb45fe9ec0af5800fcad6",
+      "new_source_warnings": false,
+      "warning_note": "Initial compile emitted the existing asynchronous NSLock warnings in unchanged MuskometerTests.swift and Xcode AppIntents extraction notices; no new source warnings."
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-2/round-5/ownership-summary.json",
+    "sha256": "54f8c07c1852afe064ab4521bf3de0994edd48c43086ff0761486c915691850b",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "passedTests": 93,
+      "result": "Passed",
+      "skippedTests": 0,
+      "totalTestCount": 93
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-2/round-5/red-summary.json",
+    "sha256": "bea9c31fe79cb8f118b798a1e7144e77c0c1699c856179748a73fbf7390fe1f1",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 5,
+      "passedTests": 3,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 8
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-3/red-summary.json",
+    "sha256": "230418940ac5ebb495457b4a637f2e47676d84cbc9e06ed64977adfed211211d",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 21,
+      "passedTests": 5,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 26
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-3/red-additional-summary.json",
+    "sha256": "42cb6a1278766673c650ce08a1937460b418646ef410fdd3625ccf2c09baee93",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 27,
+      "passedTests": 5,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 32
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-3/red-closed-rollover-summary.json",
+    "sha256": "19d05c89908de8202b6f0ba6d3e3797c75c551516e9966f256d22e6e039b2361",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 1,
+      "passedTests": 0,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 1
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-3/green-final-summary.json",
+    "sha256": "54a9388ec977a3924f0a8d924fd58f386d8f8469a7641229e040be0c70860132",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "passedTests": 54,
+      "result": "Passed",
+      "skippedTests": 0,
+      "totalTestCount": 54
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-4/red-summary.json",
+    "sha256": "82e3ea0e179e9344184037412f5bcc358cc746a58ed5ab59185d638e0973d513",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 8,
+      "passedTests": 23,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 31
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-4/targeted-final-summary.json",
+    "sha256": "d7c1af8fe7e02c2846a895967f913643709a1754127605598a7917dd9434d1cb",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "passedTests": 44,
+      "result": "Passed",
+      "skippedTests": 0,
+      "totalTestCount": 44
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-5/red-summary.json",
+    "sha256": "fdfcff41ca24b4518b55538eeba487fd844f6f7e1f22425fc794577f297848ff",
+    "counts": {
+      "expectedFailures": 0,
+      "failedTests": 13,
+      "passedTests": 0,
+      "result": "Failed",
+      "skippedTests": 0,
+      "totalTestCount": 13
+    }
+  },
+  {
+    "path": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-5/round-3/validation-results.json",
+    "sha256": "1b0b271f90010bd6036880d61f23458cbee4efa28c42b8852924f70ea74e66d5",
+    "counts": {
+      "red.log": {
+        "tests": 9,
+        "assertion_failures": 22,
+        "succeeded": false
+      },
+      "green.log": {
+        "tests": 87,
+        "assertion_failures": 0,
+        "succeeded": true
+      },
+      "full-suite.log": {
+        "tests": 336,
+        "assertion_failures": 0,
+        "succeeded": true
+      }
+    }
+  }
+]

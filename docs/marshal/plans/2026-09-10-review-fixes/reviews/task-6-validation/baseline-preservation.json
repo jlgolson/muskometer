@@ -1,0 +1,87 @@
+{
+  "all_current_declared_identifiers_match_executed_identifiers": true,
+  "baseline_accounted": 248,
+  "baseline_count": 248,
+  "baseline_source": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-1/before-methods.json",
+  "current_declared_count": 391,
+  "final_executed_count": 391,
+  "removed_without_reviewed_replacement": [],
+  "renames": {
+    "CompanyFactsOutstandingResolverTests/testMultiMemberSameEndFiledSums()": "CompanyFactsOutstandingResolverTests/testConflictingSameEndFiledTotalsAreUnresolved()",
+    "MarketHoursServiceTests/test2028ObservedNewYearsCloseIsDec31_2027()": "MarketHoursServiceTests/testDecember31_2027IsRegularTradingBeforeSaturdayNewYear()"
+  },
+  "reviewed_changed_baseline_methods": [
+    {
+      "after": {
+        "assertion_count": 7,
+        "path": "MuskometerTests/InterfaceAndCalendarTests.swift",
+        "sha256": "2f4a7f20f52bf14c0c8280a88d2311dbac601fa5f80c6054da266f8d37ac14dc"
+      },
+      "baseline_identifier": "AppSettingsLaunchAtLoginTests/testResetToDefaultsClearsStaleLaunchAtLoginErrorWhenAlreadyOff()",
+      "before": {
+        "assertion_count": 8,
+        "sha256": "5f854da763ada64e644e1dbe1858968432233be0f10acf8ae66ef5ce5b3675f6"
+      },
+      "current_identifier": "AppSettingsLaunchAtLoginTests/testResetToDefaultsClearsStaleLaunchAtLoginErrorWhenAlreadyOff()",
+      "reviewed_correction": "An already-unregistered reset clears stale error without a redundant service mutation."
+    },
+    {
+      "after": {
+        "assertion_count": 1,
+        "path": "MuskometerTests/OwnershipSyncTests.swift",
+        "sha256": "c885239c8ce047fd7db9924b0b3784e53e5a98d53a5e1adb600249858c7797ef"
+      },
+      "baseline_identifier": "CompanyFactsOutstandingResolverTests/testMultiMemberSameEndFiledSums()",
+      "before": {
+        "assertion_count": 1,
+        "sha256": "d542f1cb102ecd957197fbbccb0064032fff4492160ddef1664dc3f9cb7255b0"
+      },
+      "current_identifier": "CompanyFactsOutstandingResolverTests/testConflictingSameEndFiledTotalsAreUnresolved()",
+      "reviewed_correction": "Whole-entity conflicting companyfacts totals must remain unresolved, not sum."
+    },
+    {
+      "after": {
+        "assertion_count": 4,
+        "path": "MuskometerTests/NotificationServicesTests.swift",
+        "sha256": "181a9d3e64ba51502f1340d7b027db8d4586066d655408f283f94d5b6db6bfde"
+      },
+      "baseline_identifier": "DayCloseSummaryNotificationServiceTests/testConcurrentDeliverIfNeededPostsOnlyOnce()",
+      "before": {
+        "assertion_count": 4,
+        "sha256": "d76b5f097ca139479c358945999f6844cee481900384d4f6aaabe1454af83fb4"
+      },
+      "current_identifier": "DayCloseSummaryNotificationServiceTests/testConcurrentDeliverIfNeededPostsOnlyOnce()",
+      "reviewed_correction": "In-flight duplicate is distinct from terminal skipped delivery."
+    },
+    {
+      "after": {
+        "assertion_count": 6,
+        "path": "MuskometerTests/InterfaceAndCalendarTests.swift",
+        "sha256": "1823ae5ed7b723795ed9605b6f22492f1bda84ef8f4efcb183ade6e9ef4d82d3"
+      },
+      "baseline_identifier": "MarketHoursServiceTests/test2028ObservedNewYearsCloseIsDec31_2027()",
+      "before": {
+        "assertion_count": 2,
+        "sha256": "8dc6eaf1cee1be72a9d714e19b9c530311fb1fa78fa84b23b0e4ebf6885e8741"
+      },
+      "current_identifier": "MarketHoursServiceTests/testDecember31_2027IsRegularTradingBeforeSaturdayNewYear()",
+      "reviewed_correction": "December 31, 2027 is a regular NYSE trading day."
+    },
+    {
+      "after": {
+        "assertion_count": 1,
+        "path": "MuskometerTests/OwnershipSyncTests.swift",
+        "sha256": "706d6ab6ce66bde60a4832dc740eb39e236501caf57cf76200882a75e2106cfc"
+      },
+      "baseline_identifier": "SPCXOwnershipCalculatorTests/testAggregatesJune2026Form4Holdings()",
+      "before": {
+        "assertion_count": 1,
+        "sha256": "2dd5ad6df0d57d36758cf457b4dfdbd8a465eeac741f03a29522c38c6d61524d"
+      },
+      "current_identifier": "SPCXOwnershipCalculatorTests/testAggregatesJune2026Form4Holdings()",
+      "reviewed_correction": "Correct an unclosed ownershipNature XML tag; expected 5,116,475,230 total unchanged."
+    }
+  ],
+  "split_proof": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/execution-evidence/task-1/verification-summary.json",
+  "unchanged_baseline_method_bodies": 243
+}

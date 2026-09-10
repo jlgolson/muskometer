@@ -1,0 +1,54 @@
+{
+  "runner_dispatch_id": "b775ca5b-33be-4b81-80be-61548395ad25-task-6",
+  "base": "943d5a11cf8327dd500bf6399a80570191a8971e",
+  "checks": {
+    "all391executed_once": true,
+    "every_test_passed": true,
+    "raw_summary391pass0fail0skip": true,
+    "all_stages_passed": true,
+    "allowed_paths_only": true,
+    "frozen_plan_spec_unchanged": true,
+    "single_guarded_verification": true
+  },
+  "launch_start": {
+    "event": "start",
+    "at": "2026-09-10T09:38:24.221252+00:00",
+    "worktree": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6",
+    "launcher_pid": 49419,
+    "command": "verify.sh",
+    "existing_muskometer_count": 0,
+    "xcode_parallel_testing": false
+  },
+  "launch_end": {
+    "event": "end",
+    "at": "2026-09-10T09:41:17.834626+00:00",
+    "worktree": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6",
+    "launcher_pid": 49419,
+    "exit_code": 0
+  },
+  "verification_log_sha256": "71c7e292585a3a4d642b8bdc97f1de1981a58120885fbb808bbee86b3bd04c1e",
+  "source_sha256": {
+    "CHANGELOG.md": "d482d8c1dae933b399ce15f8b1779301e406fbaf734e4bc4eb8e633f511dceb9",
+    "docs/ARCHITECTURE.md": "1cb7c4cf41c306b8280152684a782098f47d49d530cf3d5a104b2bb33bcf281c",
+    "docs/DEVELOPING.md": "15c1711dffbfff7ab003509389f5e18a6f937db31c80f577f046c8b3d2c4cf2b",
+    "docs/HOLDINGS.md": "03069d1e089ecbe8685ae57a633f6d95bc33595cfd4b1a50082320d37b3d792b",
+    "scripts/verify.sh": "2934442b578b3949605e42c9fcda2b36ba7997217517ac2c40913e685f68c0cd"
+  },
+  "plan_spec_sha256": {
+    "docs/marshal/plans/2026-09-10-review-fixes.md": "cdb6192c44be65243b8cefa00c7e9a6f5ce2cb2bac9dd8630cc96d5a5c584710",
+    "docs/marshal/specs/2026-09-10-review-fixes-design.md": "28a0c19a8ba6021ac4b3d724112df87612405ae1c3bac27b4e24337faa745be6"
+  },
+  "raw_log_lines_read": 59,
+  "raw_log": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/build/task6-evidence/verify.log",
+  "raw_test_results": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/build/task6-evidence/xcresult-tests.json",
+  "warnings_acknowledged": [
+    "--- xcodebuild: WARNING: Using the first of multiple matching destinations:",
+    "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/MuskometerTests/MuskometerTests.swift:2382:14: warning: instance method 'lock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode",
+    "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/MuskometerTests/MuskometerTests.swift:2384:14: warning: instance method 'unlock' is unavailable from asynchronous contexts; Use async-safe scoped locking instead; this is an error in the Swift 6 language mode",
+    "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/MuskometerTests/RefreshLifecycleTests.swift:1099:18: warning: weak variable 'weakVM' was never mutated; consider changing to 'let' constant",
+    "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/MuskometerTests/RefreshLifecycleTests.swift:1246:18: warning: weak variable 'model' was never mutated; consider changing to 'let' constant",
+    "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/MuskometerTests/RefreshLifecycleTests.swift:1261:18: warning: weak variable 'model' was never mutated; consider changing to 'let' constant",
+    "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6/MuskometerTests/RefreshLifecycleTests.swift:1454:18: warning: weak variable 'model' was never mutated; consider changing to 'let' constant",
+    "--- xcodebuild: WARNING: Using the first of multiple matching destinations:"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "source": "Muskometer/Models/TrackedPersonProfile.swift",
+  "fixture": "scripts/verify.sh",
+  "TSLA": 710172677,
+  "SPCX": 5116475230,
+  "fixture_matches_bundled_counts": true,
+  "live_assertions_preserved": true
+}

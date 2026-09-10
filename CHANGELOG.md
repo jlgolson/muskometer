@@ -6,6 +6,23 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
+### Fixed
+
+- Reconstruct Form 4 ownership from verified dated TSLA/SPCX buckets, preserving unchanged holdings and explicit zero disposals; reject ambiguous amendments, incomplete coverage, and invalid numeric values. SEC scans and archive requests are bounded and cancellable.
+- Deduplicate companyfacts whole-entity outstanding totals and reject conflicting values instead of summing them.
+- Commit snapshot, chart, milestone, and threshold observations before delivery awaits; preserve rearm/retry state and bound background gain delivery per person/preset.
+- Keep day-close work pending during in-flight or failed delivery and acknowledge only the exact confirmed/terminally skipped record.
+- Start quotes independently of SEC, prevent old completions from replacing current state, and bound physical requests across stop/reset/restart.
+- Advance the trading clock on failed quotes, finalize close from the last real regular-session sample, preserve stale timestamps, and limit closing recovery before sleeping until the next open.
+- Keep the populated popover and embedded Settings within screen height with scrolling content and reachable controls.
+- Preserve launch-at-login intent while registration awaits approval without registering again; expose unavailable/error states.
+- Treat December 31, 2027 as a regular NYSE trading day.
+
+### Changed
+
+- Split subsystem tests while preserving the original baseline; add controlled ownership, concurrency, lifecycle, calendar, and hosted-layout regressions.
+- Update architecture/holdings documentation and correct the verification script's bundled Yahoo share-count fixture to TSLA 710,172,677 and SPCX 5,116,475,230.
+
 ## [0.1.6] - 2026-09-09
 
 macOS 26 / Liquid Glass hygiene, menu-bar UX polish, share + notification features, and dead-code cleanup.

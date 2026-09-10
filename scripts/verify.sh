@@ -71,7 +71,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 # Default share counts from bundled holdings (same Yahoo quote path for both).
-SHARES = {"TSLA": 699_580_882, "SPCX": 6_068_734_060}
+SHARES = {"TSLA": 710_172_677, "SPCX": 5_116_475_230}
 ET = ZoneInfo("America/New_York")
 
 def current_session(now):

@@ -1,0 +1,286 @@
+{
+  "checked_at": "2026-09-10T09:44:06.135547+00:00",
+  "checks": {
+    "SEC": {
+      "files": [
+        {
+          "evidence_sha256": "5fb2abaa9d8b1135d51b068fa34764b61855515d0521d4dc08a6e7bfdbd1fffa",
+          "integrated_sha256": "5fb2abaa9d8b1135d51b068fa34764b61855515d0521d4dc08a6e7bfdbd1fffa",
+          "matches": true,
+          "path": "Muskometer/Services/CompanyFactsOutstandingResolver.swift"
+        },
+        {
+          "evidence_sha256": "056917fb204935dea3576ba262d8fac780a9df0ca85bb45fe9ec0af5800fcad6",
+          "integrated_sha256": "056917fb204935dea3576ba262d8fac780a9df0ca85bb45fe9ec0af5800fcad6",
+          "matches": true,
+          "path": "Muskometer/Services/Form4OwnershipParser.swift"
+        },
+        {
+          "evidence_sha256": "5644ff12b87e97aeac5ba73d7919893c82b97d240b99f346a5d7689517934f02",
+          "integrated_sha256": "5644ff12b87e97aeac5ba73d7919893c82b97d240b99f346a5d7689517934f02",
+          "matches": true,
+          "path": "Muskometer/Services/SECHoldingsSyncService.swift"
+        },
+        {
+          "evidence_sha256": "ec19bec51e7f34cee7663d2a3e08138dea6fcb0c65dce60d9825c62ae98e74c6",
+          "integrated_sha256": "ec19bec51e7f34cee7663d2a3e08138dea6fcb0c65dce60d9825c62ae98e74c6",
+          "matches": true,
+          "path": "Muskometer/Utilities/SPCXHoldings.swift"
+        },
+        {
+          "evidence_sha256": "35ef57667f36824a005e5d21655d73af58a4560551638e197238d1e0dd36adcf",
+          "integrated_sha256": "35ef57667f36824a005e5d21655d73af58a4560551638e197238d1e0dd36adcf",
+          "matches": true,
+          "path": "Muskometer/Utilities/SPCXOwnershipCalculator.swift"
+        }
+      ],
+      "matching_files": 5,
+      "reused": true,
+      "snapshot": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/sec-round5-snapshot.json",
+      "snapshot_sha256": "c5e201b221e1aca22561317b5e2827de348e6e9df6c0f352edd713c3e9da3adf"
+    },
+    "Yahoo": {
+      "files": [
+        {
+          "evidence_sha256": "900741e3a88f6ac314d973e170d2aeb8492c3d21bfe62fec662700929ae531c2",
+          "integrated_sha256": "900741e3a88f6ac314d973e170d2aeb8492c3d21bfe62fec662700929ae531c2",
+          "matches": true,
+          "path": "Muskometer/Services/YahooFinanceStockPriceService.swift"
+        },
+        {
+          "evidence_sha256": "b46c9799d71ca0b5bad474beac9b625d8a843d28357626ed5b9d8a99dfaa7b6a",
+          "integrated_sha256": "b46c9799d71ca0b5bad474beac9b625d8a843d28357626ed5b9d8a99dfaa7b6a",
+          "matches": true,
+          "path": "Muskometer/Services/QuotePriceResolver.swift"
+        },
+        {
+          "evidence_sha256": "a428e13f4b5538d197600ab695571a0bcd7fb5db47d2315fbd1ec788c2487dea",
+          "integrated_sha256": "a428e13f4b5538d197600ab695571a0bcd7fb5db47d2315fbd1ec788c2487dea",
+          "matches": true,
+          "path": "Muskometer/Services/MarketHoursService.swift"
+        },
+        {
+          "evidence_sha256": "f234139979f395d07a14e6693361b75f1798dd56fbba722d297646480cd6a428",
+          "integrated_sha256": "f234139979f395d07a14e6693361b75f1798dd56fbba722d297646480cd6a428",
+          "matches": true,
+          "path": "Muskometer/Services/StockPriceServiceProtocol.swift"
+        },
+        {
+          "evidence_sha256": "637e7815453cda07724e8d4dde349f9ff3ad3e54453b75b2ccbd0391b774cd11",
+          "integrated_sha256": "637e7815453cda07724e8d4dde349f9ff3ad3e54453b75b2ccbd0391b774cd11",
+          "matches": true,
+          "path": "Muskometer/Models/StockQuote.swift"
+        },
+        {
+          "evidence_sha256": "0240e0071af6410d2422b42fd832d3f98bc34a083cd8fd7814e3b3889e1f478b",
+          "integrated_sha256": "0240e0071af6410d2422b42fd832d3f98bc34a083cd8fd7814e3b3889e1f478b",
+          "matches": true,
+          "path": "Muskometer/Utilities/MuskometerNetworking.swift"
+        }
+      ],
+      "matching_files": 6,
+      "reused": true,
+      "snapshot": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/yahoo-final-snapshot.json",
+      "snapshot_sha256": "86907853483cca3743dfce751da54047a1059380eff77c837464ad4c68e0fbd0"
+    },
+    "hosted_UI": {
+      "files": [
+        {
+          "evidence_sha256": "8359e7de1a2fc47888a0484519ecc811b8ba33deb2dab55660c9f19b28cc1492",
+          "integrated_sha256": "8359e7de1a2fc47888a0484519ecc811b8ba33deb2dab55660c9f19b28cc1492",
+          "matches": true,
+          "path": "Muskometer/Utilities/MuskometerGlass.swift"
+        },
+        {
+          "evidence_sha256": "068f98904e412d7ead195688693309ac3af649f5144d2699bcd0cae6d4360d6b",
+          "integrated_sha256": "068f98904e412d7ead195688693309ac3af649f5144d2699bcd0cae6d4360d6b",
+          "matches": true,
+          "path": "Muskometer/Views/AboutView.swift"
+        },
+        {
+          "evidence_sha256": "3f84ba3bac70990582b24dfd6d3f49dcd85ba187cc3f42697d15b288bd64ba91",
+          "integrated_sha256": "3f84ba3bac70990582b24dfd6d3f49dcd85ba187cc3f42697d15b288bd64ba91",
+          "matches": true,
+          "path": "Muskometer/Views/DailyRecordsCardView.swift"
+        },
+        {
+          "evidence_sha256": "d67df8bceb3e67fa825977b85091a30bf1d6db5b31ce434359c9c86b1e89c168",
+          "integrated_sha256": "d67df8bceb3e67fa825977b85091a30bf1d6db5b31ce434359c9c86b1e89c168",
+          "matches": true,
+          "path": "Muskometer/Views/GainSparklineView.swift"
+        },
+        {
+          "evidence_sha256": "1eff48616c7f65bb31a7bd2ea54f11b7d3afdb051245a16754c1bea161f40519",
+          "integrated_sha256": "1eff48616c7f65bb31a7bd2ea54f11b7d3afdb051245a16754c1bea161f40519",
+          "matches": true,
+          "path": "Muskometer/Views/MenuBarLabelView.swift"
+        },
+        {
+          "evidence_sha256": "fd4573cc9701b560213856de4730c8d712b7fad5cf8953a36e0c3792895550b8",
+          "integrated_sha256": "fd4573cc9701b560213856de4730c8d712b7fad5cf8953a36e0c3792895550b8",
+          "matches": true,
+          "path": "Muskometer/Views/MergerParityCardView.swift"
+        },
+        {
+          "evidence_sha256": "b7b115766f1c840f490e09672030882a7da710ced963b64a1a13620fd9756120",
+          "integrated_sha256": "b7b115766f1c840f490e09672030882a7da710ced963b64a1a13620fd9756120",
+          "matches": true,
+          "path": "Muskometer/Views/MilestoneCelebrationOverlay.swift"
+        },
+        {
+          "evidence_sha256": "068727e313186091f4c701dd4875db96df1791a695c59890cb6e2ee59e108cf8",
+          "integrated_sha256": "068727e313186091f4c701dd4875db96df1791a695c59890cb6e2ee59e108cf8",
+          "matches": true,
+          "path": "Muskometer/Views/PopoverContentView.swift"
+        },
+        {
+          "evidence_sha256": "8805cddbd2a6aebbb5ae92446119209b4fb3dbfc8eae53469a69243f13a07e15",
+          "integrated_sha256": "8805cddbd2a6aebbb5ae92446119209b4fb3dbfc8eae53469a69243f13a07e15",
+          "matches": true,
+          "path": "Muskometer/Views/SettingsContentHeightKey.swift"
+        },
+        {
+          "evidence_sha256": "1ecbe9baf620010eabfe1d5017aa1ac748cb0f607537eb70a7555b190f142a5c",
+          "integrated_sha256": "1ecbe9baf620010eabfe1d5017aa1ac748cb0f607537eb70a7555b190f142a5c",
+          "matches": true,
+          "path": "Muskometer/Views/SettingsView.swift"
+        },
+        {
+          "evidence_sha256": "35ec90c60fcc3fd1ad8cd3ff8a84f2ad9160c23c6580e5504331544bc0acb3ff",
+          "integrated_sha256": "35ec90c60fcc3fd1ad8cd3ff8a84f2ad9160c23c6580e5504331544bc0acb3ff",
+          "matches": true,
+          "path": "Muskometer/Views/ShareCardView.swift"
+        },
+        {
+          "evidence_sha256": "53a11054ffe300c42ee5008e0de755a3b95d1a7da8f26d1c834277dc43beb89a",
+          "integrated_sha256": "53a11054ffe300c42ee5008e0de755a3b95d1a7da8f26d1c834277dc43beb89a",
+          "matches": true,
+          "path": "Muskometer/Views/StockRowView.swift"
+        }
+      ],
+      "matching_files": 12,
+      "reference_commit": "e89dcce91420ec5fbcb7c7414a27339eab418999",
+      "reused": true,
+      "scope": "Actual NSHostingView layout/controls at 360 wide and 600/700/800/900 high; asset catalog unavailable, color fidelity unverified."
+    },
+    "view_model": {
+      "files": [
+        {
+          "evidence_sha256": "6ee016f3df69e69741ad74599b827a84a0f19186fb118adfd3d5a28f3c50355a",
+          "integrated_sha256": "6ee016f3df69e69741ad74599b827a84a0f19186fb118adfd3d5a28f3c50355a",
+          "matches": true,
+          "path": "Muskometer/ViewModels/GainsViewModel.swift"
+        },
+        {
+          "evidence_sha256": "f233c20585caf3855355ee412b8d989d4f1bd216b14da60e0cae0554db0c7dfd",
+          "integrated_sha256": "f233c20585caf3855355ee412b8d989d4f1bd216b14da60e0cae0554db0c7dfd",
+          "matches": true,
+          "path": "Muskometer/Services/GainThresholdNotificationService.swift"
+        },
+        {
+          "evidence_sha256": "f5ff012c000d726cfe0e9b8547a3ad0baa4993e29eb6196561e493711e42592e",
+          "integrated_sha256": "f5ff012c000d726cfe0e9b8547a3ad0baa4993e29eb6196561e493711e42592e",
+          "matches": true,
+          "path": "Muskometer/Services/DayCloseSummaryNotificationService.swift"
+        },
+        {
+          "evidence_sha256": "4113df69d9bc3f961ba6908a4850a5e728eff42f2258760a942d2d458ed84786",
+          "integrated_sha256": "4113df69d9bc3f961ba6908a4850a5e728eff42f2258760a942d2d458ed84786",
+          "matches": true,
+          "path": "Muskometer/Services/DailyRecordTracker.swift"
+        },
+        {
+          "evidence_sha256": "4c90a22d0de10817adf4c80b1b5abe2a6cd11c11fd17c0ba300113a2d8ba8993",
+          "integrated_sha256": "4c90a22d0de10817adf4c80b1b5abe2a6cd11c11fd17c0ba300113a2d8ba8993",
+          "matches": true,
+          "path": "Muskometer/Services/IntradayGainSampleStore.swift"
+        },
+        {
+          "evidence_sha256": "4fd8bb4ea6c4b0b2219c439a374a51a8859a12f92a39c52b497b8f22c7872042",
+          "integrated_sha256": "4fd8bb4ea6c4b0b2219c439a374a51a8859a12f92a39c52b497b8f22c7872042",
+          "matches": true,
+          "path": "Muskometer/Services/NetWorthMilestoneTracker.swift"
+        },
+        {
+          "evidence_sha256": "b6da42151b3aa25fd6a48e6f31bf7a746a2cb0dda97d38df4acc91483efbc364",
+          "integrated_sha256": "b6da42151b3aa25fd6a48e6f31bf7a746a2cb0dda97d38df4acc91483efbc364",
+          "matches": true,
+          "path": "Muskometer/Utilities/AppSettings.swift"
+        }
+      ],
+      "matching_files": 7,
+      "reused": true,
+      "snapshot": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/view-model-round3-snapshot.json",
+      "snapshot_sha256": "4dc8f76586c1b8285c0e8cea16d0a2e4d4f387197dfd1909e73e495a97b71882"
+    }
+  },
+  "evidence_artifacts": [
+    {
+      "bytes": 1812,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/sec-round5-snapshot.json",
+      "sha256": "c5e201b221e1aca22561317b5e2827de348e6e9df6c0f352edd713c3e9da3adf"
+    },
+    {
+      "bytes": 321,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/live-sec-round5.json",
+      "sha256": "47c287fc2de0feb979f02d8cc589c2176cdc2bce93e0a39994d34cf7a8bff7df"
+    },
+    {
+      "bytes": 662,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/sec-round5-probe-result.json",
+      "sha256": "70a0bab56f6fc8445abbf3013fec5a04cd109e16c54c7a2173f3ffcb5d272e6e"
+    },
+    {
+      "bytes": 903,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/yahoo-final-snapshot.json",
+      "sha256": "86907853483cca3743dfce751da54047a1059380eff77c837464ad4c68e0fbd0"
+    },
+    {
+      "bytes": 379,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/live-yahoo-final.json",
+      "sha256": "c71c2f759ae71c422262a5ccd13df7b22111a577e9c64d3f588589c59f32dbc4"
+    },
+    {
+      "bytes": 731,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/yahoo-final-probe-result.json",
+      "sha256": "a13bd8747d1601e999735943e45cd9f18f652838e22c611dc7488c3eb3be6d0e"
+    },
+    {
+      "bytes": 1320,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/view-model-round3-snapshot.json",
+      "sha256": "4dc8f76586c1b8285c0e8cea16d0a2e4d4f387197dfd1909e73e495a97b71882"
+    },
+    {
+      "bytes": 1038,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/view-model-round3-probe-result.json",
+      "sha256": "73c2d60bbc8ba294e6b8c2e5aa5078f4572b60584db54be4c91c0331665d6c49"
+    },
+    {
+      "bytes": 808,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/ui-hosted-fixed-probe-result.json",
+      "sha256": "cdc30bae9a8bfcb1aa3a7a9e963611b61b7a5097964e7398100e641d83d2c624"
+    },
+    {
+      "bytes": 86337,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/popover-hosted-600.png",
+      "sha256": "aa7ba2e55754fb3fefbd45b3e3efa2f1466f07f04016ab2f8834a4963ecf1883"
+    },
+    {
+      "bytes": 100538,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/popover-hosted-700.png",
+      "sha256": "37337b0cf052ac76fdc77b536ebaf2a22ede45375438f1900c471e66a72b7fc4"
+    },
+    {
+      "bytes": 114537,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/popover-hosted-800.png",
+      "sha256": "19f1540d16a7abd16d3e00f5bf51d3806fd737edfe42a01bfd5a4a570afe2c6e"
+    },
+    {
+      "bytes": 129048,
+      "path": "/Users/jlgolson/grok/muskometer/build/review-fix-validation/popover-hosted-900.png",
+      "sha256": "deea9eac5833d1c4a071a4aae0ad66856e491cac0cedd5aa93eb14c6d886c750"
+    }
+  ],
+  "integrated_head": "943d5a11cf8327dd500bf6399a80570191a8971e",
+  "public_check_limit": "Point-in-time endpoint results; no availability guarantee. Historical superseded SEC/VM probes are not used as final proof."
+}

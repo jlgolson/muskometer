@@ -3831,9 +3831,31 @@ final class DailyRecordTrackerTests: XCTestCase {
         XCTAssertEqual(consumed.dayKey, "2026-06-30")
         XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
 
-        // After consume, finalize guard blocks re-queue — restore keeps retry possible.
+        // Manual restore after mistaken consume — finalize won't re-queue the same dayKey.
         tracker.restorePendingFinalizedDay(consumed, for: "musk")
         XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+    }
+
+    func testPendingFinalizedDaySurvivesRelaunchUntilConsume() throws {
+        let suiteName = "MuskometerTests-pending-relaunch-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let tracker1 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+
+        let midday = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let afterClose = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        _ = tracker1.update(personID: "musk", paperGain: 5_000_000_000, at: midday, isQuotable: true)
+        _ = tracker1.update(personID: "musk", paperGain: 5_000_000_000, at: afterClose, isQuotable: false)
+        XCTAssertEqual(tracker1.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+
+        // New tracker instance = process relaunch with same UserDefaults.
+        let tracker2 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        XCTAssertEqual(tracker2.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+        XCTAssertEqual(tracker2.peekPendingFinalizedDay(for: "musk")?.closeGain, 5_000_000_000)
+
+        _ = tracker2.consumePendingFinalizedDay(for: "musk")
+        let tracker3 = DailyRecordTracker(defaults: defaults, calendar: easternCalendar, marketHours: marketHours)
+        XCTAssertNil(tracker3.peekPendingFinalizedDay(for: "musk"))
     }
 }
 
@@ -4258,6 +4280,136 @@ final class DayCloseSummaryNotificationServiceTests: XCTestCase {
         XCTAssertEqual(retried, .delivered)
         XCTAssertEqual(deliverer.attempts, 2)
         XCTAssertEqual(deliverer.requests.count, 1)
+    }
+}
+
+@MainActor
+final class GainsViewModelDayCloseNotificationTests: XCTestCase {
+    private final class SucceedingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+        private(set) var requests: [UNNotificationRequest] = []
+        func add(_ request: UNNotificationRequest) async throws {
+            requests.append(request)
+        }
+    }
+
+    private final class FailingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+        private(set) var attempts = 0
+        func add(_ request: UNNotificationRequest) async throws {
+            attempts += 1
+            throw URLError(.notConnectedToInternet)
+        }
+    }
+
+    private func quotes(producingCombinedGain gain: Double) -> [StockQuote] {
+        let tslaShares = 100.0
+        let tslaDelta = gain / tslaShares
+        return [
+            StockQuote(
+                symbol: "TSLA",
+                displayName: "Tesla",
+                currentPrice: 100 + tslaDelta,
+                previousClose: 100,
+                currency: "USD"
+            ),
+            StockQuote(
+                symbol: "SPCX",
+                displayName: "SpaceX",
+                currentPrice: 50,
+                previousClose: 50,
+                currency: "USD"
+            ),
+        ]
+    }
+
+    private func makeViewModel(
+        deliverer: any DayCloseSummaryNotificationDelivering,
+        notifyEnabled: Bool,
+        dateProvider: @escaping () -> Date
+    ) -> (GainsViewModel, DailyRecordTracker) {
+        let suite = "MuskometerTests-gains-day-close-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+
+        let settings = AppSettings(defaults: defaults)
+        settings.setShareCount(100, for: "TSLA")
+        settings.setShareCount(100, for: "SPCX")
+        settings.notifyDayCloseSummary = notifyEnabled
+
+        let calendar = EasternTestDates.calendar()
+        let marketHours = MarketHoursService(calendar: calendar, timeZone: EasternTestDates.eastern)
+        let tradingCalendar = TradingDayCalendar(calendar: calendar, timeZone: EasternTestDates.eastern)
+        let tracker = DailyRecordTracker(
+            defaults: defaults,
+            calendar: tradingCalendar,
+            marketHours: marketHours
+        )
+        let dayCloseService = DayCloseSummaryNotificationService(defaults: defaults, deliverer: deliverer)
+
+        let viewModel = GainsViewModel(
+            settings: settings,
+            stockService: MockStockService(quotes: quotes(producingCombinedGain: 5_000_000_000)),
+            marketHours: marketHours,
+            dailyRecordTracker: tracker,
+            dayCloseSummaryNotificationService: dayCloseService,
+            dateProvider: dateProvider
+        )
+        return (viewModel, tracker)
+    }
+
+    func testFailedDayCloseDeliveryKeepsPending() async throws {
+        var now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let deliverer = FailingDeliverer()
+        let (viewModel, tracker) = makeViewModel(
+            deliverer: deliverer,
+            notifyEnabled: true,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+
+        now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        await viewModel.refresh(force: true)
+
+        XCTAssertEqual(deliverer.attempts, 1)
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.closeGain, 5_000_000_000)
+    }
+
+    func testSuccessfulDayCloseDeliveryConsumesPending() async throws {
+        var now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let deliverer = SucceedingDeliverer()
+        let (viewModel, tracker) = makeViewModel(
+            deliverer: deliverer,
+            notifyEnabled: true,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+
+        now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        await viewModel.refresh(force: true)
+
+        XCTAssertEqual(deliverer.requests.count, 1)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+    }
+
+    func testSkippedDayCloseDeliveryConsumesPending() async throws {
+        var now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 11)
+        let deliverer = SucceedingDeliverer()
+        let (viewModel, tracker) = makeViewModel(
+            deliverer: deliverer,
+            notifyEnabled: false,
+            dateProvider: { now }
+        )
+
+        await viewModel.refresh(force: true)
+        now = try EasternTestDates.date(year: 2026, month: 6, day: 30, hour: 20)
+        await viewModel.refresh(force: true)
+
+        XCTAssertTrue(deliverer.requests.isEmpty)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
     }
 }
 

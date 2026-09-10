@@ -9,24 +9,30 @@ enum MenuBarPopoverPresenter {
         NSApp.activate(ignoringOtherApps: true)
         if PopoverVisibility.isVisible { return true }
 
-        if let button = statusItemButton() {
-            button.performClick(nil)
-            return true
+        // At most one click: a second performClick toggles the popover closed.
+        var button = statusItemButton()
+        if button == nil {
+            // Status item windows can lag briefly after activation; retry lookup once.
+            try? await Task.sleep(for: .milliseconds(80))
+            if PopoverVisibility.isVisible { return true }
+            button = statusItemButton()
         }
 
-        // Status item windows can lag briefly after activation; retry once.
-        try? await Task.sleep(for: .milliseconds(80))
-        if PopoverVisibility.isVisible { return true }
-        if let button = statusItemButton() {
-            button.performClick(nil)
-            return true
+        guard let button else {
+            #if DEBUG
+            print("MenuBarPopoverPresenter.openIfNeeded: status item button missing after activate+retry")
+            assertionFailure("MenuBarPopoverPresenter: status item button missing after activate+retry")
+            #endif
+            return false
         }
 
-        #if DEBUG
-        print("MenuBarPopoverPresenter.openIfNeeded: status item button missing after activate+retry")
-        assertionFailure("MenuBarPopoverPresenter: status item button missing after activate+retry")
-        #endif
-        return false
+        button.performClick(nil)
+        // SwiftUI onAppear may lag behind the click; poll instead of clicking again.
+        for _ in 0..<8 {
+            if PopoverVisibility.isVisible { return true }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return PopoverVisibility.isVisible
     }
 
     static func statusItemButton() -> NSStatusBarButton? {

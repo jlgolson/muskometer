@@ -17,13 +17,23 @@ echo "PASS: typecheck"
 echo ""
 echo "=== 2. Unit tests (xcodebuild test) ==="
 TEST_DERIVED="$ROOT/build/verify-derived-$$"
+TEST_RESULTS="$ROOT/build/verify-results-$$.xcresult"
 mkdir -p "$ROOT/build"
+# Hosted UI tests own their windows and fixtures; do not start the normal app's
+# menu bar, update coordinator, or login reconciliation in the test process.
 xcodebuild test \
   -scheme Muskometer \
   -configuration Debug \
   -derivedDataPath "$TEST_DERIVED" \
+  -resultBundlePath "$TEST_RESULTS" \
   -destination 'platform=macOS' \
-  -quiet
+  -parallel-testing-enabled NO \
+  'SWIFT_ACTIVE_COMPILATION_CONDITIONS=$(inherited) DEBUG MUSKOMETER_TEST_HOST' \
+  -quiet || {
+    verify_test_status=$?
+    xcrun xcresulttool get test-results summary --path "$TEST_RESULTS" || true
+    exit "$verify_test_status"
+  }
 echo "PASS: unit tests"
 
 echo ""

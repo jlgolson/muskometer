@@ -31,6 +31,14 @@ jobs:
       - name: Package DMG and zip
         run: ./scripts/package-dmg.sh
 
+      - name: Preserve failed test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-test-results
+          path: build/verify-results-*.xcresult
+          retention-days: 7
+
       - name: Write release notes with checksums
         run: |
           VERSION="${GITHUB_REF_NAME#v}"

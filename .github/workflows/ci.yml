@@ -17,3 +17,11 @@ jobs:
           # Local: scripts/verify.sh runs Yahoo by default; set MUSKOMETER_SKIP_LIVE_YAHOO=1 to skip.
           MUSKOMETER_SKIP_LIVE_YAHOO: "1"
         run: ./scripts/verify.sh
+
+      - name: Preserve failed test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: build/verify-results-*.xcresult
+          retention-days: 7

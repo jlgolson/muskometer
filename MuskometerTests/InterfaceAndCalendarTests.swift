@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 import UserNotifications
 import XCTest
+import Vision
+import ScreenCaptureKit
 @testable import Muskometer
 
 final class MarketHoursServiceTests: XCTestCase {
@@ -789,38 +791,146 @@ final class LoginStatusRegressionTests: XCTestCase {
     }
 }
 
-private struct InterfaceProbeStock: StockPriceServiceProtocol {
-    func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
-        symbols.map { StockQuote(symbol: $0, displayName: $0,
-            currentPrice: $0 == "TSLA" ? 400 : 100,
-            previousClose: $0 == "TSLA" ? 395 : 98, currency: "USD") }
+// Read-only September 10 observations, using Codable Date's 2001 reference epoch.
+private enum VisualChartFixture {
+    static let gains = [13_855_060_779.811922, 14_187_615_509.983934,
+        13_385_345_764.31092, 16_083_600_343.614992, 14_670_726_847.679981,
+        14_618_948_881.370857, 15_949_845_655.179981, 15_827_663_635.18001,
+        15_921_438_748.099966]
+    static let times = [810753101.078183, 810753192.039462, 810753287.968565,
+        810753383.70998, 810753475.567488, 810753568.721071,
+        810753661.558663, 810753752.990089, 810753844.606051]
+    static let observed = zip(times, gains).map {
+        GainSample(timestamp: Date(timeIntervalSinceReferenceDate: $0.0), combinedPaperGain: $0.1)
     }
 }
 
+private struct InterfaceProbeStock: StockPriceServiceProtocol {
+    func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
+        // Controlled quote changes sum to the latest observed gain, without adding a chart sample.
+        let tslaGain = (366.32 - 367.83) * 710_172_677
+        let spcxChange = (VisualChartFixture.gains.last! - tslaGain) / 5_116_475_230
+        return symbols.map { StockQuote(symbol: $0, displayName: $0,
+            currentPrice: $0 == "TSLA" ? 366.32 : 150.90,
+            previousClose: $0 == "TSLA" ? 367.83 : 150.90 - spcxChange, currency: "USD") }
+    }
+}
+
+final class SparklineLayoutRegressionTests: XCTestCase {
+    func testNarrowPositiveMovementUsesVisibleHeight() {
+        let samples = VisualChartFixture.observed
+        let layout = SparklineLayout(samples: samples, size: CGSize(width: 288, height: 60))
+        let ys = samples.map { layout.point(for: $0).y }
+        XCTAssertGreaterThan(layout.minGain, 0, "Distant zero must not flatten positive movement")
+        XCTAssertGreaterThan(ys.max()! - ys.min()!, 35, "Observed $2.7B range must be legible")
+    }
+    private func samples(_ gains: [Double]) -> [GainSample] {
+        gains.enumerated().map { GainSample(timestamp: Date(timeIntervalSinceReferenceDate: Double($0.offset * 60)), combinedPaperGain: $0.element) }
+    }
+
+    private func assertBounded(_ samples: [GainSample], file: StaticString = #filePath, line: UInt = #line) {
+        let layout = SparklineLayout(samples: samples, size: CGSize(width: 288, height: 60))
+        XCTAssertTrue(layout.minGain.isFinite && layout.maxGain.isFinite, file: file, line: line)
+        XCTAssertGreaterThan(layout.maxGain, layout.minGain, file: file, line: line)
+        XCTAssertEqual(layout.containsZero, layout.minGain <= 0 && layout.maxGain >= 0, file: file, line: line)
+        for sample in samples {
+            let point = layout.point(for: sample)
+            XCTAssertTrue(point.x.isFinite && point.y.isFinite, file: file, line: line)
+            XCTAssertTrue(CGRect(x: 0, y: 0, width: 288, height: 60).insetBy(dx: 3, dy: 3).contains(point), file: file, line: line)
+        }
+    }
+
+    func testNegativeOnlyKeepsDistantZeroOutsideDomain() {
+        let values = samples(VisualChartFixture.gains.map { -$0 })
+        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
+        XCTAssertLessThan(layout.maxGain, 0)
+        XCTAssertFalse(layout.containsZero)
+        assertBounded(values)
+    }
+
+    func testMixedSignsStraddleVisibleZero() {
+        let values = samples([-2e9, 1e9, -1e9, 2e9])
+        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
+        XCTAssertTrue(layout.containsZero)
+        XCTAssertGreaterThan(layout.point(for: values[0]).y, layout.zeroY)
+        XCTAssertLessThan(layout.point(for: values[1]).y, layout.zeroY)
+        assertBounded(values)
+    }
+
+    func testFlatPositiveNegativeAndZeroRemainHorizontal() {
+        for value in [16e9, -16e9, 0] {
+            let values = samples([value, value, value])
+            let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
+            XCTAssertEqual(Set(values.map { layout.point(for: $0).y }).count, 1)
+            XCTAssertEqual(layout.point(for: values[0]).y, 30, accuracy: 0.01)
+            assertBounded(values)
+        }
+    }
+
+    func testSingleSampleIsCenteredWithoutInventingHistory() {
+        let values = samples([16e9])
+        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
+        XCTAssertEqual(layout.point(for: values[0]), CGPoint(x: 144, y: 30))
+        assertBounded(values)
+    }
+
+    func testEmptyLayoutIsFiniteAndSafe() {
+        assertBounded([])
+        let layout = SparklineLayout(samples: [], size: CGSize(width: 288, height: 60))
+        XCTAssertTrue(layout.containsZero)
+        XCTAssertEqual(layout.zeroY, 30, accuracy: 0.01)
+    }
+
+    func testIrregularTimestampsKeepRelativeSpacing() {
+        let values = zip([0.0, 10, 100], [1e9, 2e9, 3e9]).map {
+            GainSample(timestamp: Date(timeIntervalSinceReferenceDate: $0.0), combinedPaperGain: $0.1)
+        }
+        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
+        let x = values.map { layout.point(for: $0).x }
+        XCTAssertEqual((x[1] - x[0]) / (x[2] - x[0]), 0.1, accuracy: 0.0001)
+        XCTAssertTrue(x[0] < x[1] && x[1] < x[2])
+        assertBounded(values)
+    }
+
+    func testFullCapacityMonotonicFixturePreservesOrderAndBounds() {
+        let values = samples((0..<400).map { 15e9 + Double($0) * 1e6 })
+        assertBounded(values)
+        let layout = SparklineLayout(samples: values, size: CGSize(width: 288, height: 60))
+        let points = values.map { layout.point(for: $0) }
+        for pair in zip(points, points.dropFirst()) {
+            XCTAssertLessThan(pair.0.x, pair.1.x)
+            XCTAssertGreaterThan(pair.0.y, pair.1.y)
+        }
+    }
+
+}
+
 final class PopoverLayoutRegressionTests: XCTestCase {
+#if MUSKOMETER_TEST_HOST
+    @MainActor
+    func testUsesIsolatedApplicationEntryPoint() throws {
+        XCTAssertTrue(MuskometerApp.isIsolatedTestHost,
+                      "Hosted tests must use the inert application entry point")
+        let assets = try XCTUnwrap(Bundle.main.url(forResource: "Assets", withExtension: "car"))
+        let report = ["bundle": Bundle.main.bundlePath, "assets": assets.path, "isolated": "true"]
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted]),
+                                       uniformTypeIdentifier: "public.json")
+        attachment.name = "compiled-host-assets.json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+#endif
+
     @MainActor
     func testPopulatedPopoverFitsAvailableHeightAndRetainsScrolling() async throws {
-        let defaults = UserDefaults(suiteName: "MuskometerTests-layout-\(UUID().uuidString)")!
-        let settings = AppSettings(defaults: defaults, launchAtLoginManager: MockLaunchAtLoginManager())
-        let now = try EasternTestDates.date(year: 2026, month: 9, day: 10, hour: 11)
-        let tracker = DailyRecordTracker(defaults: defaults)
-        _ = tracker.update(personID: "musk", paperGain: 2e9, at: now.addingTimeInterval(-86400), isQuotable: true)
-        _ = tracker.update(personID: "musk", paperGain: 2e9, at: now.addingTimeInterval(-86400 + 6*3600), isQuotable: false)
-        let vm = GainsViewModel(settings: settings, stockService: InterfaceProbeStock(),
-            dailyRecordTracker: tracker,
-            gainThresholdNotificationService: GainThresholdNotificationService(defaults: defaults),
-            dayCloseSummaryNotificationService: DayCloseSummaryNotificationService(defaults: defaults),
-            intradayGainSampleStore: IntradayGainSampleStore(defaults: defaults, now: { now }),
-            netWorthMilestoneTracker: NetWorthMilestoneTracker(defaults: defaults), dateProvider: { now })
-        await vm.refresh(force: true)
-        XCTAssertNotNil(vm.snapshot)
-        XCTAssertNotNil(vm.dailyRecordsSnapshot.bestRecord)
-        XCTAssertNotNil(vm.mergerParityPresentation)
+        let vm = try await makeVisualModel()
         for height in [600.0, 700.0, 800.0, 900.0] {
-            let host = NSHostingView(rootView: PopoverContentView(viewModel: vm, availableHeight: height))
+            let host = NSHostingView(rootView: PopoverContentView(viewModel: vm, availableHeight: height)
+                .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark))
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: height),
                                   styleMask: [.borderless], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false
+            host.appearance = NSAppearance(named: .darkAqua)
             window.contentView = host
             window.orderFront(nil)
             host.frame = NSRect(x: 0, y: 0, width: 360, height: height)
@@ -830,14 +940,26 @@ final class PopoverLayoutRegressionTests: XCTestCase {
             XCTAssertLessThanOrEqual(host.fittingSize.height, height)
             let scroll = try XCTUnwrap(scrollViews(in: host).first)
             let document = try XCTUnwrap(scroll.documentView)
-            XCTAssertGreaterThan(document.bounds.height, scroll.contentView.bounds.height,
-                                 "Populated cards must occupy a scrollable document")
+            if height <= 700 {
+                XCTAssertGreaterThan(document.bounds.height, scroll.contentView.bounds.height,
+                                     "Small panels must retain real secondary-content scrolling")
+            }
+            try await assertInitialParity(host, scroll: scroll, price: CurrencyFormatter.formatPrice(
+                try XCTUnwrap(vm.mergerParityPresentation).impliedTSLAPrice), name: "main-\(Int(height))-top")
             let before = scroll.contentView.bounds.origin.y
             document.scroll(NSPoint(x: 0, y: document.bounds.height))
             scroll.reflectScrolledClipView(scroll.contentView)
-            XCTAssertGreaterThan(scroll.contentView.bounds.origin.y, before)
-            XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
-            attachSnapshot(host, name: "main-\(Int(height))-scrolled")
+            if document.bounds.height > scroll.contentView.bounds.height {
+                XCTAssertGreaterThan(scroll.contentView.bounds.origin.y, before)
+                XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
+            } else {
+                XCTAssertEqual(scroll.contentView.bounds.origin.y, before)
+            }
+            await settle(host)
+            let detail = try await capture(host, name: "main-\(Int(height))-detail")
+            let detailText = try recognizedText(detail, size: host.bounds.size).map(\.0).joined(separator: " ")
+            XCTAssertFalse(detailText.lowercased().contains("vested options"))
+            XCTAssertTrue(detailText.contains("TSLA") && detailText.contains("SPCX"), "Both stock details must be reachable")
 
             // SwiftUI exposes compact button focus/hit-test frames as direct subviews.
             // Deduplicate overlapping focus proxies without relying on private class names.
@@ -856,7 +978,22 @@ final class PopoverLayoutRegressionTests: XCTestCase {
             XCTAssertFalse(scrollViews(in: host).isEmpty)
             let back = try XCTUnwrap(compactControlFrames(in: host).first { $0.minY < 60 })
             XCTAssertTrue(host.bounds.contains(back), "Back must remain visible")
-            attachSnapshot(host, name: "settings-\(Int(height))")
+            let settingsImage = try await capture(host, name: "settings-\(Int(height))")
+            if height == 600 {
+                let text = try recognizedText(settingsImage, size: host.bounds.size)
+                let holdings = try XCTUnwrap(text.first { $0.0 == "Holdings" })
+                try click(CGPoint(x: holdings.1.midX, y: holdings.1.midY), in: host)
+                await settle(host)
+                let holdingsImage = try await capture(host, name: "holdings-600")
+                let lines = try recognizedText(holdingsImage, size: host.bounds.size).map(\.0)
+                let rendered = lines.joined(separator: " ").lowercased()
+                XCTAssertEqual(rendered.components(separatedBy: "vested options only").count - 1, 1)
+                XCTAssertTrue(rendered.contains("performance rsus excluded until milestones"))
+                let attachment = XCTAttachment(string: lines.joined(separator: "\n"))
+                attachment.name = "holdings-rendered-text.txt"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
             let location = host.convert(NSPoint(x: back.midX, y: back.midY), to: nil)
             for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
                 let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
@@ -871,30 +1008,228 @@ final class PopoverLayoutRegressionTests: XCTestCase {
     }
 
     @MainActor
+    func testAssetBackedChartFixturesAndAppearances() async throws {
+        let vm = try await makeVisualModel()
+        let snapshot = try XCTUnwrap(vm.snapshot)
+        let parity = try XCTUnwrap(vm.mergerParityPresentation)
+        for (name, appearance) in [("light", NSAppearance.Name.aqua),
+                                   ("requested-high-contrast", .accessibilityHighContrastDarkAqua)] {
+            var observedContrast: ColorSchemeContrast?
+            let content = PopoverContentView(viewModel: vm, availableHeight: 900)
+                .background(VisualContrastProbe { observedContrast = $0 })
+                .background(Color(nsColor: .windowBackgroundColor))
+            let host = NSHostingView(rootView: content)
+            let window = makeWindow(host, size: CGSize(width: 360, height: 900), appearance: appearance)
+            await settle(host)
+            // macOS 26.4.1 normalizes a requested high-contrast hosting appearance
+            // to Dark Aqua; its read-only contrast follows system preferences. Record that fact;
+            // explicitly exercise the same renderer's accessibility inputs below.
+            let report = XCTAttachment(string: "Native appearance: \(host.effectiveAppearance.name.rawValue); SwiftUI contrast: \(String(describing: observedContrast))")
+            report.name = "appearance-\(name).txt"
+            report.lifetime = .keepAlways
+            add(report)
+            let scroll = try XCTUnwrap(scrollViews(in: host).first)
+            try await assertInitialParity(host, scroll: scroll, price: CurrencyFormatter.formatPrice(parity.impliedTSLAPrice),
+                                          name: "main-900-" + name)
+            window.close()
+        }
+        let accessibleChart = VStack(alignment: .leading, spacing: 10) {
+            Text("Increased contrast · reduced transparency fixture").font(.caption)
+            GainSparklineContent(samples: VisualChartFixture.observed, colorScheme: .dark,
+                                 contrast: .increased, reduceTransparency: true)
+        }.padding(12).frame(width: 328, height: 130, alignment: .topLeading)
+            .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark)
+        let accessibleHost = NSHostingView(rootView: accessibleChart)
+        let accessibleWindow = makeWindow(accessibleHost, size: CGSize(width: 328, height: 130), appearance: .accessibilityHighContrastDarkAqua)
+        await settle(accessibleHost)
+        let accessibleImage = try await capture(accessibleHost, name: "chart-increased-contrast-reduced-transparency")
+        let accessibleText = try recognizedText(accessibleImage, size: accessibleHost.bounds.size).map(\.0).joined(separator: " ")
+        XCTAssertTrue(accessibleText.contains("Range"))
+        XCTAssertTrue(accessibleText.contains("$13.2B") && accessibleText.contains("$16.3B"))
+        accessibleWindow.close()
+        let fixtures: [(String, [GainSample])] = [
+            ("observed", VisualChartFixture.observed),
+            ("negative", VisualChartFixture.observed.map { GainSample(timestamp: $0.timestamp, combinedPaperGain: -$0.combinedPaperGain) }),
+            ("mixed", fixture([-2e9, 1e9, -1e9, 2e9])),
+            ("flat-positive", fixture([16e9, 16e9, 16e9])),
+            ("flat-negative", fixture([-16e9, -16e9, -16e9])),
+            ("flat-zero", fixture([0, 0, 0])),
+            ("single", fixture([16e9])), ("empty", []),
+            ("400", fixture((0..<400).map { 15e9 + Double($0) * 1e6 }))]
+        for (name, samples) in fixtures {
+            let chart = VStack(alignment: .leading, spacing: 10) {
+                Text(name == "observed" ? "September 10 · observed samples" : "\(name) · synthetic test fixture")
+                    .font(.caption)
+                GainSparklineView(samples: samples)
+            }.padding(12).frame(width: 328, height: 130, alignment: .topLeading)
+                .background(Color(nsColor: .windowBackgroundColor)).environment(\.colorScheme, .dark)
+            let host = NSHostingView(rootView: chart)
+            let window = makeWindow(host, size: CGSize(width: 328, height: 130), appearance: .darkAqua)
+            await settle(host)
+            _ = try await capture(host, name: "chart-" + name)
+            window.close()
+            let target = samples.last?.combinedPaperGain ?? 0
+            let holdings = snapshot.holdings.map { holding in
+                let gain = holding.symbol == "SPCX" ? target - snapshot.holdings[0].paperGain : holding.paperGain
+                let quote = StockQuote(symbol: holding.symbol, displayName: holding.displayName,
+                    currentPrice: holding.quote.currentPrice,
+                    previousClose: holding.quote.currentPrice - gain / Double(holding.shareCount), currency: "USD")
+                return HoldingGain(id: holding.id, symbol: holding.symbol, displayName: holding.displayName,
+                                   shareCount: holding.shareCount, quote: quote)
+            }
+            let exportSnapshot = GainsSnapshot(holdings: holdings, lastUpdated: snapshot.lastUpdated, tradingSession: .regular)
+            XCTAssertEqual(exportSnapshot.combinedPaperGain, target, accuracy: 0.01)
+            let png = try XCTUnwrap(ShareImageExporter.renderPNGData(snapshot: exportSnapshot,
+                profile: vm.settings.selectedProfile, intradaySamples: samples, parity: parity))
+            let bitmap = try XCTUnwrap(NSBitmapImageRep(data: png))
+            XCTAssertEqual(bitmap.pixelsWide, 720, "Production export retains 2x resolution")
+            let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+            attachment.name = "share-\(name).png"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    private func fixture(_ gains: [Double]) -> [GainSample] {
+        gains.enumerated().map { GainSample(timestamp: VisualChartFixture.observed[0].timestamp.addingTimeInterval(Double($0.offset * 60)), combinedPaperGain: $0.element) }
+    }
+
+    @MainActor
+    private func makeWindow<Content: View>(_ host: NSHostingView<Content>, size: CGSize,
+                                           appearance: NSAppearance.Name) -> NSWindow {
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.appearance = NSAppearance(named: appearance)
+        host.appearance = NSAppearance(named: appearance)
+        window.contentView = host
+        window.orderFront(nil)
+        host.frame = CGRect(origin: .zero, size: size)
+        return window
+    }
+
+    @MainActor
+    private func makeVisualModel() async throws -> GainsViewModel {
+        let defaults = UserDefaults(suiteName: "MuskometerTests-visual-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults, launchAtLoginManager: MockLaunchAtLoginManager())
+        let now = try XCTUnwrap(VisualChartFixture.observed.last?.timestamp)
+        settings.showMergerParityCard = true
+        settings.lastHoldingsSyncDate = now
+        settings.holdingsSyncSource = "SEC EDGAR · Form 4 · September 10, 2026 (controlled fixture)"
+        let store = IntradayGainSampleStore(defaults: defaults, now: { now })
+        let tracker = DailyRecordTracker(defaults: defaults)
+        _ = tracker.update(personID: "musk", paperGain: -109e9, at: now.addingTimeInterval(-2*86400), isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: -109e9, at: now.addingTimeInterval(-2*86400 + 6*3600), isQuotable: false)
+        _ = tracker.update(personID: "musk", paperGain: 116.4e9, at: now.addingTimeInterval(-86400), isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 116.4e9, at: now.addingTimeInterval(-86400 + 6*3600), isQuotable: false)
+        let vm = GainsViewModel(settings: settings, stockService: InterfaceProbeStock(),
+            holdingsSyncServiceFactory: { _ in MockHoldingsSyncService(result: .failure(URLError(.cancelled))) },
+            outstandingSyncServiceFactory: { MockIssuerOutstandingSyncService(result: [:]) },
+            dailyRecordTracker: tracker,
+            gainThresholdNotificationService: GainThresholdNotificationService(defaults: defaults, deliverer: VisualNotificationSink()),
+            dayCloseSummaryNotificationService: DayCloseSummaryNotificationService(defaults: defaults, deliverer: VisualNotificationSink()),
+            intradayGainSampleStore: store,
+            netWorthMilestoneTracker: NetWorthMilestoneTracker(defaults: defaults), dateProvider: { now })
+        await vm.refresh(force: true)
+        // Replace only this test suite's persisted samples, then reload without a live refresh.
+        struct StoredSamples: Encodable { let dayKey: String; let samples: [GainSample] }
+        defaults.set(try JSONEncoder().encode(StoredSamples(dayKey: "2026-09-10", samples: VisualChartFixture.observed)),
+                     forKey: "intradayGainSampleStore_musk")
+        vm.reloadPersistedDisplayState()
+        XCTAssertEqual(vm.intradaySamples, VisualChartFixture.observed)
+        XCTAssertEqual(try XCTUnwrap(vm.snapshot).combinedPaperGain, VisualChartFixture.gains.last!, accuracy: 0.01)
+        XCTAssertNotNil(vm.snapshot)
+        XCTAssertNotNil(vm.dailyRecordsSnapshot.worstRecord)
+        XCTAssertNotNil(vm.dailyRecordsSnapshot.bestRecord)
+        XCTAssertNotNil(vm.mergerParityPresentation)
+        return vm
+    }
+
+    @MainActor
+    private func capture(_ host: NSView, name: String) async throws -> NSBitmapImageRep {
+        let window = try XCTUnwrap(host.window)
+        // Only this inert test process's own window is shareable without TCC consent.
+        // Window-server capture preserves Liquid Glass, whose compositor layers are
+        // absent (and primary text black) in cacheDisplay's offscreen bitmap.
+        let content = try await SCShareableContent.currentProcess
+        let surface = try XCTUnwrap(content.windows.first { $0.windowID == CGWindowID(window.windowNumber) })
+        let config = SCStreamConfiguration()
+        config.width = Int(host.bounds.width * 2)
+        config.height = Int(host.bounds.height * 2)
+        config.showsCursor = false
+        config.ignoreShadowsSingleWindow = true
+        config.shouldBeOpaque = true
+        let cgImage = try await SCScreenshotManager.captureImage(
+            contentFilter: SCContentFilter(desktopIndependentWindow: surface), configuration: config)
+        let bitmap = NSBitmapImageRep(cgImage: cgImage)
+        bitmap.size = host.bounds.size
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        attachment.name = name + ".png"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        return bitmap
+    }
+
+    @MainActor
+    private func recognizedText(_ bitmap: NSBitmapImageRep, size: CGSize) throws -> [(String, CGRect)] {
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: try XCTUnwrap(bitmap.cgImage), options: [:]).perform([request])
+        return (request.results ?? []).compactMap { observation in
+            guard let text = observation.topCandidates(1).first?.string else { return nil }
+            let box = observation.boundingBox
+            return (text, CGRect(x: box.minX * size.width, y: (1 - box.maxY) * size.height,
+                                 width: box.width * size.width, height: box.height * size.height))
+        }
+    }
+
+    @MainActor
+    private func assertInitialParity(_ host: NSView, scroll: NSScrollView, price: String, name: String) async throws {
+        let observed = try recognizedText(try await capture(host, name: name), size: host.bounds.size)
+        XCTAssertFalse(observed.map(\.0).joined(separator: " ").lowercased().contains("vested options"))
+        var clip = scroll.contentView.convert(scroll.contentView.bounds, to: host)
+        if !host.isFlipped { clip.origin.y = host.bounds.height - clip.maxY }
+        func normalize(_ value: String) -> String {
+            value.replacingOccurrences(of: "’", with: "'").split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        }
+        for expected in ["If Tesla had SpaceX's market cap", price] {
+            if let match = observed.first(where: { normalize($0.0) == normalize(expected) }) {
+                XCTAssertTrue(clip.contains(match.1), "Complete \(expected) must lie inside initial viewport \(clip), got \(match.1)")
+            } else {
+                XCTFail("Complete \(expected) missing from initial viewport at \(host.bounds.height)")
+            }
+        }
+        let report: [String: Any] = ["clipRect": NSStringFromRect(clip), "hostBounds": NSStringFromRect(host.bounds),
+            "expectedTitle": "If Tesla had SpaceX's market cap", "expectedPrice": price,
+            "text": observed.map { ["text": $0.0, "rect": NSStringFromRect($0.1)] }]
+        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]),
+                                       uniformTypeIdentifier: "public.json")
+        attachment.name = name + "-geometry.json"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
     private func settle(_ host: NSView) async {
         for _ in 0..<6 {
             await Task.yield()
             host.layoutSubtreeIfNeeded()
         }
+        host.displayIfNeeded()
+        try? await Task.sleep(for: .milliseconds(150))
     }
 
     @MainActor
-    private func attachSnapshot(_ host: NSView, name: String) {
-        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
-            XCTFail("Unable to capture \(name)")
-            return
+    private func click(_ imagePoint: CGPoint, in host: NSView) throws {
+        let window = try XCTUnwrap(host.window)
+        let point = host.isFlipped ? imagePoint : CGPoint(x: imagePoint.x, y: host.bounds.height - imagePoint.y)
+        let location = host.convert(point, to: nil)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location, modifierFlags: [],
+                timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+            window.sendEvent(event)
         }
-        host.cacheDisplay(in: host.bounds, to: bitmap)
-        let image = NSImage(size: host.bounds.size, flipped: false) { rect in
-            NSColor.windowBackgroundColor.setFill()
-            rect.fill()
-            bitmap.draw(in: rect)
-            return true
-        }
-        let attachment = XCTAttachment(image: image)
-        attachment.name = name
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 
     @MainActor
@@ -908,5 +1243,19 @@ final class PopoverLayoutRegressionTests: XCTestCase {
     @MainActor
     private func scrollViews(in view: NSView) -> [NSScrollView] {
         (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
+    }
+}
+
+private struct VisualNotificationSink: GainThresholdNotificationDelivering, DayCloseSummaryNotificationDelivering {
+    func add(_ request: UNNotificationRequest) async throws {
+        XCTFail("Visual fixtures must not deliver notifications")
+    }
+}
+
+private struct VisualContrastProbe: View {
+    @Environment(\.colorSchemeContrast) private var contrast
+    let report: (ColorSchemeContrast) -> Void
+    var body: some View {
+        Color.clear.onAppear { report(contrast) }.onChange(of: contrast) { _, value in report(value) }
     }
 }

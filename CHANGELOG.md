@@ -8,6 +8,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ### Fixed
 
+- Restore the Tesla/SpaceX comparison above secondary popover details, move ownership methodology into Holdings, and show honest intraday chart depth with range labels, a gradient, and the latest point in both the popover and shared image.
+
 - Reconstruct Form 4 ownership from verified dated TSLA/SPCX buckets, preserving unchanged holdings and explicit zero disposals; reject ambiguous amendments, incomplete coverage, and invalid numeric values. SEC scans and archive requests are bounded and cancellable.
 - Deduplicate companyfacts whole-entity outstanding totals and reject conflicting values instead of summing them.
 - Commit snapshot, chart, milestone, and threshold observations before delivery awaits; preserve rearm/retry state and bound background gain delivery per person/preset.

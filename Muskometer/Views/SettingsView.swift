@@ -299,6 +299,10 @@ struct SettingsView: View {
 
     private var holdingsTab: some View {
         groupedCard {
+            Text("Form 4 common stock and vested options only; performance RSUs excluded until milestones.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
             if let lastSync = settings.lastHoldingsSyncDate {
                 Text("Last SEC sync: \(lastSync.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption)

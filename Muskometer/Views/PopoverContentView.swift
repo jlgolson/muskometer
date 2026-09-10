@@ -116,9 +116,18 @@ struct PopoverContentView: View {
 
     private func dataView(_ snapshot: GainsSnapshot) -> some View {
         GlassEffectContainer(spacing: MuskometerGlass.containerSpacing) {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
                 ownershipCard(snapshot)
                 combinedCard(snapshot)
+
+                if viewModel.settings.showMergerParityCard,
+                   let presentation = viewModel.mergerParityPresentation {
+                    MergerParityCardView(
+                        presentation: presentation,
+                        animateValues: true
+                    )
+                }
+
 
                 if hasDailyRecords {
                     DailyRecordsCardView(
@@ -132,15 +141,6 @@ struct PopoverContentView: View {
                     StockRowView(
                         holding: holding,
                         possessiveName: viewModel.settings.selectedProfile.possessiveName,
-                        animateValues: true
-                    )
-                }
-
-                if viewModel.settings.showMergerParityCard,
-                   let presentation = viewModel.mergerParityPresentation {
-                    MergerParityCardView(
-                        presentation: presentation,
-                        outstandingCaption: viewModel.mergerParityOutstandingCaption,
                         animateValues: true
                     )
                 }
@@ -202,10 +202,6 @@ struct PopoverContentView: View {
                         .accessibilityValue(ownershipToast)
                 }
 
-                Text("Form 4 common stock and vested options only; performance RSUs excluded until milestones.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -213,35 +209,38 @@ struct PopoverContentView: View {
                 viewModel.clearActiveMilestone()
             }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .muskometerGlassCard()
     }
 
     private func combinedCard(_ snapshot: GainsSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Combined today")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(combinedColor(snapshot))
-                    .contentTransition(.numericText())
-                    .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
-                    .accessibilityLabel("Combined paper gain or loss today")
-                    .accessibilityValue(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(combinedColor(snapshot))
+                        .contentTransition(.numericText())
+                        .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
+                        .accessibilityLabel("Combined paper gain or loss today")
+                        .accessibilityValue(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
 
-                Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
-                    .font(.subheadline.weight(.semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(combinedColor(snapshot))
-                    .contentTransition(.numericText())
-                    .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
-                    .accessibilityLabel("Combined percent change today")
-                    .accessibilityValue(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
+                    Spacer(minLength: 0)
+                    Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
+                        .font(.subheadline.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(combinedColor(snapshot))
+                        .contentTransition(.numericText())
+                        .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
+                        .accessibilityLabel("Combined percent change today")
+                        .accessibilityValue(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
+                }
 
                 HStack(spacing: 6) {
                     Circle()
@@ -288,7 +287,7 @@ struct PopoverContentView: View {
                 .help("Open the system share sheet")
             }
         }
-        .padding(14)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         // Untinted glass — full AccentColor tint washes the card solid blue in MenuBarExtra.
         .muskometerGlassCard()

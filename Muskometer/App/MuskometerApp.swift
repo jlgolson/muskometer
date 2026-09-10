@@ -1,5 +1,15 @@
 import SwiftUI
 
+#if DEBUG && MUSKOMETER_TEST_HOST
+@main
+struct MuskometerApp: App {
+    static let isIsolatedTestHost = true
+
+    var body: some Scene {
+        Settings { EmptyView() }
+    }
+}
+#else
 @main
 struct MuskometerApp: App {
     private let viewModel: GainsViewModel
@@ -65,3 +75,10 @@ struct MuskometerApp: App {
         .windowResizability(.contentSize)
     }
 }
+
+#if DEBUG
+extension MuskometerApp {
+    static let isIsolatedTestHost = false
+}
+#endif
+#endif

@@ -85,6 +85,7 @@ struct ShareCardView: View {
 
             if !intradaySamples.isEmpty {
                 GainSparklineView(samples: intradaySamples)
+                    .environment(\.colorScheme, .dark)
                     .padding(.top, 4)
             }
         }

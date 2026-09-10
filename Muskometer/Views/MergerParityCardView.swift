@@ -7,14 +7,16 @@ struct MergerParityCardView: View {
     var animateValues = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
             Text("If Tesla had SpaceX's market cap")
                 .font(.caption)
+                .accessibilityIdentifier("merger-parity-title")
                 .foregroundStyle(.secondary)
 
             priceText(CurrencyFormatter.formatPrice(presentation.impliedTSLAPrice))
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .monospacedDigit()
+                .accessibilityIdentifier("merger-parity-price")
 
             Text(caption)
                 .font(.caption2)

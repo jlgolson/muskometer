@@ -1,0 +1,3 @@
+{"kind":"integration","scope":"2026-09-10-review-fixes","task":1,"round":null,"commit":"0c085d8b3c1936592fd059ea441115f906580787","base":"308bb9fb5510f9c6300f558c05dbb4f014c4daa4","ts":"2026-09-10T06:44:08.498528Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"spec-reviewer","task":1,"round":null,"ts":"2026-09-10T06:44:08.499286Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"code-quality-reviewer","task":1,"round":null,"ts":"2026-09-10T06:44:08.499470Z"}

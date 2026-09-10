@@ -1,0 +1,36 @@
+{
+  "spec": {
+    "dispatch_id": "917acb58-18dc-4c2c-a2c7-e986c0404ddb-task-1",
+    "persisted": true,
+    "authorship_matches": true,
+    "convergence": {
+      "reviewer": "spec",
+      "round": 1,
+      "next_round": null,
+      "findings_count": 0,
+      "overlap_with_prev": null,
+      "action": "pass",
+      "reason": "round 1: 0 findings; pass",
+      "last_verdict": "APPROVED"
+    },
+    "open_adjudications": [],
+    "trailer_verification": ""
+  },
+  "quality": {
+    "dispatch_id": "477bd75a-5685-4550-be66-67fe4d21f784-task-1",
+    "persisted": true,
+    "authorship_matches": true,
+    "convergence": {
+      "reviewer": "quality",
+      "round": 1,
+      "next_round": null,
+      "findings_count": 0,
+      "overlap_with_prev": null,
+      "action": "pass",
+      "reason": "round 1: 0 findings; pass",
+      "last_verdict": "APPROVED"
+    },
+    "open_adjudications": [],
+    "trailer_verification": ""
+  }
+}

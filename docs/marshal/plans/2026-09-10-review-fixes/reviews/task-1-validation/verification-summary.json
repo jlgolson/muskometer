@@ -1,0 +1,23 @@
+{
+  "result": "PASS",
+  "test_count": 248,
+  "failures": 0,
+  "skipped": 0,
+  "executed_identifiers_match_pre_and_post_source": true,
+  "method_bodies_and_assertions_preserved": true,
+  "declarations_preserved_except_six_authorized_visibility_changes": true,
+  "project_registration_has_unique_identifiers": true,
+  "production_files_unchanged": true,
+  "head_unchanged_no_commit": true,
+  "warnings": "Two async lock/unlock warnings in byte-identical existing MockUpdateNotificationDeliverer.",
+  "changed_files": [
+    "Muskometer.xcodeproj/project.pbxproj",
+    "MuskometerTests/InterfaceAndCalendarTests.swift",
+    "MuskometerTests/MuskometerTests.swift",
+    "MuskometerTests/NotificationServicesTests.swift",
+    "MuskometerTests/OwnershipSyncTests.swift",
+    "MuskometerTests/RefreshLifecycleTests.swift"
+  ],
+  "command": "DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild test -scheme Muskometer -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath build/task-1-tests -resultBundlePath build/task-1-evidence/test-results.xcresult -quiet",
+  "xcodebuild_exit_code": 0
+}

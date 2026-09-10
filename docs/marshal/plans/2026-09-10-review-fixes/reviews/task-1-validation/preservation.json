@@ -1,0 +1,603 @@
+{
+  "base_sha": "308bb9fb5510f9c6300f558c05dbb4f014c4daa4",
+  "pre_test_count": 248,
+  "post_test_count": 248,
+  "identifiers_equal": true,
+  "all_test_method_bodies_byte_equal": true,
+  "pre_assertion_count": 756,
+  "post_assertion_count": 756,
+  "entire_declarations_equal_except_six_authorized_private_removals": true,
+  "shared_helpers": [
+    "EasternTestDates",
+    "FixedMarketHours",
+    "MockHoldingsSyncService",
+    "MockIssuerOutstandingSyncService",
+    "MockStockService",
+    "MutableMockStockService"
+  ],
+  "moves": {
+    "OwnershipSyncTests.swift": [
+      "AppSettingsHoldingsSyncTests",
+      "CompanyFactsOutstandingResolverTests",
+      "SPCXHoldingsTests",
+      "SPCXOwnershipCalculatorTests",
+      "SECHoldingsSyncServiceFormTypeTests",
+      "Form4OwnershipParserTests"
+    ],
+    "NotificationServicesTests.swift": [
+      "DailyRecordTrackerTests",
+      "MockGainThresholdNotificationDeliverer",
+      "GainThresholdNotificationServiceTests",
+      "DayCloseSummaryNotificationServiceTests"
+    ],
+    "InterfaceAndCalendarTests.swift": [
+      "MarketHoursServiceTests",
+      "AppSettingsLaunchAtLoginTests",
+      "MockLaunchAtLoginManager"
+    ],
+    "RefreshLifecycleTests.swift": [
+      "GainsViewModelHoldingsSyncBackoffTests",
+      "GainsViewModelMergerParityPresentationTests",
+      "GainsViewModelIssuerOutstandingSyncTests",
+      "GainsViewModelExtendedHoursTests",
+      "GainsViewModelMenuBarTitleTests",
+      "GainsViewModelOpenSessionRefreshTimingTests",
+      "GainsViewModelCopyShareTests",
+      "GainsViewModelDayCloseNotificationTests",
+      "GainsViewModelResetTests",
+      "GainsViewModelOffMarketSparklineTests",
+      "GainsViewModelTrillionEasterEggTests"
+    ]
+  },
+  "declarations": [
+    {
+      "declaration": "AppSettingsHoldingsSyncTests",
+      "destination": "MuskometerTests/OwnershipSyncTests.swift",
+      "original_sha256": "82ecbc847c39c90071b156f547a9c071e34079a28502cc4c7909d2a0decce093",
+      "expected_sha256": "82ecbc847c39c90071b156f547a9c071e34079a28502cc4c7909d2a0decce093",
+      "actual_sha256": "82ecbc847c39c90071b156f547a9c071e34079a28502cc4c7909d2a0decce093",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "AppSettingsLaunchAtLoginTests",
+      "destination": "MuskometerTests/InterfaceAndCalendarTests.swift",
+      "original_sha256": "78e670218b9c3b4200da6ad771a0643d23b07e3f4aaa87335ef4bd4975de6983",
+      "expected_sha256": "78e670218b9c3b4200da6ad771a0643d23b07e3f4aaa87335ef4bd4975de6983",
+      "actual_sha256": "78e670218b9c3b4200da6ad771a0643d23b07e3f4aaa87335ef4bd4975de6983",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "AppSettingsTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "23964202f6fe989836b35e7a70f562179e0a79265e7ccbe910b1e539cdb23780",
+      "expected_sha256": "23964202f6fe989836b35e7a70f562179e0a79265e7ccbe910b1e539cdb23780",
+      "actual_sha256": "23964202f6fe989836b35e7a70f562179e0a79265e7ccbe910b1e539cdb23780",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "CompanyFactsOutstandingResolverTests",
+      "destination": "MuskometerTests/OwnershipSyncTests.swift",
+      "original_sha256": "4ce3a040a1086d836b65d822feb62c284fabb6ea742b0033dfbb8e58728d4922",
+      "expected_sha256": "4ce3a040a1086d836b65d822feb62c284fabb6ea742b0033dfbb8e58728d4922",
+      "actual_sha256": "4ce3a040a1086d836b65d822feb62c284fabb6ea742b0033dfbb8e58728d4922",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "CurrencyFormatterTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "776c71a67463d7b7f8bfd3336c87d03a498babacccf75d78e42cda6cd16f6188",
+      "expected_sha256": "776c71a67463d7b7f8bfd3336c87d03a498babacccf75d78e42cda6cd16f6188",
+      "actual_sha256": "776c71a67463d7b7f8bfd3336c87d03a498babacccf75d78e42cda6cd16f6188",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "DailyRecordTrackerTests",
+      "destination": "MuskometerTests/NotificationServicesTests.swift",
+      "original_sha256": "0ba9ffd5a046dc484e73b267896f3aec638fafbdca7ba4b95729f78f42214920",
+      "expected_sha256": "0ba9ffd5a046dc484e73b267896f3aec638fafbdca7ba4b95729f78f42214920",
+      "actual_sha256": "0ba9ffd5a046dc484e73b267896f3aec638fafbdca7ba4b95729f78f42214920",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "DayCloseSummaryNotificationServiceTests",
+      "destination": "MuskometerTests/NotificationServicesTests.swift",
+      "original_sha256": "8897b1f94ec061bedeba9d9b2352a99a5e9d0cfe2ef678b6968001bfdb06642a",
+      "expected_sha256": "8897b1f94ec061bedeba9d9b2352a99a5e9d0cfe2ef678b6968001bfdb06642a",
+      "actual_sha256": "8897b1f94ec061bedeba9d9b2352a99a5e9d0cfe2ef678b6968001bfdb06642a",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "EasternTestDates",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "d8a74ee9b1c468616cd736aa2f53aa8fdac67b48f05b5220dcfbeed8fa949089",
+      "expected_sha256": "bff629826849b12da420e34bc73256958ed964c456d3de4c0d3bb68c845a3c17",
+      "actual_sha256": "bff629826849b12da420e34bc73256958ed964c456d3de4c0d3bb68c845a3c17",
+      "only_visibility_changed": true,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "FixedMarketHours",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "7c5e56af29c8c47c1f6e410cea027420d7d9869f90aed5ecda1368b16cd0f19d",
+      "expected_sha256": "1c1895000ac9beb1808dd570fbf6a43d7c9fefc9d0adaac0b7e62207a41a6678",
+      "actual_sha256": "1c1895000ac9beb1808dd570fbf6a43d7c9fefc9d0adaac0b7e62207a41a6678",
+      "only_visibility_changed": true,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "Form4OwnershipParserTests",
+      "destination": "MuskometerTests/OwnershipSyncTests.swift",
+      "original_sha256": "50e11f49607488105fb8456f321246b784c0d7771095c9d4d0fa750a656372fd",
+      "expected_sha256": "50e11f49607488105fb8456f321246b784c0d7771095c9d4d0fa750a656372fd",
+      "actual_sha256": "50e11f49607488105fb8456f321246b784c0d7771095c9d4d0fa750a656372fd",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainNotificationThresholdTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "d509ad1756b583246ada605a1a3feb5b08101a361badb3172c09175663251ea8",
+      "expected_sha256": "d509ad1756b583246ada605a1a3feb5b08101a361badb3172c09175663251ea8",
+      "actual_sha256": "d509ad1756b583246ada605a1a3feb5b08101a361badb3172c09175663251ea8",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainSummaryFormatterTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "7f059dd5aa68a5ac34fe57812dae69710a8b2ba7e8f69b7a8c5cbed1e446e9cc",
+      "expected_sha256": "7f059dd5aa68a5ac34fe57812dae69710a8b2ba7e8f69b7a8c5cbed1e446e9cc",
+      "actual_sha256": "7f059dd5aa68a5ac34fe57812dae69710a8b2ba7e8f69b7a8c5cbed1e446e9cc",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainThresholdNotificationServiceTests",
+      "destination": "MuskometerTests/NotificationServicesTests.swift",
+      "original_sha256": "133cb7bab50fbef75f3a2a669d91bd3ff2b4f9740da7cabacc9f88f2810ade0f",
+      "expected_sha256": "133cb7bab50fbef75f3a2a669d91bd3ff2b4f9740da7cabacc9f88f2810ade0f",
+      "actual_sha256": "133cb7bab50fbef75f3a2a669d91bd3ff2b4f9740da7cabacc9f88f2810ade0f",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsSnapshotTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "39789034f48a3c3528d2a103d6fd96961889b324d2de95ea87e0e5e7008ac91c",
+      "expected_sha256": "39789034f48a3c3528d2a103d6fd96961889b324d2de95ea87e0e5e7008ac91c",
+      "actual_sha256": "39789034f48a3c3528d2a103d6fd96961889b324d2de95ea87e0e5e7008ac91c",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelCopyShareTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "973a767db9349ae843284919dfb680da158b1cfc653f0d36b9e3847e37afb27b",
+      "expected_sha256": "973a767db9349ae843284919dfb680da158b1cfc653f0d36b9e3847e37afb27b",
+      "actual_sha256": "973a767db9349ae843284919dfb680da158b1cfc653f0d36b9e3847e37afb27b",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelDayCloseNotificationTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "c2f0b9dc5eb6e9df9c696f76e60017463ea8d76d6ec4299993fb5044aa6c446a",
+      "expected_sha256": "c2f0b9dc5eb6e9df9c696f76e60017463ea8d76d6ec4299993fb5044aa6c446a",
+      "actual_sha256": "c2f0b9dc5eb6e9df9c696f76e60017463ea8d76d6ec4299993fb5044aa6c446a",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelExtendedHoursTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "84ae1f49cc5b2c36f26a48217815cf424dd84673129f3b7e05dd0d1aa155e212",
+      "expected_sha256": "84ae1f49cc5b2c36f26a48217815cf424dd84673129f3b7e05dd0d1aa155e212",
+      "actual_sha256": "84ae1f49cc5b2c36f26a48217815cf424dd84673129f3b7e05dd0d1aa155e212",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelHoldingsSyncBackoffTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "add07675b66218b2283fe464f98f6ed0325b8e6773a33295d408fa1eaa5f7b5e",
+      "expected_sha256": "add07675b66218b2283fe464f98f6ed0325b8e6773a33295d408fa1eaa5f7b5e",
+      "actual_sha256": "add07675b66218b2283fe464f98f6ed0325b8e6773a33295d408fa1eaa5f7b5e",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelIssuerOutstandingSyncTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "ddcc0ea6c918337eefcef5c19825a3fc072d89d7b295792da9f9ea82a9792f06",
+      "expected_sha256": "ddcc0ea6c918337eefcef5c19825a3fc072d89d7b295792da9f9ea82a9792f06",
+      "actual_sha256": "ddcc0ea6c918337eefcef5c19825a3fc072d89d7b295792da9f9ea82a9792f06",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelMenuBarTitleTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "2e35c67b723992ce6da06a0ebbe0d080b9e09cc27e1db194d554c91921d563df",
+      "expected_sha256": "2e35c67b723992ce6da06a0ebbe0d080b9e09cc27e1db194d554c91921d563df",
+      "actual_sha256": "2e35c67b723992ce6da06a0ebbe0d080b9e09cc27e1db194d554c91921d563df",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelMergerParityPresentationTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "06d990f4f9c716b8b947b7f13213ffb6899523ce2f7e287800653f55a9ac093c",
+      "expected_sha256": "06d990f4f9c716b8b947b7f13213ffb6899523ce2f7e287800653f55a9ac093c",
+      "actual_sha256": "06d990f4f9c716b8b947b7f13213ffb6899523ce2f7e287800653f55a9ac093c",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelOffMarketSparklineTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "9f9182a1c9d7625b71b9e7c653b2a4fce0cb9ad595e6e534028a99135b3f7e10",
+      "expected_sha256": "9f9182a1c9d7625b71b9e7c653b2a4fce0cb9ad595e6e534028a99135b3f7e10",
+      "actual_sha256": "9f9182a1c9d7625b71b9e7c653b2a4fce0cb9ad595e6e534028a99135b3f7e10",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelOpenSessionRefreshTimingTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "7ed38e84225ecfd65766d1617092381730e0b714d8e5d02e6cd1690fde976eef",
+      "expected_sha256": "7ed38e84225ecfd65766d1617092381730e0b714d8e5d02e6cd1690fde976eef",
+      "actual_sha256": "7ed38e84225ecfd65766d1617092381730e0b714d8e5d02e6cd1690fde976eef",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelResetTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "e69d3975984c27cfa7f2c4480198cb6d67fd11335dee76629bd186e8cf60f735",
+      "expected_sha256": "e69d3975984c27cfa7f2c4480198cb6d67fd11335dee76629bd186e8cf60f735",
+      "actual_sha256": "e69d3975984c27cfa7f2c4480198cb6d67fd11335dee76629bd186e8cf60f735",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GainsViewModelTrillionEasterEggTests",
+      "destination": "MuskometerTests/RefreshLifecycleTests.swift",
+      "original_sha256": "7d0971f413dd5e9a522bf1f07c30e5a253003205ef9557b92d59f1fc4344c079",
+      "expected_sha256": "7d0971f413dd5e9a522bf1f07c30e5a253003205ef9557b92d59f1fc4344c079",
+      "actual_sha256": "7d0971f413dd5e9a522bf1f07c30e5a253003205ef9557b92d59f1fc4344c079",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "GitHubReleaseUpdateCheckerTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "279d4dd3b5b2aaf3f8dbc41a4ce85de412ed424ed08f5fb34a2b31ec03fd9e44",
+      "expected_sha256": "279d4dd3b5b2aaf3f8dbc41a4ce85de412ed424ed08f5fb34a2b31ec03fd9e44",
+      "actual_sha256": "279d4dd3b5b2aaf3f8dbc41a4ce85de412ed424ed08f5fb34a2b31ec03fd9e44",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "IntradayGainSampleStoreTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "6db872d23608b9558e285261ca3f0a83f186e2d66276a3e69707bed6a43f657c",
+      "expected_sha256": "6db872d23608b9558e285261ca3f0a83f186e2d66276a3e69707bed6a43f657c",
+      "actual_sha256": "6db872d23608b9558e285261ca3f0a83f186e2d66276a3e69707bed6a43f657c",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "IssuerSharesOutstandingTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "f6da283e0d7721b366d5648bd257ce3daeb8253dc1ee9982d451881ec9b76e9e",
+      "expected_sha256": "f6da283e0d7721b366d5648bd257ce3daeb8253dc1ee9982d451881ec9b76e9e",
+      "actual_sha256": "f6da283e0d7721b366d5648bd257ce3daeb8253dc1ee9982d451881ec9b76e9e",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MarketHoursServiceTests",
+      "destination": "MuskometerTests/InterfaceAndCalendarTests.swift",
+      "original_sha256": "111e5ac09ca43eceb560274534624cab4d71213a6834b24f8b4253d6630b9321",
+      "expected_sha256": "111e5ac09ca43eceb560274534624cab4d71213a6834b24f8b4253d6630b9321",
+      "actual_sha256": "111e5ac09ca43eceb560274534624cab4d71213a6834b24f8b4253d6630b9321",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MarketStatusFormatterTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "da9ad907c80cda9c4a11164ad574111f028863dc907105d80c23fbdbc48a0d36",
+      "expected_sha256": "da9ad907c80cda9c4a11164ad574111f028863dc907105d80c23fbdbc48a0d36",
+      "actual_sha256": "da9ad907c80cda9c4a11164ad574111f028863dc907105d80c23fbdbc48a0d36",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MenuBarDisplayModeCycleMatcherTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "8362ef2e924533314a3f433a67baf11111cc05a3f4627b48db5376677640908b",
+      "expected_sha256": "8362ef2e924533314a3f433a67baf11111cc05a3f4627b48db5376677640908b",
+      "actual_sha256": "8362ef2e924533314a3f433a67baf11111cc05a3f4627b48db5376677640908b",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MenuBarDisplayModeCycleTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "84d9ea11eca76c27fb5cb6f6ee37554c6a49e4c2587d13f4e84fef0230b2358d",
+      "expected_sha256": "84d9ea11eca76c27fb5cb6f6ee37554c6a49e4c2587d13f4e84fef0230b2358d",
+      "actual_sha256": "84d9ea11eca76c27fb5cb6f6ee37554c6a49e4c2587d13f4e84fef0230b2358d",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MenuBarDisplayModeTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "c1bc0a9b4305c0c791a1298d9a90ee38358f9fb8c7d31d761bfa29b78b00dc6c",
+      "expected_sha256": "c1bc0a9b4305c0c791a1298d9a90ee38358f9fb8c7d31d761bfa29b78b00dc6c",
+      "actual_sha256": "c1bc0a9b4305c0c791a1298d9a90ee38358f9fb8c7d31d761bfa29b78b00dc6c",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MergerMarketCapParityTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "0038c9139180ba5581b93f938921bf6e75608f8d4db8f245591138e4b2e33244",
+      "expected_sha256": "0038c9139180ba5581b93f938921bf6e75608f8d4db8f245591138e4b2e33244",
+      "actual_sha256": "0038c9139180ba5581b93f938921bf6e75608f8d4db8f245591138e4b2e33244",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockGainThresholdNotificationDeliverer",
+      "destination": "MuskometerTests/NotificationServicesTests.swift",
+      "original_sha256": "da16d6acdbc6c0ed9f9d94ce61938fe99331148720396b8a7337684e70674397",
+      "expected_sha256": "da16d6acdbc6c0ed9f9d94ce61938fe99331148720396b8a7337684e70674397",
+      "actual_sha256": "da16d6acdbc6c0ed9f9d94ce61938fe99331148720396b8a7337684e70674397",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockHoldingsSyncService",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "b4d5ed7a66c17c02a0a50559122969f9e76928608e60ed03b1a1d8c5beb04fa8",
+      "expected_sha256": "29141b3b74267d5689025a86fc8d033cfb1dedf0a1b086ad0f19aff51f7e6a82",
+      "actual_sha256": "29141b3b74267d5689025a86fc8d033cfb1dedf0a1b086ad0f19aff51f7e6a82",
+      "only_visibility_changed": true,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockIssuerOutstandingSyncService",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "1a1cfdef04b3c8ea538057100f86dce6531b5144d979a599131cbe38719c7b9c",
+      "expected_sha256": "0fd7a0d8d6f7726abb71f97c596553a528b64a4abd58c2b54674cda5810bbb01",
+      "actual_sha256": "0fd7a0d8d6f7726abb71f97c596553a528b64a4abd58c2b54674cda5810bbb01",
+      "only_visibility_changed": true,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockLaunchAtLoginManager",
+      "destination": "MuskometerTests/InterfaceAndCalendarTests.swift",
+      "original_sha256": "07ab0c0d3822eaaf166ccea92dd64bc03972d6c4ba70f2326dffa1bb892797c3",
+      "expected_sha256": "07ab0c0d3822eaaf166ccea92dd64bc03972d6c4ba70f2326dffa1bb892797c3",
+      "actual_sha256": "07ab0c0d3822eaaf166ccea92dd64bc03972d6c4ba70f2326dffa1bb892797c3",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockStockService",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "0a84671875e407c2e62ece243969777af3fc40549408794930a2c24417196d07",
+      "expected_sha256": "23e859564a1ceb45e4a9a380ee3cc0582dbddcf828d0795b3597a7c6293fde1e",
+      "actual_sha256": "23e859564a1ceb45e4a9a380ee3cc0582dbddcf828d0795b3597a7c6293fde1e",
+      "only_visibility_changed": true,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockURLProtocol",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "8be833a8e9a243aafef7a40c69fcc4e2013898768f83f5c1d9da5b0c8e672416",
+      "expected_sha256": "8be833a8e9a243aafef7a40c69fcc4e2013898768f83f5c1d9da5b0c8e672416",
+      "actual_sha256": "8be833a8e9a243aafef7a40c69fcc4e2013898768f83f5c1d9da5b0c8e672416",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockUpdateChecker",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "41b06fdbb1b51bb31b9e31165e95df646df13c5b5e3c4279714d367135a11e65",
+      "expected_sha256": "41b06fdbb1b51bb31b9e31165e95df646df13c5b5e3c4279714d367135a11e65",
+      "actual_sha256": "41b06fdbb1b51bb31b9e31165e95df646df13c5b5e3c4279714d367135a11e65",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MockUpdateNotificationDeliverer",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "7c2f7acf5a667f040c5554e52d7e511a857b55657836b1768aa5e3a12624539b",
+      "expected_sha256": "7c2f7acf5a667f040c5554e52d7e511a857b55657836b1768aa5e3a12624539b",
+      "actual_sha256": "7c2f7acf5a667f040c5554e52d7e511a857b55657836b1768aa5e3a12624539b",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "MutableMockStockService",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "7421745e6f3e2eb35ae2a1226fb95270b9f3f76ba63eafef3a468170f9408d4d",
+      "expected_sha256": "50c29fc951e7dcb6170b27bf9b0e6069841bc4616c9accfc42e011939d0c4995",
+      "actual_sha256": "50c29fc951e7dcb6170b27bf9b0e6069841bc4616c9accfc42e011939d0c4995",
+      "only_visibility_changed": true,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "NetWorthMilestoneTrackerTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "6d603d24571500bd1629f6dee66c8eb4a8481a16169f2f144f365bd0713ed94e",
+      "expected_sha256": "6d603d24571500bd1629f6dee66c8eb4a8481a16169f2f144f365bd0713ed94e",
+      "actual_sha256": "6d603d24571500bd1629f6dee66c8eb4a8481a16169f2f144f365bd0713ed94e",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "NotificationResponseRouterTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "cec37abd18cfdef61faf118a35117ef762a8c9ae543bc6817ab0ec255490fddc",
+      "expected_sha256": "cec37abd18cfdef61faf118a35117ef762a8c9ae543bc6817ab0ec255490fddc",
+      "actual_sha256": "cec37abd18cfdef61faf118a35117ef762a8c9ae543bc6817ab0ec255490fddc",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "OwnershipChangeToastTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "d42da25eae30ca9f0f846a260919c4639c095d01178a92e780f9091a5870b655",
+      "expected_sha256": "d42da25eae30ca9f0f846a260919c4639c095d01178a92e780f9091a5870b655",
+      "actual_sha256": "d42da25eae30ca9f0f846a260919c4639c095d01178a92e780f9091a5870b655",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "QuoteBatchMergerTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "0903a2a9bbf9939f96aabdd292a0cd0b783de241ac0d7d3998ac547b56b603b8",
+      "expected_sha256": "0903a2a9bbf9939f96aabdd292a0cd0b783de241ac0d7d3998ac547b56b603b8",
+      "actual_sha256": "0903a2a9bbf9939f96aabdd292a0cd0b783de241ac0d7d3998ac547b56b603b8",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "QuotePriceResolverTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "1f3853b494a0195f71f001ab250c2a606e8f91354095fb2652c97cfb84b5e308",
+      "expected_sha256": "1f3853b494a0195f71f001ab250c2a606e8f91354095fb2652c97cfb84b5e308",
+      "actual_sha256": "1f3853b494a0195f71f001ab250c2a606e8f91354095fb2652c97cfb84b5e308",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "SECHoldingsSyncServiceFormTypeTests",
+      "destination": "MuskometerTests/OwnershipSyncTests.swift",
+      "original_sha256": "dd45802435fd7511a9b635b021eb90209fff09232822c72c2cb3b99da3afc041",
+      "expected_sha256": "dd45802435fd7511a9b635b021eb90209fff09232822c72c2cb3b99da3afc041",
+      "actual_sha256": "dd45802435fd7511a9b635b021eb90209fff09232822c72c2cb3b99da3afc041",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "SPCXHoldingsTests",
+      "destination": "MuskometerTests/OwnershipSyncTests.swift",
+      "original_sha256": "79a8c42380c3c6ca7444b71fe161f58d1fbd9479ba0a455ea986399bf91f7929",
+      "expected_sha256": "79a8c42380c3c6ca7444b71fe161f58d1fbd9479ba0a455ea986399bf91f7929",
+      "actual_sha256": "79a8c42380c3c6ca7444b71fe161f58d1fbd9479ba0a455ea986399bf91f7929",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "SPCXOwnershipCalculatorTests",
+      "destination": "MuskometerTests/OwnershipSyncTests.swift",
+      "original_sha256": "c9028a5b03e705f844e5a95d0468649706e62ffb28a89e3bb0d7a110f88754a1",
+      "expected_sha256": "c9028a5b03e705f844e5a95d0468649706e62ffb28a89e3bb0d7a110f88754a1",
+      "actual_sha256": "c9028a5b03e705f844e5a95d0468649706e62ffb28a89e3bb0d7a110f88754a1",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "SemanticVersionTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "4969dd1ad9ecff5a4f2cfb7ff768a38ad07150b991e066f6c2f762e89018a0ad",
+      "expected_sha256": "4969dd1ad9ecff5a4f2cfb7ff768a38ad07150b991e066f6c2f762e89018a0ad",
+      "actual_sha256": "4969dd1ad9ecff5a4f2cfb7ff768a38ad07150b991e066f6c2f762e89018a0ad",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "ShareCountTextInputTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "6482ba7c2966c056949f3087495cd02c670fecb27838437f4062acb2f3d0515a",
+      "expected_sha256": "6482ba7c2966c056949f3087495cd02c670fecb27838437f4062acb2f3d0515a",
+      "actual_sha256": "6482ba7c2966c056949f3087495cd02c670fecb27838437f4062acb2f3d0515a",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "ShareImageExporterTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "8833dd15c81de90c8da0c216a9e971ceaa818ee721c80fd0c857b0e66a145251",
+      "expected_sha256": "8833dd15c81de90c8da0c216a9e971ceaa818ee721c80fd0c857b0e66a145251",
+      "actual_sha256": "8833dd15c81de90c8da0c216a9e971ceaa818ee721c80fd0c857b0e66a145251",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "ShareShortcutMatcherTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "c09efaf50958ae96045a1025b4836f564612b64dc93448694744f7d47e24e8d3",
+      "expected_sha256": "c09efaf50958ae96045a1025b4836f564612b64dc93448694744f7d47e24e8d3",
+      "actual_sha256": "c09efaf50958ae96045a1025b4836f564612b64dc93448694744f7d47e24e8d3",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "StockQuoteTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "3bff9ad301ea01f2dabfa69cc99aea09ae0686b91932fec116fef7d251ed3b23",
+      "expected_sha256": "3bff9ad301ea01f2dabfa69cc99aea09ae0686b91932fec116fef7d251ed3b23",
+      "actual_sha256": "3bff9ad301ea01f2dabfa69cc99aea09ae0686b91932fec116fef7d251ed3b23",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "StringTruncationTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "64d2c4a231a421315095f98e82409046882b293f54247b042b7285859045cfa6",
+      "expected_sha256": "64d2c4a231a421315095f98e82409046882b293f54247b042b7285859045cfa6",
+      "actual_sha256": "64d2c4a231a421315095f98e82409046882b293f54247b042b7285859045cfa6",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "TradingDayCalendarTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "94302ff8affc94124ed02155f03243dd3c7c6330804a23566a229d0fce1efd37",
+      "expected_sha256": "94302ff8affc94124ed02155f03243dd3c7c6330804a23566a229d0fce1efd37",
+      "actual_sha256": "94302ff8affc94124ed02155f03243dd3c7c6330804a23566a229d0fce1efd37",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "UpdateCoordinatorTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "a4e2a705a90f1401a51f34bf1991bfc428b9b3ad102d79da8e42c525dd2fb558",
+      "expected_sha256": "a4e2a705a90f1401a51f34bf1991bfc428b9b3ad102d79da8e42c525dd2fb558",
+      "actual_sha256": "a4e2a705a90f1401a51f34bf1991bfc428b9b3ad102d79da8e42c525dd2fb558",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "YahooFinanceStockPriceServiceTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "dc9698f9f1885f2ad8505dab6c69c7b8d1723aa179c0d503e5af212bbace5eb0",
+      "expected_sha256": "dc9698f9f1885f2ad8505dab6c69c7b8d1723aa179c0d503e5af212bbace5eb0",
+      "actual_sha256": "dc9698f9f1885f2ad8505dab6c69c7b8d1723aa179c0d503e5af212bbace5eb0",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    },
+    {
+      "declaration": "YahooMarketStateMapperTests",
+      "destination": "MuskometerTests/MuskometerTests.swift",
+      "original_sha256": "4d891410fe08cfedafac35cca1ff492821898b995cfcacc4d93e8cd895d20406",
+      "expected_sha256": "4d891410fe08cfedafac35cca1ff492821898b995cfcacc4d93e8cd895d20406",
+      "actual_sha256": "4d891410fe08cfedafac35cca1ff492821898b995cfcacc4d93e8cd895d20406",
+      "only_visibility_changed": false,
+      "exact_expected_match": true
+    }
+  ]
+}

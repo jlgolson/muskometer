@@ -1,0 +1,46 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "00006001-001270141A41801E",
+        "deviceName" : "My Mac",
+        "modelName" : "Mac Studio",
+        "osBuildNumber" : "25E253",
+        "osVersion" : "26.4.1",
+        "platform" : "macOS"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 248,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "Muskometer · Built with macOS 26.4.1",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1789022486.143,
+  "passedTests" : 248,
+  "result" : "Passed",
+  "skippedTests" : 0,
+  "startTime" : 1789022466.008,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - Muskometer",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "53% of duration",
+      "text" : "6 longest test runs with outlier durations exceeding 0.14s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 248
+}

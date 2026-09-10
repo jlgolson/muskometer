@@ -76,6 +76,10 @@
 		A10000000000000000000052 /* CompanyFactsOutstandingResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000052 /* CompanyFactsOutstandingResolver.swift */; };
 		A10000000000000000000053 /* IssuerOutstandingSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000053 /* IssuerOutstandingSyncService.swift */; };
 		A10000000000000000000054 /* MergerParityCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000054 /* MergerParityCardView.swift */; };
+		A1000000000000000000005A /* OwnershipSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000005A /* OwnershipSyncTests.swift */; };
+		A1000000000000000000005B /* NotificationServicesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000005B /* NotificationServicesTests.swift */; };
+		A1000000000000000000005C /* InterfaceAndCalendarTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000005C /* InterfaceAndCalendarTests.swift */; };
+		A1000000000000000000005D /* RefreshLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000005D /* RefreshLifecycleTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -152,6 +156,10 @@
 		A20000000000000000000052 /* CompanyFactsOutstandingResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyFactsOutstandingResolver.swift; sourceTree = "<group>"; };
 		A20000000000000000000053 /* IssuerOutstandingSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IssuerOutstandingSyncService.swift; sourceTree = "<group>"; };
 		A20000000000000000000054 /* MergerParityCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergerParityCardView.swift; sourceTree = "<group>"; };
+		A2000000000000000000005A /* OwnershipSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnershipSyncTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000005B /* NotificationServicesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationServicesTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000005C /* InterfaceAndCalendarTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InterfaceAndCalendarTests.swift; sourceTree = "<group>"; };
+		A2000000000000000000005D /* RefreshLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RefreshLifecycleTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -229,6 +237,10 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000013 /* MuskometerTests.swift */,
+				A2000000000000000000005A /* OwnershipSyncTests.swift */,
+				A2000000000000000000005B /* NotificationServicesTests.swift */,
+				A2000000000000000000005C /* InterfaceAndCalendarTests.swift */,
+				A2000000000000000000005D /* RefreshLifecycleTests.swift */,
 			);
 			path = MuskometerTests;
 			sourceTree = "<group>";
@@ -514,6 +526,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000000000000000000011 /* MuskometerTests.swift in Sources */,
+				A1000000000000000000005A /* OwnershipSyncTests.swift in Sources */,
+				A1000000000000000000005B /* NotificationServicesTests.swift in Sources */,
+				A1000000000000000000005C /* InterfaceAndCalendarTests.swift in Sources */,
+				A1000000000000000000005D /* RefreshLifecycleTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -10,3 +10,8 @@
 {"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"objective-reviewer","task":0,"round":2,"ts":"2026-09-10T17:49:24.057597Z"}
 {"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"objective-reviewer","task":0,"round":2,"ts":"2026-09-10T17:49:24.057696Z"}
 {"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"objective-reviewer","task":0,"round":2,"ts":"2026-09-10T17:50:08.103645Z"}
+{"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"plan-correctness","task":0,"round":3,"ts":"2026-09-10T17:55:23.556945Z"}
+{"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"holistic","task":0,"round":3,"ts":"2026-09-10T17:55:23.557740Z"}
+{"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"plan-to-spec-translator","task":0,"round":1,"ts":"2026-09-10T17:59:52.471795Z"}
+{"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"parallelism-analyst","task":0,"round":1,"ts":"2026-09-10T18:03:28.866491Z"}
+{"kind":"dispatch","scope":"2026-09-10-popover-visual-correction","role":"parallelism-verifier","task":0,"round":1,"ts":"2026-09-10T18:05:35.650088Z"}

@@ -1,0 +1,78 @@
+# Plan-to-spec translation review
+
+## Cold description — written before reading the spec
+
+The plan produces a local correction to Muskometer’s popover, Holdings settings, and shared chart, implemented as one coupled task in the existing repair worktree. It changes eight tracked files: `GainSparklineView.swift`, `PopoverContentView.swift`, `SettingsView.swift`, `MergerParityCardView.swift`, `ShareCardView.swift`, `InterfaceAndCalendarTests.swift`, `MuskometerApp.swift`, and `CHANGELOG.md`. It creates no production source file, app, package, service, or project configuration. New outputs comprise ignored capture tooling, screenshots, logs and result bundles, plus a durable validation manifest and separate reviewer artifacts.
+
+The main popover will place ownership first, followed by combined gain/chart, parity, daily records, and stocks. The complete parity heading and formatted implied price must appear before scrolling at 600, 700, 800, and 900 points. Compact spacing and a combined gain/percentage row may achieve this while preserving readable content, status, both share buttons, scrolling and the fixed footer. The permanent methodology paragraph moves once to Holdings beside SEC/source information. Ownership totals, transient feedback, milestone overlays, holdings controls, provenance, parity settings and calculations remain intact. The main parity card loses only its long provenance caption.
+
+The shared Canvas chart will use actual monetary extrema, a centered minimum span and eight-percent padding, making the recorded nine-point positive series visibly variable. It retains real timestamp spacing and zero-crossing sign segmentation. A 60-point plot gains a rounded two-point stroke, restrained area gradient, latest-point dot, explicit monetary domain labels, and accessible domain context. Zero appears only inside the visible domain; fills terminate at appropriate visible domain edges or genuine crossing zero. Flat, empty and single-point inputs remain honest. App appearances and the dark share export must retain readable labels and complete assets.
+
+Validation adds an inert compile-time XCTest app entry point and a test-only condition in the existing ignored test wrapper; ordinary startup remains unchanged. An exactly-one-case bootstrap pass must precede presentation red tests. Existing tests are retained and strengthened with actual first-viewport heading/price geometry, using accessibility or mandatory image recognition fallback. Focused chart cases cover signs, degenerate inputs, irregular times and 400 points. Red/green evidence, hosted captures, production export captures, baseline identifiers, source/wrapper hashes and one final deterministic verification run establish acceptance. Independent reviewers inspect code and images before the controller opens one verified normal local preview.
+
+Explicit non-goals include model, persistence, service, dependency, project, delegate and launcher changes; real preference/history edits; login, alerts or remote service work during captures; unrelated cleanup; synthetic movement; installation replacement; pushes, PRs, releases, external messages and publication. The only startup-related exception is the isolated test bootstrap, and there is no deferred verification.
+
+## Coverage mapping
+
+The cold description above was persisted before the specification was opened. The following comparison uses the specification's named sections and numbered presentation requirements. This is a static translation of promised outcomes; it does not claim that execution or visual acceptance has occurred.
+
+| Plan result or verification | Specification requirement | Coverage |
+| --- | --- | --- |
+| One coupled local presentation correction in the existing repair worktree; preserve the completed correctness work and historical artifacts. | Intent and authorization: scoped follow-up to the twelve correctness fixes, with existing specification/review history remaining historical. | Full. |
+| Remove the permanent methodology paragraph from `ownershipCard`; render it once near Holdings SEC/source information. | Required presentation 1, plus Verification and delivery's rendered/accessibility relocation check. | Full; main and Holdings captures establish absence/presence without a string-mirroring test. |
+| Preserve ownership totals, temporary ownership-change feedback and milestone behavior. | Required presentation 1. | Full; all are explicitly retained. |
+| Order ownership, combined gain/chart, parity, daily records, then stocks. | Required presentation 2: prioritize the first three above historical records and individual stocks. | Full. |
+| Preserve parity preference, data availability and calculation; show its complete heading and exact formatted implied price before scrolling at 600/700/800/900 heights. | Required presentation 2: populated 360-point-wide first viewport at those four heights. | Full; the plan strengthens the named existing hosted regression, whose window and host are explicitly 360 points wide. |
+| Omit the main parity call's long outstanding caption while preserving Holdings provenance and the compact SPCX/TSLA caption. | Required presentation 2: retain source/outstanding detail in Holdings and avoid long main-page provenance when it prevents fitting. | Full. |
+| Compact spacing, padding and related metrics while retaining readable type, status, share controls, records, stocks, scrolling and fixed footer. | Required presentation 2: compact as necessary while preserving content, controls and reachable footer actions. | Full; the original scrolling/footer/Settings/back assertions remain. |
+| Actual range, centered minimum span of `max(1, maximum absolute value × 0.01)`, and 8% padding. | Required presentation 3: actual observed range with padding and a sensible minimum; avoid forcing distant zero. | Full; the numerical choices specify the required policy without adding an unrelated feature. |
+| A 60-point Canvas, rounded two-point stroke, vertical transparent gradient and latest-point dot. | Required presentation 3: approximately 56–64 points, rounded stroke, subtle vertical gradient and clear latest marker. | Full. |
+| Upper/lower monetary domain labels and domain context in the combined accessibility description. | Required presentation 3's concise honest range context and Required presentation 4's accessibility requirement. | Full. |
+| Zero reference only within the domain; retain interpolated sign segmentation and green/red crossing behavior. Fills terminate at visible domain edges or crossing zero, and precede strokes/dot. | Required presentation 3: honest zero reference, correct crossing colors and subtle depth. | Full; fill ordering/boundaries are implementation detail supporting the specified rendering. |
+| Preserve relative timestamp positions; no smoothing, invented samples or fabricated flat-series oscillations. | Required presentation 3: do not invent history, distort time or add oscillation. | Full. |
+| Empty layouts use safe defaults; one point is centered and shown as a dot; flat data stays horizontal; coordinates and endpoints remain bounded. | Required presentation 3's safe empty/one/flat/sign cases, and Scale & Validation's finite bounded coordinates. | Full. |
+| Preserve the 400-sample store and linear layout/drawing; test a full-capacity series. | Required presentation 3's existing store bound and Scale & Validation's linear maximum-400 behavior. | Full; actual extrema and existing segmentation remain linear passes, and service/store changes are prohibited. |
+| Reuse `GainSparklineView` in `ShareCardView`; ensure an explicit dark chart environment where needed, real assets and production `renderPNGData` export. | Required presentation 4: preserve shared export legibility and bounds. Verification and delivery: asset-backed share-card captures. | Full; existing export size, quality, parity and holdings remain required. |
+| Honor color scheme, contrast and reduced transparency through view environments; inspect light, dark and an increased-contrast/reduced-transparency case. | Required presentation 4 and Scale & Validation: respect appearance/accessibility without altering system preferences. | Full. |
+| Modify only named UI/test/documentation sources, with pure layout helper retained internally in its current file and narrowly conditional test-entry support. No new production source files, packages, project settings or app. | Required presentation 4's UI/helper/focused-test/documentation scope and Verification and delivery's isolated validation. | Full; the test bootstrap is traced separately below. |
+| Before behavior changes, expose only the pure helper's access level and add a regression using the actual nine gains and their reference-date timestamps. Require assertion failures for the positive lower domain and visible movement. | Verification and delivery: regressions for the actual domain failure before implementation; Required presentation 3's data honesty. | Full; a compile failure is explicitly insufficient. |
+| Before reordering, strengthen the actual populated hosted test with both stocks, both records, parity, provenance and recorded samples. Test complete parity title/price inside the actual clip viewport using semantic geometry or mandatory OCR fallback. | Verification and delivery: populated hosted SwiftUI, first visible area and scrolling/Settings/back; source-tree assertions alone insufficient. Risks: fixed-height checks can hide clipping. | Full; unavailable nodes cannot waive the gate, and an alternative geometry adapter must first fail original ordering. |
+| Capture and inspect four initial viewport PNGs, scrolled detail and Holdings; retain frame/text evidence and compare matching recorded data against the user's before images. | Verification and delivery: real before reference, actual view inspection and rendered methodology verification. | Full; layout claims cannot substitute for the captures. |
+| Capture positive narrow-range, negative, mixed, flat, single, empty and 400-point chart/share fixtures using compiled real views and `Assets.car`; record assets and inspect endpoint, range, sign, detail and export bounds. | Verification and delivery's representative asset-backed image checks; Risks concerning assets/export/clipping; Scale & Validation's dense/full-capacity checks. | Full; empty and 400-point image coverage elaborate the already-required safe/capacity cases. |
+| Use isolated defaults, test dates, mock login/quote/notification dependencies and controlled history; do not operate real reset, preferences, alerts, login or SEC/update work during captures. | Verification and delivery: do not clear/overwrite user preferences, history, ownership, records, login or notifications; use isolated controlled fixtures. Scale & Validation: no new network/persistence behavior. | Full. |
+| Route every executable operation through the existing host-permission aggregate launcher; preserve locking and parallel-host suppression. Require the isolated entry-point test to pass exactly once before red tests and continue passing in focused/full runs. | Verification and delivery: all tests/builds/probes use shared host launcher, no concurrent app, and validation must preserve user state. | Full; bootstrap evidence makes those validation constraints concrete. |
+| Preserve 391 baseline test identifiers, retain and strengthen the named layout test, distinguish the isolated bootstrap's extra case, then run the final complete suite and Release build once through existing verification after convergence. | Verification and delivery: retain 391 cases except deliberately strengthened presentation coverage; complete XCTest and Release once after executable convergence. | Full; focused bootstrap/red/green runs precede the one final complete run, and the prior baseline is reused rather than rerun. |
+| Durable validation manifest with exact commands, source/wrapper hashes, bootstrap proof, test IDs/counts, viewport bounds, asset paths, images and observations; concise changelog entry. | Required presentation 4's relevant documentation; Verification and delivery's inspectable source/image acceptance and preserved correctness. | Full; these are evidence outputs supporting the specified checks. |
+| Independent source/image spec and quality reviews plus controller inspection before opening one normal local app, reusing the verified Release artifact where available and checking its executable path at host level. | Verification and delivery: independent review of source/after images followed by exactly one newly built local app and verified host path. | Full; the inert test product is explicitly excluded from delivery. |
+| No pushes, PRs, releases, replacement installation or external messages; no deferred work or generic cleanup. | Intent and authorization, Required presentation 4's limited scope, and Deferred: None. | Full. |
+
+## Scope and omissions
+
+No specification section is omitted. The observed causes each have a corresponding production correction and pre-change regression: methodology placement, parity below the fold, zero-expanded chart scale, and insufficient visual depth.
+
+The only item requiring an explicit scope interpretation is the conditional entry point in `MuskometerApp.swift` and compiler-condition addition to the ignored existing wrapper. They map to focused validation and the requirement to protect real state during hosted tests. The current app source initializes `AppSettings.shared`, reconciles login state, starts the update coordinator and installs the application delegate before a hosted fixture's isolated settings can protect those paths. The plan's `DEBUG && MUSKOMETER_TEST_HOST` branch contains only an empty Settings scene and test marker, while preserving the ordinary app declaration verbatim and leaving the delegate, services, project, dependencies and launcher unchanged. This is necessary test support within the specified isolated verification, not a new delivered application behavior. The exactly-one-pass prerequisite, negative marker, configuration-specific identifiers and prohibition on handing off the test product provide a bounded acceptance condition for that support.
+
+The remaining elaborations—specific padding/stroke values, OCR fallback, exact image names, hashes, result bundles, a local commit and review manifests—implement or document existing requirements. None introduces a new product capability or expands publication authority. No scope-creep finding is raised.
+
+## Result
+
+FULL MATCH. Every described behavior, preservation constraint and verification outcome maps to the specification; no required behavior is deferred or omitted.
+
+## Findings
+
+None.
+
+## Findings (machine-readable)
+
+<!-- MARSHAL_FINDINGS_JSON v1 -->
+```json
+{"schema_version":1,"dispatch_id":"06362827-69bd-40b5-804d-72361f69439e-task-0","verdict":"approved","round":1,"findings":[]}
+```
+
+VERDICT: APPROVED
+
+Reviewed-files: docs/marshal/plans/2026-09-10-popover-visual-correction.md, docs/marshal/specs/2026-09-10-popover-visual-correction-design.md, Muskometer/App/MuskometerApp.swift, Muskometer/App/AppDelegate.swift, Muskometer/Views/GainSparklineView.swift, Muskometer/Views/PopoverContentView.swift, Muskometer/Views/SettingsView.swift, Muskometer/Views/MergerParityCardView.swift, Muskometer/Views/ShareCardView.swift, MuskometerTests/InterfaceAndCalendarTests.swift, build/test-tools/xcodebuild
+
+reviewed-content-sha256: 8a5a88427beafd416fc1c38d40bef9f84efd12cf4167d92dac5820c13080fe2b
+
+plan-graph-sha256: f10c3899ca6b0b2dffde07f086ac7df02642f933cad6463065b270c11b6e2037

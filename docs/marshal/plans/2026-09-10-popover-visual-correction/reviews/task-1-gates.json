@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "round": 1,
+  "source_head": "bfda1d2e9b31c473c205523301534ee375e9d0cb",
+  "reviewer_dispatch_ids": {
+    "spec": "e801b958-23f4-4797-9681-fbe72ad58bd0-task-1",
+    "quality": "384268ec-e6b5-4ebc-be91-f5b9ef5668df-task-1"
+  },
+  "results": [
+    {
+      "label": "spec-persist",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "label": "spec-authorship",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "label": "spec-convergence",
+      "exit_code": 0,
+      "output": "{\"reviewer\": \"spec\", \"round\": 1, \"next_round\": null, \"findings_count\": 0, \"overlap_with_prev\": null, \"action\": \"pass\", \"reason\": \"round 1: 0 findings; pass\", \"last_verdict\": \"APPROVED\"}\n"
+    },
+    {
+      "label": "quality-persist",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "label": "quality-authorship",
+      "exit_code": 0,
+      "output": ""
+    },
+    {
+      "label": "quality-convergence",
+      "exit_code": 0,
+      "output": "{\"reviewer\": \"quality\", \"round\": 1, \"next_round\": null, \"findings_count\": 0, \"overlap_with_prev\": null, \"action\": \"pass\", \"reason\": \"round 1: 0 findings; pass\", \"last_verdict\": \"APPROVED\"}\n"
+    },
+    {
+      "label": "adjudications",
+      "exit_code": 0,
+      "output": "{\"spec\": [], \"quality\": []}\n"
+    }
+  ],
+  "no_new_executable_checks": true
+}

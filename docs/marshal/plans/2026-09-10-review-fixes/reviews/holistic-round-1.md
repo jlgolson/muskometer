@@ -32,7 +32,7 @@ The dependency graph is acyclic: Task 1 precedes Tasks 2, 3 and 4; Task 5 consum
 The behavioral tasks require a failing assertion before production changes, then targeted and aggregate validation. Task 6 assigns WHAT/HOW/WHO explicitly, names the repository verification command, repeats the real parser/network and actual SwiftUI probes, records public-endpoint availability separately, and requires a twelve-finding results table plus independent final review. The existing verification script actually runs typecheck, XCTest, a Release build, signed-product entitlement checks and marketing checks. Live data and constrained-height probes remain explicit additional in-plan evidence. Test preservation, cancellation, the 100-accession budget, bounded notification state and the 400-sample cap all have owners. There are no deferred requirements.
 
 ## Findings (machine-readable)
-<!-- MARSHAL_FINDINGS_JSON -->
+<!-- MARSHAL_FINDINGS_JSON v1 -->
 ```json
 {
   "schema_version": 1,
@@ -48,6 +48,10 @@ The behavioral tasks require a failing assertion before production changes, then
 None.
 
 VERDICT: APPROVED
+
+reviewed-content-sha256: cdb6192c44be65243b8cefa00c7e9a6f5ce2cb2bac9dd8630cc96d5a5c584710
+
+plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
 
 reviewed-content-sha256: cdb6192c44be65243b8cefa00c7e9a6f5ce2cb2bac9dd8630cc96d5a5c584710
 

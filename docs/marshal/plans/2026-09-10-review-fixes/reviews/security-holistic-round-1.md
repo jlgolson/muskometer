@@ -9,7 +9,7 @@ Tasks 3 and 5 explicitly invalidate outstanding notification completion identiti
 Notification/login tests use controlled boundary mocks, and the integrated verification checks the signed test product's existing entitlements. The plan does not claim those checks certify unsigned distribution artifacts or real system authorization. No additional blocking security requirement is missing from the approved corrective scope.
 
 ## Findings (machine-readable)
-<!-- MARSHAL_FINDINGS_JSON -->
+<!-- MARSHAL_FINDINGS_JSON v1 -->
 ```json
 {"schema_version":1,"dispatch_id":"73ff9b02-3d25-4ba8-9ca1-bb963e401a5d-task-0","round":1,"verdict":"APPROVED","findings":[]}
 ```

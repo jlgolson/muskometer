@@ -1152,14 +1152,18 @@ final class PopoverLayoutRegressionTests: XCTestCase {
         // absent (and primary text black) in cacheDisplay's offscreen bitmap.
         let content = try await SCShareableContent.currentProcess
         let surface = try XCTUnwrap(content.windows.first { $0.windowID == CGWindowID(window.windowNumber) })
+        let filter = SCContentFilter(desktopIndependentWindow: surface)
+        // Match the window's native scale. Requesting 2x on a 1x display pads
+        // the screenshot instead of upscaling it, which halves OCR coordinates.
+        let pixelScale = CGFloat(filter.pointPixelScale)
         let config = SCStreamConfiguration()
-        config.width = Int(host.bounds.width * 2)
-        config.height = Int(host.bounds.height * 2)
+        config.width = Int((host.bounds.width * pixelScale).rounded())
+        config.height = Int((host.bounds.height * pixelScale).rounded())
         config.showsCursor = false
         config.ignoreShadowsSingleWindow = true
         config.shouldBeOpaque = true
         let cgImage = try await SCScreenshotManager.captureImage(
-            contentFilter: SCContentFilter(desktopIndependentWindow: surface), configuration: config)
+            contentFilter: filter, configuration: config)
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
         bitmap.size = host.bounds.size
         let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))

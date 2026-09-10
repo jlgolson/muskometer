@@ -783,6 +783,8 @@ final class GainsViewModelTrillionEasterEggTests: XCTestCase {
     }
 }
 
+import Observation
+
 // Gated boundaries intentionally ignore cancellation so late completions are exercised.
 private actor LifecycleQuotes: StockPriceServiceProtocol {
     var calls = 0
@@ -1299,6 +1301,253 @@ final class GainsViewModelLifecycleRegressionTests: XCTestCase {
         let calls = await f.stock.calls
         XCTAssertEqual(calls, 2)
         f.vm.stop(); await f.sleeper.wake(1, cancelled: true)
+    }
+
+    func testStaleStatusUsesObservationTimeAndObservableCurrentClock() async {
+        let observed = date(10, 15, 59, month: 9)
+        let f = fixture(at: observed)
+        await f.vm.refresh()
+        f.clock.now = date(10, 16, 1, month: 9)
+        await f.stock.configure(fail: true)
+        await f.vm.refresh()
+        XCTAssertEqual(f.vm.marketCloseStatusLabel, MarketStatusFormatter.asOfLiveLabel(date: observed))
+        let fridayOpen = date(11, 9, 30, month: 9)
+        XCTAssertEqual(f.vm.marketStatusDetail, MarketStatusFormatter.nextOpenLabel(for: fridayOpen))
+        let retained = f.vm.snapshot
+        final class ObservationFlag: @unchecked Sendable { var changed = false }
+        let flag = ObservationFlag()
+        withObservationTracking {
+            _ = f.vm.marketStatusDetail
+        } onChange: {
+            flag.changed = true
+        }
+        f.clock.now = date(11, 16, 1, month: 9)
+        await f.vm.refresh()
+        XCTAssertEqual(f.vm.snapshot, retained, "Quote and current session remain identical while the market clock advances")
+        XCTAssertTrue(flag.changed, "Current-clock changes must invalidate observed next-open text")
+        XCTAssertEqual(f.vm.marketCloseStatusLabel, MarketStatusFormatter.asOfLiveLabel(date: observed))
+        XCTAssertEqual(f.vm.marketStatusDetail, MarketStatusFormatter.nextOpenLabel(for: date(14, 9, 30, month: 9)))
+    }
+
+    func testPartialClosingQuoteUsesTrueObservedStatus() async {
+        let observed = date(30, 15, 59)
+        let f = fixture(at: observed)
+        await f.vm.refresh()
+        f.clock.now = date(30, 16, 1)
+        await f.stock.configure(partial: true)
+        await f.vm.refresh()
+        XCTAssertEqual(f.vm.marketCloseStatusLabel, MarketStatusFormatter.asOfLiveLabel(date: observed))
+        XCTAssertEqual(f.vm.marketStatusDetail, MarketStatusFormatter.nextOpenLabel(for: date(1, 9, 30, month: 7)))
+    }
+
+    private func initialSpanningClose(fails: Bool, early: Bool, restart: Bool) async {
+        let day = early ? 27 : 30, month = early ? 11 : 6, closeHour = early ? 13 : 16
+        let observed = date(day, closeHour - 1, 58, month: month)
+        let f = fixture(at: observed)
+        await f.vm.refresh()
+        if restart { f.vm.start(); await settle { await f.sleeper.intervals.count == 1 }; f.vm.stop(); await f.sleeper.wake(1, cancelled: true) }
+        f.clock.now = date(day, closeHour - 1, 59, month: month)
+        await f.stock.configure(fail: fails, gated: true)
+        let priorCalls = await f.stock.calls
+        let priorSleeps = await f.sleeper.intervals.count
+        f.vm.start()
+        await settle { await f.stock.calls == priorCalls + 1 }
+        await settle { await f.sleeper.intervals.count > priorSleeps }
+        let beforeCloseSleeps = await f.sleeper.intervals
+        XCTAssertEqual(beforeCloseSleeps.count, priorSleeps + 1, "Clock scheduling cannot wait for the initial Yahoo request")
+        f.clock.now = date(day, closeHour, 1, month: month)
+        await f.stock.configure(fail: true)
+        await f.sleeper.wake(priorSleeps + 1)
+        await settle { f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay }
+        XCTAssertTrue(f.vm.dailyRecordsSnapshot.hasCompletedFirstTradingDay, "The real day must finalize while the initial request still waits")
+        XCTAssertEqual(f.vm.snapshot?.tradingSession, .closed)
+        await settle { await f.stock.calls >= priorCalls + 2 }
+        let closeCalls = await f.stock.calls
+        XCTAssertEqual(closeCalls, priorCalls + 2, "One closing request is required after the observed session")
+        await f.stock.release(priorCalls + 1)
+        await settle { await f.sleeper.intervals.count >= priorSleeps + 2 }
+        await f.sleeper.wake(priorSleeps + 2)
+        await settle { await f.stock.calls >= priorCalls + 3 }
+        let retryCalls = await f.stock.calls
+        XCTAssertEqual(retryCalls, priorCalls + 3, "One bounded recovery request follows the failed close")
+        await settle { await f.sleeper.intervals.count >= priorSleeps + 3 }
+        let sleeps = await f.sleeper.intervals
+        XCTAssertTrue((sleeps.last ?? 0) > 3600)
+        XCTAssertEqual(f.vm.snapshot?.lastUpdated, observed, "An invalidated pre-close result cannot replace the real session observation")
+        f.vm.stop(); await f.sleeper.wake(priorSleeps + 3, cancelled: true)
+    }
+    func testInitialSuccessSpanningClosePreservesClockAndClosingRecovery() async { await initialSpanningClose(fails: false, early: false, restart: false) }
+    func testInitialFailureSpanningClosePreservesClockAndClosingRecovery() async { await initialSpanningClose(fails: true, early: false, restart: false) }
+    func testRestartInitialFailureSpanningEarlyClosePreservesClosingRecovery() async { await initialSpanningClose(fails: true, early: true, restart: true) }
+
+    private func retainedQuoteTaskCount(_ vm: GainsViewModel) -> Int {
+        Mirror(reflecting: vm).children.first { $0.label?.contains("quoteTasks") == true }
+            .map { Mirror(reflecting: $0.value).children.count } ?? 0
+    }
+
+    func testRepeatedRecrossingsBoundActualSuspendedDeliveriesAndRetainedWork() async {
+        let f = fixture(thresholds: ["gain-10b"])
+        await f.stock.configure(price: 9e9, previous: 0)
+        f.vm.start()
+        await settle { await f.sleeper.intervals.count == 1 }
+        await settle { f.vm.snapshot?.combinedPaperGain == 9e9 }
+        for step in 1...40 {
+            await f.stock.configure(price: step.isMultiple(of: 2) ? 9e9 : 11e9, previous: 0)
+            f.clock.now = f.clock.now.addingTimeInterval(30)
+            await f.sleeper.wake(step)
+            await settle { await f.sleeper.intervals.count == step + 1 }
+            await settle { f.vm.snapshot?.lastUpdated == f.clock.now }
+            XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, step.isMultiple(of: 2) ? 9e9 : 11e9)
+        }
+        let calls = await f.notifications.requests.count
+        XCTAssertLessThanOrEqual(calls, 1, "One enabled preset may hold only one real delivery while later crossings coalesce")
+        XCTAssertLessThanOrEqual(retainedQuoteTaskCount(f.vm), 1, "Accepted quotes must not retain one suspended tail per crossing")
+        // A below observation is still retained even while delivery is blocked.
+        let state = try? JSONSerialization.jsonObject(with: f.defaults.data(forKey: "gainNotificationThresholdState_musk-gain-10b") ?? Data()) as? [String: Any]
+        XCTAssertEqual(state?["lastGain"] as? Double, 9e9)
+        XCTAssertEqual(state?["armed"] as? Bool, true)
+        for id in 1...max(calls, 1) { await f.notifications.release(id, fails: true) }
+        f.vm.stop(); await f.sleeper.wake(41, cancelled: true)
+    }
+
+    func testFailedNextDayQuoteInvalidatesPendingPriorDayGainDelivery() async {
+        let f = fixture(thresholds: ["gain-10b"])
+        await f.stock.configure(price: 9e9, previous: 0)
+        await f.vm.refresh()
+        await f.stock.configure(price: 11e9, previous: 0)
+        let crossing = Task { await f.vm.refresh() }
+        await settle { await f.notifications.requests.count == 1 }
+        f.clock.now = date(1, 2, month: 7)
+        await f.stock.configure(fail: true)
+        await f.vm.refresh(force: true)
+        await f.notifications.release(1)
+        await crossing.value
+        await settle {
+            let data = f.defaults.data(forKey: "gainNotificationThresholdState_musk-gain-10b") ?? Data()
+            let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            return value?["tradingDayKey"] as? String == "2026-07-01"
+        }
+        let data = f.defaults.data(forKey: "gainNotificationThresholdState_musk-gain-10b") ?? Data()
+        let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        XCTAssertEqual(value?["tradingDayKey"] as? String, "2026-07-01")
+        XCTAssertEqual(value?["armed"] as? Bool, true)
+        XCTAssertNil(value?["lastGain"])
+        f.vm.stop()
+    }
+
+    func testRepeatedModelResetsBoundPhysicalGainDeliveryAndAllowDeallocation() async {
+        var f: Fixture? = fixture(thresholds: ["gain-10b"])
+        let stock = f!.stock, notifications = f!.notifications
+        await stock.configure(price: 9e9, previous: 0)
+        await f!.vm.refresh()
+        await stock.configure(price: 11e9, previous: 0)
+        await f!.vm.refresh()
+        await settle { await notifications.requests.count == 1 }
+        for value in 12...30 {
+            f!.vm.reloadPersistedDisplayState()
+            await stock.configure(price: 9e9, previous: 0); await f!.vm.refresh()
+            await stock.configure(price: Double(value) * 1e9, previous: 0); await f!.vm.refresh()
+        }
+        let calls = await notifications.requests.count
+        XCTAssertEqual(calls, 1, "Reset cannot abandon an occupied physical delivery slot")
+        XCTAssertLessThanOrEqual(retainedQuoteTaskCount(f!.vm), 1)
+        weak var model = f!.vm
+        f!.vm.stop(); f = nil
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertNil(model)
+        await notifications.release(1)
+        for _ in 0..<100 { await Task.yield() }
+        let afterStop = await notifications.requests.count
+        XCTAssertEqual(afterStop, 1, "Stopped pending claims cannot drain after model release")
+    }
+
+    func testRestartStormBoundsCancellationUnawareQuoteAndSECRequests() async {
+        let f = fixture(due: true)
+        await f.stock.configure(gated: true)
+        for _ in 0..<12 {
+            f.vm.start()
+            for _ in 0..<100 { await Task.yield() }
+            f.vm.stop()
+        }
+        let quotes = await f.stock.calls, holdings = await f.holdings.calls
+        XCTAssertLessThanOrEqual(quotes, 2, "Canceled transports keep physical capacity until they actually return")
+        XCTAssertLessThanOrEqual(holdings, 2)
+        for id in 1...max(quotes, 1) { await f.stock.release(id) }
+        for id in 1...max(holdings, 1) { await f.holdings.release(id) }
+        let sleeps = await f.sleeper.intervals.count
+        for id in 1...max(sleeps, 1) { await f.sleeper.wake(id, cancelled: true) }
+    }
+
+    func testRepeatedResetBoundsDayClosePhysicalWorkWithoutBlockingQuotes() async {
+        let f = fixture(at: date(1, 10, month: 7), notify: true)
+        _ = f.tracker.update(personID: "musk", paperGain: 1e9, at: date(), isQuotable: true)
+        var refreshes: [Task<Void, Never>] = []
+        for price in 101...112 {
+            f.vm.reloadPersistedDisplayState()
+            await f.stock.configure(price: Double(price))
+            refreshes.append(Task { await f.vm.refresh(force: true) })
+            await settle { f.vm.snapshot?.combinedMarketValue == Double(price) }
+            // Let the actual delivery boundary enter before the next reset.
+            for _ in 0..<100 { await Task.yield() }
+        }
+        let count = await f.notifications.requests.count
+        XCTAssertLessThanOrEqual(count, 2, "A reset cannot abandon unlimited physical day-close deliveries")
+        XCTAssertEqual(f.vm.snapshot?.combinedMarketValue, 112)
+        XCTAssertLessThanOrEqual(retainedQuoteTaskCount(f.vm), 1, "Summary waits must not retain quote workers")
+        f.vm.stop()
+        for id in 1...max(count, 1) { await f.notifications.release(id) }
+        for refresh in refreshes { await refresh.value }
+        XCTAssertNotNil(f.tracker.peekPendingFinalizedDay(for: "musk"))
+    }
+
+    func testLateClosingFailureStillGetsOneBoundedRecovery() async {
+        let f = fixture(at: date(30, 15, 59))
+        f.vm.start()
+        await settle { f.vm.snapshot != nil }
+        await settle { await f.sleeper.intervals.count == 1 }
+        f.clock.now = date(30, 16)
+        await f.stock.configure(fail: true, gated: true)
+        await f.sleeper.wake(1)
+        await settle { await f.stock.calls == 2 }
+        await settle { await f.sleeper.intervals.count == 2 }
+        f.clock.now = date(30, 16, 1)
+        await f.sleeper.wake(2)
+        await settle { await f.sleeper.intervals.count == 3 }
+        await f.stock.configure()
+        await f.stock.release(2)
+        await settle { await f.sleeper.intervals.count == 4 }
+        let intervals = await f.sleeper.intervals
+        XCTAssertEqual(intervals.count, 4, "A failure after the first recovery window still schedules one retry")
+        XCTAssertEqual(intervals.last, 30)
+        await f.sleeper.wake(4)
+        await settle { await f.stock.calls == 3 }
+        let calls = await f.stock.calls
+        XCTAssertEqual(calls, 3)
+        f.vm.stop(); await f.sleeper.wake(3, cancelled: true)
+    }
+
+    func testNextOpenSupersedesPendingClosingQuoteImmediately() async {
+        let f = fixture(at: date(30, 15, 59))
+        f.vm.start()
+        await settle { f.vm.snapshot != nil }
+        await settle { await f.sleeper.intervals.count == 1 }
+        f.clock.now = date(30, 16)
+        await f.stock.configure(price: 102, gated: true)
+        await f.sleeper.wake(1)
+        await settle { await f.stock.calls == 2 }
+        await settle { await f.sleeper.intervals.count == 2 }
+        f.clock.now = date(30, 16, 1)
+        await f.sleeper.wake(2)
+        await settle { await f.sleeper.intervals.count == 3 }
+        f.clock.now = date(1, 9, 30, month: 7)
+        await f.stock.configure(price: 110)
+        await f.sleeper.wake(3)
+        await settle { f.vm.snapshot?.combinedPaperGain == 10 }
+        XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, 10)
+        await f.stock.release(2)
+        for _ in 0..<100 { await Task.yield() }
+        XCTAssertEqual(f.vm.snapshot?.combinedPaperGain, 10)
+        f.vm.stop(); await f.sleeper.wake(4, cancelled: true)
     }
 
 }

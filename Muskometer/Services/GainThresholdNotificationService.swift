@@ -50,6 +50,14 @@ final class GainThresholdNotificationService {
     private let deliverer: any GainThresholdNotificationDelivering
 
     private var stateByKey: [String: ThresholdState] = [:]
+    private struct PendingDelivery {
+        let claim: DeliveryClaim
+        let possessiveName: String
+    }
+    // One physical worker and one replaceable pending claim per person/preset.
+    // Canceled workers keep their slot until the underlying delivery actually returns.
+    private var pendingDeliveries: [String: PendingDelivery] = [:]
+    private var deliveryTasks: [String: Task<Void, Never>] = [:]
 
     init(
         defaults: UserDefaults = .standard,
@@ -75,7 +83,56 @@ final class GainThresholdNotificationService {
 
     func resetRuntimeState(for personID: String) {
         for threshold in GainNotificationThreshold.presets {
-            stateByKey.removeValue(forKey: Self.stateKey(personID: personID, thresholdID: threshold.id))
+            let key = Self.stateKey(personID: personID, thresholdID: threshold.id)
+            stateByKey.removeValue(forKey: key)
+            pendingDeliveries.removeValue(forKey: key)
+            deliveryTasks[key]?.cancel()
+        }
+    }
+
+    /// Records all observations now and coalesces background delivery by preset.
+    /// Use this for a polling owner; processUpdate remains an awaitable single-call API.
+    func observeUpdate(paperGain: Double, personID: String, possessiveName: String,
+                       at date: Date = .now, isQuotable: Bool) {
+        guard !Task.isCancelled else { return }
+        let claims = reserveClaims(paperGain: paperGain, personID: personID, at: date, isQuotable: isQuotable)
+        for claim in claims {
+            pendingDeliveries[claim.stateKey] = PendingDelivery(claim: claim, possessiveName: possessiveName)
+        }
+        // A below observation, disabling, reset, or rollover supersedes queued work.
+        let enabled = enabledThresholdIDs(for: personID)
+        for threshold in GainNotificationThreshold.presets {
+            let key = Self.stateKey(personID: personID, thresholdID: threshold.id)
+            if let pending = pendingDeliveries[key],
+               !enabled.contains(threshold.id) || !isCurrent(pending.claim) {
+                pendingDeliveries.removeValue(forKey: key)
+            }
+            startDeliveryIfNeeded(for: key)
+        }
+    }
+
+    private func isCurrent(_ claim: DeliveryClaim) -> Bool {
+        stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID
+            && stateByKey[claim.stateKey]?.claimID == claim.id
+    }
+
+    private func startDeliveryIfNeeded(for key: String) {
+        guard deliveryTasks[key] == nil,
+              let pending = pendingDeliveries.removeValue(forKey: key),
+              isCurrent(pending.claim) else { return }
+        deliveryTasks[key] = Task { [self] in
+            let claim = pending.claim
+            // Observations may invalidate this reservation before its task first runs.
+            if !Task.isCancelled, isCurrent(claim) {
+                let delivered = await deliverNotification(event: claim.event, possessiveName: pending.possessiveName)
+                finish(claim, delivered: delivered && !Task.isCancelled)
+            } else {
+                finish(claim, delivered: false)
+            }
+            deliveryTasks.removeValue(forKey: key)
+            // Only a distinct coalesced crossing drains automatically. A failed current
+            // crossing has no queued item and waits for a later accepted observation.
+            startDeliveryIfNeeded(for: key)
         }
     }
 
@@ -89,6 +146,27 @@ final class GainThresholdNotificationService {
     ) async -> [CrossingEvent] {
         guard !Task.isCancelled else { return [] }
 
+        let claims = reserveClaims(paperGain: paperGain, personID: personID, at: date, isQuotable: isQuotable)
+
+        var fired: [CrossingEvent] = []
+        for claim in claims {
+            // Reset/rollover invalidates even claims queued behind an earlier preset.
+            guard stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID else { continue }
+            if Task.isCancelled {
+                finish(claim, delivered: false)
+                continue
+            }
+            let delivered = await deliverNotification(event: claim.event, possessiveName: possessiveName)
+            guard stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID else { continue }
+            let confirmed = delivered && !Task.isCancelled
+            finish(claim, delivered: confirmed)
+            if confirmed { fired.append(claim.event) }
+        }
+        return fired
+    }
+
+    private func reserveClaims(paperGain: Double, personID: String, at date: Date,
+                               isQuotable: Bool) -> [DeliveryClaim] {
         let dayKey = calendar.dayKey(for: date)
         // Day advancement invalidates suspended work even when the new observation is closed/stale.
         for threshold in GainNotificationThreshold.presets {
@@ -141,21 +219,7 @@ final class GainThresholdNotificationService {
             saveState(state, forKey: stateKey)
         }
 
-        var fired: [CrossingEvent] = []
-        for claim in claims {
-            // Reset/rollover invalidates even claims queued behind an earlier preset.
-            guard stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID else { continue }
-            if Task.isCancelled {
-                finish(claim, delivered: false)
-                continue
-            }
-            let delivered = await deliverNotification(event: claim.event, possessiveName: possessiveName)
-            guard stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID else { continue }
-            let confirmed = delivered && !Task.isCancelled
-            finish(claim, delivered: confirmed)
-            if confirmed { fired.append(claim.event) }
-        }
-        return fired
+        return claims
     }
 
     private func finish(_ claim: DeliveryClaim, delivered: Bool) {

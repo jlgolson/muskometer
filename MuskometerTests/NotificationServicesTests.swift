@@ -1374,3 +1374,120 @@ extension NotificationSuspensionRegressionTests {
         XCTAssertEqual(recross.count, 1)
     }
 }
+
+@MainActor
+final class BoundedThresholdObservationTests: XCTestCase {
+    private func makeService(_ gate: NotificationDeliveryGate, ids: Set<String> = ["gain-10b"]) -> (GainThresholdNotificationService, UserDefaults) {
+        let defaults = UserDefaults(suiteName: "BoundedThreshold-\(UUID().uuidString)")!
+        let service = GainThresholdNotificationService(defaults: defaults, deliverer: gate)
+        service.setEnabledThresholdIDs(ids, for: "musk")
+        return (service, defaults)
+    }
+    private func observe(_ service: GainThresholdNotificationService, _ billions: Double, day: Int = 30, month: Int = 6, quotable: Bool = true) {
+        let now = try! EasternTestDates.date(year: 2026, month: month, day: day, hour: 11)
+        service.observeUpdate(paperGain: billions * 1e9, personID: "musk", possessiveName: "Elon's", at: now, isQuotable: quotable)
+    }
+    private func state(_ defaults: UserDefaults, id: String = "gain-10b") -> [String: Any] {
+        let data = defaults.data(forKey: "gainNotificationThresholdState_musk-\(id)") ?? Data()
+        return ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any]) ?? [:]
+    }
+    private func settle(_ predicate: () async -> Bool) async {
+        for _ in 0..<10000 { if await predicate() { return }; await Task.yield() }
+    }
+
+    func testObservesAllPresetsSynchronouslyBeforeStartingDelivery() async {
+        let gate = NotificationDeliveryGate(holding: Set(0..<20))
+        let ids = Set(GainNotificationThreshold.presets.map(\.id))
+        let (service, defaults) = makeService(gate, ids: ids)
+        observe(service, 0)
+        observe(service, 60)
+        for id in ids { XCTAssertEqual(state(defaults, id: id)["lastGain"] as? Double, 60e9) }
+        await settle { await gate.requests.count > 0 }
+        let count = await gate.requests.count
+        XCTAssertGreaterThan(count, 0)
+        service.resetRuntimeState(for: "musk")
+        for id in 0..<count { await gate.release(id, failing: true) }
+    }
+
+    func testCoalescesRepeatedRecrossingsAndDeliversNewestPendingValue() async {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        await settle { await gate.requests.count == 1 }
+        for value in 12...40 { observe(service, 9); observe(service, Double(value)) }
+        XCTAssertEqual(state(defaults)["lastGain"] as? Double, 40e9)
+        for _ in 0..<100 { await Task.yield() }
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 1, "Repeated recrossings must not open additional physical deliveries")
+        await gate.release(0)
+        await settle { await gate.requests.count == 2 }
+        let requests = await gate.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertTrue(requests.last?.content.body.contains("40.0B") == true)
+        await gate.release(1)
+        await settle { self.state(defaults)["retryPending"] as? Bool == false }
+        observe(service, 41)
+        for _ in 0..<100 { await Task.yield() }
+        let finalCount = await gate.requests.count
+        XCTAssertEqual(finalCount, 2, "Confirmed newest crossing is not retried by a later above observation")
+    }
+
+    func testRepeatedResetKeepsPhysicalSlotUntilOldDeliveryReturns() async {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        await settle { await gate.requests.count == 1 }
+        for value in 12...30 {
+            service.resetRuntimeState(for: "musk")
+            observe(service, 9); observe(service, Double(value))
+        }
+        for _ in 0..<100 { await Task.yield() }
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 1)
+        XCTAssertEqual(state(defaults)["lastGain"] as? Double, 30e9)
+        await gate.release(0)
+        await settle { await gate.requests.count == 2 }
+        let requests = await gate.requests
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertTrue(requests.last?.content.body.contains("30.0B") == true)
+        await gate.release(1)
+    }
+
+    func testFailureRetriesOnNextAboveObservationWithoutTightLoop() async {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        await settle { await gate.requests.count == 1 }
+        await gate.release(0, failing: true)
+        await settle { self.state(defaults)["retryPending"] as? Bool == true }
+        for _ in 0..<100 { await Task.yield() }
+        let failedCount = await gate.requests.count
+        XCTAssertEqual(failedCount, 1)
+        observe(service, 12)
+        await settle { await gate.requests.count == 2 }
+        let retryCount = await gate.requests.count
+        XCTAssertEqual(retryCount, 2)
+        await gate.release(1)
+    }
+
+    func testBelowAndClosedDayRolloverDiscardObsoletePendingCrossing() async {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        await settle { await gate.requests.count == 1 }
+        observe(service, 9); observe(service, 12)
+        observe(service, 9, day: 1, month: 7, quotable: false)
+        await gate.release(0)
+        for _ in 0..<100 { await Task.yield() }
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 1, "Closed-market rollover drops yesterday's pending crossing")
+        XCTAssertEqual(state(defaults)["tradingDayKey"] as? String, "2026-07-01")
+        observe(service, 12, day: 1, month: 7)
+        observe(service, 9, day: 1, month: 7)
+        observe(service, 13, day: 1, month: 7)
+        await settle { await gate.requests.count == 2 }
+        let countAfterRecross = await gate.requests.count
+        XCTAssertEqual(countAfterRecross, 2)
+        await gate.release(1)
+    }
+}

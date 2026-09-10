@@ -8,6 +8,7 @@ final class GainsViewModel {
     private(set) var isLoading = false
     private(set) var hasStaleData = false
     private(set) var errorMessage: String?
+    private(set) var marketClock: Date
 
     private(set) var isSyncingHoldings = false
     private(set) var holdingsSyncMessage: String?
@@ -40,10 +41,20 @@ final class GainsViewModel {
     private let netWorthMilestoneTracker: NetWorthMilestoneTracker
     private var refreshTask: Task<Void, Never>?
     private var refreshGeneration = 0
+    private struct ClosingRecovery {
+        let generation: Int
+        var windowElapsed = false
+        var retryUsed = false
+    }
+    private var closingRecovery: ClosingRecovery?
+    private var closingRetryTask: Task<Void, Never>?
     private var lifecycle = UUID()
-    private var holdingsTask: Task<Void, Never>?
     private var holdingsToken: UUID?
-    private var quoteTasks: [Int: Task<Void, Never>] = [:]
+    private var holdingsTasks: [UUID: Task<Void, Never>] = [:]
+    // One current request plus one superseded transport may occupy each boundary.
+    // Physical slots survive stop/reset until cancellation-unaware services return.
+    private static let maximumPhysicalRequests = 2
+    private var quoteTasks: [Int: Task<Task<Void, Never>?, Never>] = [:]
     private var summaryTasks: [UUID: Task<Void, Never>] = [:]
     private let sleeper: @Sendable (TimeInterval) async throws -> Void
     private var hasStarted = false
@@ -76,6 +87,7 @@ final class GainsViewModel {
         self.dayCloseSummaryNotificationService = dayCloseSummaryNotificationService ?? DayCloseSummaryNotificationService()
         self.intradayGainSampleStore = intradayGainSampleStore ?? IntradayGainSampleStore()
         self.netWorthMilestoneTracker = netWorthMilestoneTracker ?? NetWorthMilestoneTracker()
+        self.marketClock = dateProvider()
         self.dateProvider = dateProvider
         self.sleeper = sleeper
         self.enabledNotificationThresholdIDs = self.gainThresholdNotificationService.enabledThresholdIDs(
@@ -88,59 +100,97 @@ final class GainsViewModel {
         hasStarted = true
         let token = lifecycle
         let sleep = sleeper
+        // Capture the observed session before any network suspension. The timer owns
+        // session transitions; even a cancellation-unaware quote cannot hold the clock.
+        var sessionClose = currentRegularClose()
+        var closeAttempts = 0
         beginHoldingsSync(force: false)
+        beginRefresh(force: false)
         refreshTask = Task { [weak self] in
-            // Only task handles survive suspension; slow services never retain the model.
-            let initial = self?.beginScheduledRefresh(force: false)
-            if let initial { for await _ in initial {} }
-            var sessionClose = self?.currentRegularClose()
-            var closeAttempts = 0
             while !Task.isCancelled {
                 guard self?.lifecycle == token else { return }
                 self?.advanceTradingClock()
-                let now = self?.dateProvider() ?? .distantPast
+                let now = self?.marketClock ?? .distantPast
                 let isOpen = self?.marketHours.isQuotable(at: now) ?? false
                 if isOpen {
                     let newClose = self?.marketHours.regularCloseDate(on: now)
                     if newClose != sessionClose {
                         sessionClose = newClose
                         closeAttempts = 0
+                        self?.clearClosingRecovery()
                         self?.beginHoldingsSync(force: false)
-                        let request = self?.beginScheduledRefresh(force: false)
-                        if let request { for await _ in request {} }
-                        continue
+                        self?.beginRefresh(force: true)
                     }
                     let interval = self?.refreshSleepInterval() ?? 30
                     let untilClose = sessionClose?.timeIntervalSince(now) ?? interval
                     do { try await sleep(max(0.5, min(interval, untilClose))) }
                     catch { return }
                     guard !Task.isCancelled, self?.lifecycle == token else { return }
-                    // Reevaluate the clock before deciding whether this is the closing request.
                     if self?.marketHours.isQuotable(at: self?.dateProvider() ?? now) == true {
                         self?.beginHoldingsSync(force: false)
-                        let request = self?.beginScheduledRefresh(force: false)
-                        if let request { for await _ in request {} }
+                        self?.beginRefresh(force: false)
                     }
                     continue
                 }
 
-                if let close = sessionClose, now >= close, closeAttempts < 2 {
-                    closeAttempts += 1
-                    let request = self?.beginScheduledRefresh(force: true)
-                    if let request { for await _ in request {} }
-                    guard !Task.isCancelled, self?.lifecycle == token else { return }
-                    if self?.errorMessage == nil { closeAttempts = 2 }
-                    if closeAttempts == 1 {
-                        do { try await sleep(30) } catch { return }
-                    }
+                if let close = sessionClose, now >= close, closeAttempts == 0 {
+                    closeAttempts = 1
+                    self?.beginClosingRefresh()
+                    // One bounded recovery window. The timer keeps advancing even
+                    // when either the pre-close or the closing request never returns.
+                    do { try await sleep(30) } catch { return }
                     continue
                 }
-                // The clock can finalize durable records without another overnight quote poll.
+                if closeAttempts == 1 {
+                    closeAttempts = 2
+                    self?.finishClosingWindow()
+                }
                 self?.beginPendingSummary()
                 let interval = self?.offMarketSleepInterval() ?? 300
                 do { try await sleep(interval) } catch { return }
             }
         }
+    }
+
+    private func beginClosingRefresh() {
+        guard beginRefresh(force: true) != nil else { return }
+        closingRecovery = ClosingRecovery(generation: refreshGeneration)
+    }
+
+    private func finishClosingWindow() {
+        guard var recovery = closingRecovery, recovery.generation == refreshGeneration else { return }
+        recovery.windowElapsed = true
+        if errorMessage != nil {
+            recovery.retryUsed = true
+            closingRecovery = recovery
+            beginRefresh(force: true)
+        } else {
+            closingRecovery = recovery
+        }
+    }
+
+    private func scheduleLateClosingRetryIfNeeded(generation: Int) {
+        guard var recovery = closingRecovery, recovery.generation == generation,
+              recovery.windowElapsed, !recovery.retryUsed else { return }
+        recovery.retryUsed = true
+        closingRecovery = recovery
+        let token = lifecycle, sleep = sleeper
+        closingRetryTask = Task { [weak self] in
+            defer {
+                if self?.closingRecovery?.generation == generation { self?.closingRetryTask = nil }
+            }
+            do { try await sleep(30) } catch { return }
+            guard !Task.isCancelled, self?.lifecycle == token,
+                  self?.refreshGeneration == generation,
+                  self?.marketHours.isQuotable(at: self?.dateProvider() ?? .now) == false else { return }
+            self?.beginRefresh(force: true)
+        }
+    }
+
+    private func clearClosingRecovery() {
+        closingRetryTask?.cancel()
+        closingRetryTask = nil
+        closingRecovery = nil
     }
 
     private func currentRegularClose() -> Date? {
@@ -149,17 +199,15 @@ final class GainsViewModel {
     }
 
     func stop() {
+        clearClosingRecovery()
         lifecycle = UUID()
         refreshGeneration += 1
         refreshTask?.cancel()
         refreshTask = nil
-        holdingsTask?.cancel()
-        holdingsTask = nil
+        holdingsTasks.values.forEach { $0.cancel() }
         holdingsToken = nil
         quoteTasks.values.forEach { $0.cancel() }
-        quoteTasks.removeAll()
         summaryTasks.values.forEach { $0.cancel() }
-        summaryTasks.removeAll()
         isLoading = false
         isSyncingHoldings = false
         hasStarted = false
@@ -171,11 +219,18 @@ final class GainsViewModel {
     }
 
     func refresh(force: Bool = false) async {
-        let task = beginRefresh(force: force)
-        await withTaskCancellationHandler {
-            await task?.value
+        guard let task = beginRefresh(force: force) else { return }
+        let summary = await withTaskCancellationHandler {
+            await task.value
         } onCancel: {
-            task?.cancel()
+            task.cancel()
+        }
+        // Preserve awaitable day-close completion for explicit refresh callers,
+        // without retaining a quote worker throughout that delivery.
+        await withTaskCancellationHandler {
+            await summary?.value
+        } onCancel: {
+            summary?.cancel()
         }
     }
 
@@ -189,8 +244,9 @@ final class GainsViewModel {
     }
 
     @discardableResult
-    private func beginRefresh(force: Bool, quotesCompleted: (() -> Void)? = nil) -> Task<Void, Never>? {
+    private func beginRefresh(force: Bool, quotesCompleted: (() -> Void)? = nil) -> Task<Task<Void, Never>?, Never>? {
         if isLoading, !force { return nil }
+        guard quoteTasks.count < Self.maximumPhysicalRequests else { return nil }
         refreshGeneration += 1
         let generation = refreshGeneration, token = lifecycle
         let personID = settings.selectedPersonID
@@ -199,28 +255,29 @@ final class GainsViewModel {
         let name = settings.selectedProfile.possessiveName
         isLoading = true
         errorMessage = nil
-        let task = Task { [weak self] in
+        let task = Task { [weak self] () -> Task<Void, Never>? in
             defer {
                 quotesCompleted?()
                 self?.finishQuoteTask(generation: generation, token: token)
             }
+            guard !Task.isCancelled else { return nil }
             do {
                 let quotes = try await stock.fetchQuotes(for: symbols)
                 guard !Task.isCancelled,
-                      let accepted = self?.acceptQuotes(quotes, generation: generation, token: token, personID: personID) else { return }
+                      let accepted = self?.acceptQuotes(quotes, generation: generation, token: token, personID: personID) else { return nil }
                 quotesCompleted?()
                 let summary = self?.beginPendingSummary()
-                // No suspension between accepting the snapshot and entering processUpdate:
-                // its synchronous prefix records every threshold observation in acceptance order.
-                await thresholds.processUpdate(paperGain: accepted.combinedPaperGain,
+                // Synchronous observations preserve acceptance order. The service owns
+                // bounded coalesced delivery workers, so polling never awaits a gain alert.
+                thresholds.observeUpdate(paperGain: accepted.combinedPaperGain,
                     personID: personID, possessiveName: name, at: accepted.lastUpdated,
                     isQuotable: accepted.isQuotable)
-                await summary?.value
+                return summary
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else { return nil }
                 let summary = self?.acceptQuoteFailure(error, generation: generation, token: token, personID: personID)
                 quotesCompleted?()
-                await summary?.value
+                return summary
             }
         }
         quoteTasks[generation] = task
@@ -228,8 +285,8 @@ final class GainsViewModel {
     }
 
     private func finishQuoteTask(generation: Int, token: UUID) {
-        guard lifecycle == token else { return }
         quoteTasks.removeValue(forKey: generation)
+        guard lifecycle == token else { return }
         if generation == refreshGeneration { isLoading = false }
     }
 
@@ -246,6 +303,7 @@ final class GainsViewModel {
         }
         guard gains.count == holdings.count else {
             errorMessage = "Incomplete quote data received."
+            scheduleLateClosingRetryIfNeeded(generation: generation)
             hasStaleData = snapshot != nil
             isLoading = false
             advanceTradingClock()
@@ -253,6 +311,7 @@ final class GainsViewModel {
             return nil
         }
         let now = dateProvider()
+        marketClock = now
         let accepted = GainsSnapshot(holdings: gains, lastUpdated: now, tradingSession: marketHours.currentSession(at: now))
         snapshot = accepted
         hasStaleData = false
@@ -265,6 +324,7 @@ final class GainsViewModel {
         guard lifecycle == token, generation == refreshGeneration,
               settings.selectedPersonID == personID else { return nil }
         errorMessage = error.localizedDescription
+        scheduleLateClosingRetryIfNeeded(generation: generation)
         hasStaleData = snapshot != nil
         isLoading = false
         advanceTradingClock()
@@ -282,7 +342,8 @@ final class GainsViewModel {
 
     @discardableResult
     private func beginHoldingsSync(force: Bool) -> Task<Void, Never>? {
-        guard !isSyncingHoldings, force || settings.needsHoldingsSync else { return nil }
+        guard !isSyncingHoldings, force || settings.needsHoldingsSync,
+              holdingsTasks.count < Self.maximumPhysicalRequests else { return nil }
         let token = UUID(), epoch = lifecycle
         holdingsToken = token
         isSyncingHoldings = true
@@ -293,6 +354,7 @@ final class GainsViewModel {
         let outstanding = outstandingSyncServiceFactory()
         let task = Task { [weak self] in
             defer { self?.finishHoldingsTask(token: token, epoch: epoch) }
+            guard !Task.isCancelled else { return }
             do {
                 let result = try await service.syncHoldings()
                 guard !Task.isCancelled else { return }
@@ -312,13 +374,13 @@ final class GainsViewModel {
                     provenance: .companyfacts(periodEnd: fact.periodEnd, filed: fact.filed))
             }
         }
-        holdingsTask = task
+        holdingsTasks[token] = task
         return task
     }
 
     private func finishHoldingsTask(token: UUID, epoch: UUID) {
+        holdingsTasks.removeValue(forKey: token)
         guard lifecycle == epoch, holdingsToken == token else { return }
-        holdingsTask = nil
         holdingsToken = nil
         isSyncingHoldings = false
     }
@@ -414,10 +476,10 @@ final class GainsViewModel {
 
     var marketCloseStatusLabel: String? {
         guard let snapshot, snapshot.tradingSession == .closed else { return nil }
-        return MarketStatusFormatter.asOfCloseLabel(
-            for: snapshot.lastUpdated,
-            marketHours: marketHours
-        )
+        if hasStaleData || marketHours.isQuotable(at: snapshot.lastUpdated) {
+            return MarketStatusFormatter.asOfLiveLabel(date: snapshot.lastUpdated)
+        }
+        return MarketStatusFormatter.asOfCloseLabel(for: snapshot.lastUpdated, marketHours: marketHours)
     }
 
     var marketStatusLabel: String? {
@@ -430,7 +492,7 @@ final class GainsViewModel {
 
     var marketStatusDetail: String? {
         guard let snapshot, snapshot.tradingSession == .closed else { return nil }
-        guard let nextOpen = marketHours.nextOpenDate(from: snapshot.lastUpdated) else { return nil }
+        guard let nextOpen = marketHours.nextOpenDate(from: marketClock) else { return nil }
         return MarketStatusFormatter.nextOpenLabel(for: nextOpen)
     }
 
@@ -611,7 +673,13 @@ final class GainsViewModel {
 
     private func advanceTradingClock() {
         let now = dateProvider()
+        marketClock = now
         dailyRecordsSnapshot = dailyRecordTracker.advanceClock(personID: settings.selectedPersonID, at: now)
+        // Clock-only observations invalidate yesterday's pending gain alerts without
+        // claiming a fresh price or creating a threshold crossing.
+        gainThresholdNotificationService.observeUpdate(paperGain: snapshot?.combinedPaperGain ?? 0,
+            personID: settings.selectedPersonID, possessiveName: settings.selectedProfile.possessiveName,
+            at: now, isQuotable: false)
         if let previous = snapshot {
             snapshot = GainsSnapshot(holdings: previous.holdings, lastUpdated: previous.lastUpdated,
                                      tradingSession: marketHours.currentSession(at: now))
@@ -621,6 +689,7 @@ final class GainsViewModel {
 
     @discardableResult
     private func beginPendingSummary() -> Task<Void, Never>? {
+        guard summaryTasks.count < Self.maximumPhysicalRequests else { return nil }
         let personID = settings.selectedPersonID
         guard let finalized = dailyRecordTracker.peekPendingFinalizedDay(for: personID) else { return nil }
         let service = dayCloseSummaryNotificationService

@@ -1,0 +1,8 @@
+{
+  "role": "plan-runner",
+  "dispatch_id": "55c9300d-cd4e-4646-927f-236e9d52af70-task-0",
+  "parent": "/root",
+  "controller": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910",
+  "starting_head": "64451834357b3e7d15648dcb32d25d87b6184d12",
+  "telemetry": "No remote telemetry or plugin-directory writes per task scope; actual local dispatches recorded here."
+}

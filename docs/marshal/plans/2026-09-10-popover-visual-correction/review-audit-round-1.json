@@ -1,0 +1,110 @@
+[
+  {
+    "artifact": "reviews/correctness-round-1.md",
+    "check": "assert_verdict_persisted.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/correctness-round-1.md",
+    "check": "assert_verdict_authorship.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/correctness-round-1.md",
+    "check": "_verdict_trailer.py",
+    "exit_code": 0,
+    "detail": "ok"
+  },
+  {
+    "artifact": "reviews/holistic-round-1.md",
+    "check": "assert_verdict_persisted.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/holistic-round-1.md",
+    "check": "assert_verdict_authorship.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/holistic-round-1.md",
+    "check": "_verdict_trailer.py",
+    "exit_code": 0,
+    "detail": "ok"
+  },
+  {
+    "artifact": "reviews/security-holistic-round-1.md",
+    "check": "assert_verdict_persisted.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/security-holistic-round-1.md",
+    "check": "assert_verdict_authorship.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/security-holistic-round-1.md",
+    "check": "_verdict_trailer.py",
+    "exit_code": 0,
+    "detail": "ok"
+  },
+  {
+    "artifact": "reviews/concurrency-holistic-round-1.md",
+    "check": "assert_verdict_persisted.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/concurrency-holistic-round-1.md",
+    "check": "assert_verdict_authorship.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/concurrency-holistic-round-1.md",
+    "check": "_verdict_trailer.py",
+    "exit_code": 0,
+    "detail": "ok"
+  },
+  {
+    "artifact": "reviews/persistence-holistic-round-1.md",
+    "check": "assert_verdict_persisted.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/persistence-holistic-round-1.md",
+    "check": "assert_verdict_authorship.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/persistence-holistic-round-1.md",
+    "check": "_verdict_trailer.py",
+    "exit_code": 0,
+    "detail": "ok"
+  },
+  {
+    "artifact": "reviews/tenant-isolation-holistic-round-1.md",
+    "check": "assert_verdict_persisted.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/tenant-isolation-holistic-round-1.md",
+    "check": "assert_verdict_authorship.py",
+    "exit_code": 0,
+    "detail": ""
+  },
+  {
+    "artifact": "reviews/tenant-isolation-holistic-round-1.md",
+    "check": "_verdict_trailer.py",
+    "exit_code": 0,
+    "detail": "ok"
+  }
+]

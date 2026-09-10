@@ -1,13 +1,10 @@
 {
   "all_product_and_test_files_match_task6_base": true,
   "approved_plan_spec_match_task6_base": true,
-  "base_and_unmoved_head": "523b3d2c72b8291dc0e83b14b233ef03e1db4652",
+  "base_and_unmoved_head": "943d5a11cf8327dd500bf6399a80570191a8971e",
   "branch": "codex/review-fixes-task-6",
-  "captured_at": "2026-09-10T10:02:09.529192+00:00",
+  "captured_at": "2026-09-10T09:48:02.563956+00:00",
   "cumulative_review_base": "b4ff901c56bef9302bad32b41a8fec9366182dee",
-  "documentation_evidence": {
-    "docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/README.md": "05a4368fff4684d80fb00e2d3cec3ce4815b2ef5ae2106aa410f79bf24ede262"
-  },
   "files": {
     "CHANGELOG.md": "d482d8c1dae933b399ce15f8b1779301e406fbaf734e4bc4eb8e633f511dceb9",
     "Muskometer.xcodeproj/project.pbxproj": "200041cc3407707b155053266dd03e2c88a21ea28d70fd5dbd03677edf76fb56",
@@ -86,25 +83,14 @@
     "MuskometerTests/NotificationServicesTests.swift": "72a7dbf8be71cbf6d3b7572c48b8968a007d9d2bcafa0f3d4dd0336ebfc671ad",
     "MuskometerTests/OwnershipSyncTests.swift": "8bfa83473214b75ef560af3d7c32a96cad6b99a29e9151e4c45200a533492a26",
     "MuskometerTests/RefreshLifecycleTests.swift": "0a2271a22f386f9e65b5f8ece9737368704480e064e0d3aaddd5ab0544b4730e",
-    "docs/ARCHITECTURE.md": "354bbd76510271203652a7a507a1cd86374a707d0ff96af0b2c3bd2e71a2a103",
-    "docs/DEVELOPING.md": "048c0249d5130ebdf0fe2d5981a7db387e6d8b45c186c509cd3ae3ff1d7ab5f7",
+    "docs/ARCHITECTURE.md": "1cb7c4cf41c306b8280152684a782098f47d49d530cf3d5a104b2bb33bcf281c",
+    "docs/DEVELOPING.md": "15c1711dffbfff7ab003509389f5e18a6f937db31c80f577f046c8b3d2c4cf2b",
     "docs/HOLDINGS.md": "03069d1e089ecbe8685ae57a633f6d95bc33595cfd4b1a50082320d37b3d792b",
     "docs/marshal/plans/2026-09-10-review-fixes.md": "cdb6192c44be65243b8cefa00c7e9a6f5ce2cb2bac9dd8630cc96d5a5c584710",
     "docs/marshal/specs/2026-09-10-review-fixes-design.md": "28a0c19a8ba6021ac4b3d724112df87612405ae1c3bac27b4e24337faa745be6",
     "scripts/verify.sh": "2934442b578b3949605e42c9fcda2b36ba7997217517ac2c40913e685f68c0cd"
   },
-  "manifest_history": [
-    {
-      "manifest": "source-manifest-round-1.json",
-      "round": 1,
-      "sha256": "899526fa2f80b902607386e5c8b63863916feda0c0d89dd19cba1e548534ae57",
-      "source_commit": "e97685443d43c63895795c91e940b6c1aca8cb34",
-      "verification_source_base": "943d5a11cf8327dd500bf6399a80570191a8971e"
-    }
-  ],
   "production_swift_count": 66,
-  "revision_round": 2,
-  "revision_scope": "Documentation-only clarification of incomplete-quote day-close return behavior; executable inputs and existing 391-case verification are unchanged.",
   "task6_owned_source_changes": [
     "CHANGELOG.md",
     "docs/ARCHITECTURE.md",
@@ -113,6 +99,5 @@
     "scripts/verify.sh"
   ],
   "test_swift_count": 5,
-  "verification_source_base": "943d5a11cf8327dd500bf6399a80570191a8971e",
   "worktree": "/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/.worktrees/task-6"
 }

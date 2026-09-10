@@ -87,3 +87,106 @@ VERDICT: NEEDS_FIXES: Bound suspended refresh work, preserve the initial session
 reviewed-content-sha256: 3a8a0ce4089db17f069453dbf0b753f58607f12839e545e9a6197cbb05c5e9eb
 
 plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
+
+
+## Round 2
+
+Independent cold full Task 5 conformance review. Dispatch: `3d6313f9-8c88-4ea8-b21c-d1a0a375c2df-task-5`. Reviewed the cumulative change from `68cccc9aa2033295dbb10b1a8f7bbd8963d99d75` to **`c524e6a6d11e7ee7313018caa4f8a6826a23d1b0`**, not only the last fix. The four source/test files on disk exactly match that reviewed commit. No production or test source was edited, and no commit was made.
+
+Read the complete design spec `docs/marshal/specs/2026-09-10-review-fixes-design.md`, Task 5 in `docs/marshal/plans/2026-09-10-review-fixes.md`, the implementation summary, and `build/task5-evidence/round-2/scope-and-api.md`. The explicit extension in **`build/task5-evidence/authorized-integration-scope.md`** authorizes the added threshold service and service regression paths while preserving Task 3's retry, rearm, reset, and rollover contracts. The frozen plan/spec have no cumulative changes.
+
+The main integration follows the intended design: accepted quotes synchronously commit snapshot, record, sample, milestone, and threshold observations; quote/holdings lifecycle tokens reject old completions; current holdings are used at quote acceptance; matching acknowledgments preserve newer pending days; clock advancement finalizes real observations through failure/partial responses. The timer does not await quotes or gain alerts. Physical quote, holdings, and summary work is capped at two slots across reset, and the view-model observation API uses one physical worker plus one coalesced pending crossing per preset. The retained sample cap remains 400. The legacy awaitable threshold API and all baseline assertions in the two changed test files are preserved: each baseline file is an exact prefix of its current file.
+
+Two state transitions still violate the intended behavior:
+
+1. **Important — a saturated quote boundary loses the required closing request.** `GainsViewModel.swift:136-157` increments `closeAttempts` before admission, while `beginRefresh` returns nil when both physical slots are occupied (`247-249`). The normal initial quote plus the changed-holdings refresh can occupy those slots at close. `beginClosingRefresh` then leaves `closingRecovery` nil. After both requests fail and capacity frees, the next timer wake sets `closeAttempts` to two, `finishClosingWindow` has no recovery to process, and the loop sleeps overnight. The independent actual-source probe observed two requests before/at close, still two after both failures and the recovery window, then a **62,940-second sleep**. No closing request or recovery request started. This conflicts with the spec's “Make one closing quote attempt” and Task 5's close scheduling requirement. Keep a bounded close obligation until a request is actually admitted, and exercise capacity release before the next open without creating continuous overnight polling.
+
+2. **Important — queued delivery does not honor a disabled threshold.** `GainThresholdNotificationService.swift:119-135` drains pending work after an older delivery returns using only claim identity. `setEnabledThresholdIDs` (`80-82`) only persists the enabled set. With `9→11(held)→9→12(queued)`, disabling the preset and releasing the held call starts a **new second delivery with `enabledIDs=[]`**. This is a newly started delivery after disable, not an already submitted request that cannot be recalled. If a polling observation intervenes while disabled, lines `106-108` instead delete the queue item without retiring its reservation: the companion probe observed `retryPending=true`, a latest gain of 14B, and no retry on re-enabled 13B/14B observations until a below/recross clears the abandoned claim. Make disabling and queued-claim retirement coherent, and revalidate enabled state before starting queued delivery. Preserve the existing failure/rearm/reset/rollover behavior in regressions for both interleavings.
+
+Verification: independently read the actual final logs: `green-final.log` reports **78 tests, zero failures**, and `full-suite-final.log` reports **327 tests, zero failures**, both ending in `TEST SUCCEEDED`. Their source manifest matches the independently computed current hashes. These are inspected implementation runs, not a claimed reviewer rerun of those suites. Both cumulative test files retain their pre-task contents verbatim; `git diff --check BASE HEAD` passes. The reviewer independently compiled all production Swift sources except the application entry point and ran boundary-mocked probes through the required escalated aggregate launcher. The probe completes and reproduces the counterexamples above; its output is `build/task5-evidence/spec-review-r2/probe.log`, with harness `probe.swift` and `run-probe.py` in the same directory. No real notification or login-item changes were performed.
+
+Mandatory extension provenance, independently computed from disk and compared byte-for-byte with **reviewed source HEAD `c524e6a6d11e7ee7313018caa4f8a6826a23d1b0`**:
+
+- `Muskometer/Services/GainThresholdNotificationService.swift` — SHA-256 `45b50ae62ea3ff9a535945f4396c94ae52ba551087542ac468486ed83ae9aed2`.
+- `MuskometerTests/NotificationServicesTests.swift` — SHA-256 `7ed4b823613bd98585227b9bbad714e3bf8638c66d563337855646ce6bc7b5f3`.
+
+The original Task 5 paths were also verified: `GainsViewModel.swift` SHA-256 `b9b705ed26c9452783055444a236104ff64c46fa746a4006e42cbdae635100c4`; `RefreshLifecycleTests.swift` SHA-256 `ba1764abb48a311277c9c46d1fa418b6d9c63d2f7b9b4b6aa2ed07aecad644df`. Full source-byte evidence is in `build/task5-evidence/spec-review-r2/source-verification.json`.
+
+ADJUDICATED: adjudicate-error — (fixed: c524e6a6d11e7ee7313018caa4f8a6826a23d1b0)
+
+## Findings
+
+- [Muskometer/ViewModels/GainsViewModel.swift:136-157] adjudicate-next-request: Saturated quote slots consume the required closing attempt; freeing both slots after failures does not trigger a closing request before overnight sleep.
+- [Muskometer/Services/GainThresholdNotificationService.swift:119-135] adjudicate-race: Queued crossings can start after threshold disable, while observation-driven queue removal leaves an abandoned claim that blocks above-threshold retry.
+
+## Findings (machine-readable)
+<!-- MARSHAL_FINDINGS_JSON v1 -->
+```json
+{
+  "schema_version": 1,
+  "dispatch_id": "3d6313f9-8c88-4ea8-b21c-d1a0a375c2df-task-5",
+  "verdict": "needs_fixes",
+  "round": 2,
+  "findings": [
+    {
+      "file_path": "Muskometer/ViewModels/GainsViewModel.swift",
+      "line_range": [
+        136,
+        157
+      ],
+      "category": "adjudicate-next-request",
+      "severity": "important",
+      "summary": "A full quote-slot set consumes the only closing attempt without admitting a request; after both pre-close requests fail and free capacity the loop sleeps until the next open.",
+      "persisted_from_prior_round": false,
+      "resolved_in_this_round": false
+    },
+    {
+      "file_path": "Muskometer/Services/GainThresholdNotificationService.swift",
+      "line_range": [
+        119,
+        135
+      ],
+      "category": "adjudicate-race",
+      "severity": "important",
+      "summary": "A coalesced crossing can start delivery after its threshold is disabled; observation-driven removal instead leaves a reserved claim with no pending worker.",
+      "persisted_from_prior_round": false,
+      "resolved_in_this_round": false
+    }
+  ]
+}
+```
+
+VERDICT: NEEDS_FIXES: Preserve closing-request admission across capacity saturation and retire disabled queued threshold claims coherently.
+
+## Reviewed files
+
+- docs/marshal/specs/2026-09-10-review-fixes-design.md
+- docs/marshal/plans/2026-09-10-review-fixes.md
+- build/task5-evidence/authorized-integration-scope.md
+- build/task5-evidence/done-summary.md
+- build/task5-evidence/round-2/scope-and-api.md
+- Muskometer/ViewModels/GainsViewModel.swift
+- Muskometer/Services/GainThresholdNotificationService.swift
+- Muskometer/Services/DayCloseSummaryNotificationService.swift
+- Muskometer/Services/DailyRecordTracker.swift
+- Muskometer/Services/IntradayGainSampleStore.swift
+- Muskometer/Services/MarketHoursService.swift
+- Muskometer/Services/UpdateCoordinator.swift
+- Muskometer/Utilities/AppSettings.swift
+- Muskometer/Utilities/LaunchAtLoginManager.swift
+- MuskometerTests/RefreshLifecycleTests.swift
+- MuskometerTests/NotificationServicesTests.swift
+- build/task5-evidence/round-2/validation-commands.txt
+- build/task5-evidence/round-2/validation-results.json
+- build/task5-evidence/round-2/source-manifest.json
+- build/task5-evidence/round-2/green-final.log
+- build/task5-evidence/round-2/full-suite-final.log
+- build/task5-evidence/spec-review-r2/hypotheses.md
+- build/task5-evidence/spec-review-r2/probe.swift
+- build/task5-evidence/spec-review-r2/run-probe.py
+- build/task5-evidence/spec-review-r2/probe.log
+- build/task5-evidence/spec-review-r2/source-verification.json
+
+reviewed-content-sha256: 4bfcfcfa794c8d2b393271df71ad991f22620c09806452a929d557615c299b33
+
+plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760

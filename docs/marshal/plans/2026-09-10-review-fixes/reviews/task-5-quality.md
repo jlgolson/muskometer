@@ -86,3 +86,83 @@ VERDICT: NEEDS_FIXES: Correct stale-close presentation, retain the initial sessi
 reviewed-content-sha256: 3a8a0ce4089db17f069453dbf0b753f58607f12839e545e9a6197cbb05c5e9eb
 
 plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
+
+
+## Round 2
+
+Independent cold review for dispatch `8e5305d2-8b37-4f4e-992c-c7f162ab71df-task-5` of the full cumulative Task 5 range `68cccc9aa2033295dbb10b1a8f7bbd8963d99d75..c524e6a6d11e7ee7313018caa4f8a6826a23d1b0`. I generated failure hypotheses before inspecting the implementation and did not read prior verdicts, sibling reports, or controller transcripts.
+
+**Scope and classification.** This is a Swift code change, so organization, behavioral tests, clarity, and surrounding patterns all apply. The source/test write set is the original GainsViewModel/RefreshLifecycleTests pair plus the service/test extension explicitly authorized in `build/task5-evidence/authorized-integration-scope.md`, which I read in full. The frozen plan and spec are unchanged. Committed review/provenance records are workflow evidence, not executable implementation; executable-test requirements do not apply to those records. There is no SQL migration.
+
+**Strengths.** Snapshot, record, sample, milestone, and threshold observations commit synchronously before deliveries suspend. Quote generations, lifecycle IDs, and matching day acknowledgments prevent old completions from overwriting current state. The view model keeps explicit physical quote, holdings, and summary slots across reset/cancellation; the background threshold path likewise retains an occupied per-preset slot and only one replaceable queued claim. I traced normal completion, current failure followed by another above-threshold observation, below/recross, reset, day rollover, closing retries, next-open supersession, and stop/deallocation. The new synchronous observation interface leaves the original awaitable `processUpdate` implementation behavior intact, and its existing service regressions remain byte-for-byte unchanged.
+
+The added scheduling methods have clear ownership boundaries, despite the substantial increase in lifecycle code. The timer remains independent of quote and notification suspension. Observation time and the separately observable market clock serve their respective presentation roles. The actual-loop tests exercise early close, stalled initial/closing requests, newer generations, and multiple market days; service tests inspect persisted state and delivered content as well as request counts.
+
+**Verification.** I directly parsed the original test logs: `build/task5-evidence/round-2/green-final.log` contains 78 distinct passing test cases, zero failed cases, and `TEST SUCCEEDED`; `full-suite-final.log` contains 327 distinct passing cases, zero failures, and the same success banner. Both logged commands use the declared Task 5 derived directory and disabled parallel testing. I verified that the original contents of both changed test files are exact prefixes of the current files: RefreshLifecycleTests grows from 23 to 60 test methods, NotificationServicesTests from 54 to 59, with no removed baseline tests or modified baseline assertions. The cumulative source/test diff passes `git diff --check`.
+
+I additionally compiled the actual unchanged service and its actual dependencies into an isolated, mocked delivery probe, using the required escalated `run-aggregate.py` launcher, Xcode developer directory, and a dedicated module cache. No real notification or login-service action was performed. Probe source, runner, and exact output are in `build/task5-evidence/quality-review-r2/threshold-disable-probe.swift`, `run-probe.py`, and `threshold-disable-probe.log`.
+
+**Important issue — disabled alerts can drain queued crossings.** In `GainThresholdNotificationService.swift:119–135`, worker completion starts the next queued delivery after checking only claim identity. `setEnabledThresholdIDs` at lines 80–81 updates defaults without invalidating that queue, and the worker does not reread enabled IDs before starting delivery. Reproduction through the new polling API: enable +$10B; observe 9→11 and hold delivery 1; observe 8→12 to queue a distinct crossing; disable +$10B; release delivery 1 before another observation. The probe reports `requestsAfterDisable: 2`: delivery 2 starts after the user disabled the alert. This is a new request, not the unavoidable completion of an already submitted notification. An app clock/quote observation eventually clears disabled queued work, but that makes the outcome depend on whether it wins the race with the old completion.
+
+Reconcile disabling with pending semantic claims immediately and check current enablement before a queued worker submits, while retaining occupied physical capacity until the real deliverer returns. Add gated tests for disabling before a worker first runs and while an older delivery blocks a queued recross; cover enabling again so queue cleanup cannot leave a claim with no worker. The probe's observation-while-disabled variant also demonstrates that queue removal currently leaves persisted `retryPending: true` while a subsequent above observation starts no delivery, so cleanup needs coherent claim handling rather than just dropping the task/queue handle.
+
+**Assessment.** The cumulative implementation is substantially covered and its principal lifecycle/resource protections are coherent. The confirmed settings/delivery race requires correction before approval. No other critical, important, or minor issue is raised by this review.
+
+**Extension provenance independently computed by this reviewer.** Exact reviewed source HEAD: `c524e6a6d11e7ee7313018caa4f8a6826a23d1b0`. I read the actual disk bytes, computed SHA-256, and compared each byte-for-byte with `git show <HEAD>:<path>`; both comparisons passed:
+
+- `Muskometer/Services/GainThresholdNotificationService.swift` — SHA-256 `45b50ae62ea3ff9a535945f4396c94ae52ba551087542ac468486ed83ae9aed2`.
+- `MuskometerTests/NotificationServicesTests.swift` — SHA-256 `7ed4b823613bd98585227b9bbad714e3bf8638c66d563337855646ce6bc7b5f3`.
+
+The same check passed for GainsViewModel and RefreshLifecycleTests. Full four-file evidence is recorded in `build/task5-evidence/quality-review-r2/source-provenance.json`; this explicitly supplements the default stamp's original-plan file set.
+
+ADJUDICATED: adjudicate-error — (fixed: c524e6a6d11e7ee7313018caa4f8a6826a23d1b0)
+ADJUDICATED: adjudicate-retry — (fixed: c524e6a6d11e7ee7313018caa4f8a6826a23d1b0)
+
+## Findings
+
+- [Muskometer/Services/GainThresholdNotificationService.swift:119-135] adjudicate-race: A queued recross starts a new notification after its threshold is disabled because worker drainage checks claim identity but not current enablement.
+
+## Findings (machine-readable)
+<!-- MARSHAL_FINDINGS_JSON v1 -->
+```json
+{"schema_version":1,"dispatch_id":"8e5305d2-8b37-4f4e-992c-c7f162ab71df-task-5","verdict":"needs_fixes","round":2,"findings":[{"file_path":"Muskometer/Services/GainThresholdNotificationService.swift","line_range":[119,135],"category":"adjudicate-race","severity":"important","summary":"A queued recross starts a new notification after its threshold is disabled because worker drainage checks claim identity but not current enablement.","persisted_from_prior_round":false,"resolved_in_this_round":false}]}
+```
+
+VERDICT: NEEDS_FIXES: Disabling a threshold does not prevent its queued crossing from starting a new notification delivery.
+
+## Reviewed files
+
+- Muskometer/ViewModels/GainsViewModel.swift
+- Muskometer/Services/GainThresholdNotificationService.swift
+- MuskometerTests/RefreshLifecycleTests.swift
+- MuskometerTests/NotificationServicesTests.swift
+- Muskometer/Services/DayCloseSummaryNotificationService.swift
+- Muskometer/Services/DailyRecordTracker.swift
+- Muskometer/Services/MarketHoursService.swift
+- Muskometer/Utilities/TradingDayCalendar.swift
+- Muskometer/Models/GainNotificationThreshold.swift
+- Muskometer/Utilities/CurrencyFormatter.swift
+- Muskometer/Utilities/NotificationAuthorization.swift
+- Muskometer/Utilities/MuskometerNetworking.swift
+- Muskometer/App/MuskometerApp.swift
+- Muskometer/Views/SettingsView.swift
+- scripts/verify.sh
+- docs/marshal/specs/2026-09-10-review-fixes-design.md
+- docs/marshal/plans/2026-09-10-review-fixes.md
+- build/task5-evidence/authorized-integration-scope.md
+- build/task5-evidence/done-summary.md
+- build/task5-evidence/round-2/scope-and-api.md
+- build/task5-evidence/round-2/validation-results.json
+- build/task5-evidence/round-2/validation-commands.txt
+- build/task5-evidence/round-2/source-manifest.json
+- build/task5-evidence/round-2/green-final.log
+- build/task5-evidence/round-2/full-suite-final.log
+- build/task5-evidence/quality-review-r2/hypotheses.md
+- build/task5-evidence/quality-review-r2/source-provenance.json
+- build/task5-evidence/quality-review-r2/threshold-disable-probe.swift
+- build/task5-evidence/quality-review-r2/run-probe.py
+- build/task5-evidence/quality-review-r2/threshold-disable-probe.log
+
+reviewed-content-sha256: 4bfcfcfa794c8d2b393271df71ad991f22620c09806452a929d557615c299b33
+
+plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760

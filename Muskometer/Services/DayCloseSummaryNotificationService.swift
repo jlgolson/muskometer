@@ -22,6 +22,8 @@ final class DayCloseSummaryNotificationService {
 
     private let defaults: UserDefaults
     private let deliverer: any DayCloseSummaryNotificationDelivering
+    /// In-flight day claims so concurrent `deliverIfNeeded` cannot double-post across `await`.
+    private var inFlightDayKeys = Set<String>()
 
     init(
         defaults: UserDefaults = .standard,
@@ -41,6 +43,9 @@ final class DayCloseSummaryNotificationService {
         guard enabled else { return .skipped }
         let notifiedKey = Self.lastNotifiedDayKey(personID)
         guard defaults.string(forKey: notifiedKey) != finalized.dayKey else { return .skipped }
+
+        let claimKey = Self.inFlightClaimKey(personID: personID, dayKey: finalized.dayKey)
+        guard inFlightDayKeys.insert(claimKey).inserted else { return .skipped }
 
         let content = UNMutableNotificationContent()
         content.title = "\(possessiveName) day close"
@@ -63,8 +68,10 @@ final class DayCloseSummaryNotificationService {
         do {
             try await deliverer.add(request)
             defaults.set(finalized.dayKey, forKey: notifiedKey)
+            inFlightDayKeys.remove(claimKey)
             return .delivered
         } catch {
+            inFlightDayKeys.remove(claimKey)
             return .failed
         }
     }
@@ -75,5 +82,9 @@ final class DayCloseSummaryNotificationService {
 
     private nonisolated static func lastNotifiedDayKey(_ personID: String) -> String {
         "dayCloseSummaryNotifiedDay_\(personID)"
+    }
+
+    private nonisolated static func inFlightClaimKey(personID: String, dayKey: String) -> String {
+        "\(personID)|\(dayKey)"
     }
 }

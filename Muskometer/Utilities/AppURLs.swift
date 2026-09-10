@@ -26,6 +26,15 @@ enum AppURLs {
               segments[2].caseInsensitiveCompare("releases") == .orderedSame else {
             return false
         }
-        return true
+        // Allow only release pages: /releases/latest or /releases/tag/<tag>
+        // (reject bare /releases, /releases/download/..., extra segments, empty tag).
+        guard segments.count >= 4 else { return false }
+        if segments[3].caseInsensitiveCompare("latest") == .orderedSame {
+            return segments.count == 4
+        }
+        if segments[3].caseInsensitiveCompare("tag") == .orderedSame {
+            return segments.count == 5 && !segments[4].isEmpty
+        }
+        return false
     }
 }

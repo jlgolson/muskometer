@@ -4281,6 +4281,90 @@ final class DayCloseSummaryNotificationServiceTests: XCTestCase {
         XCTAssertEqual(deliverer.attempts, 2)
         XCTAssertEqual(deliverer.requests.count, 1)
     }
+
+    func testConcurrentDeliverIfNeededPostsOnlyOnce() async {
+        final class SuspendingDeliverer: DayCloseSummaryNotificationDelivering, @unchecked Sendable {
+            private let lock = NSLock()
+            private var addCount = 0
+            private var resumeContinuation: CheckedContinuation<Void, Never>?
+            private var enteredContinuation: CheckedContinuation<Void, Never>?
+
+            var currentAddCount: Int {
+                lock.lock()
+                defer { lock.unlock() }
+                return addCount
+            }
+
+            func waitUntilAddEntered() async {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    lock.lock()
+                    if addCount > 0 {
+                        lock.unlock()
+                        continuation.resume()
+                    } else {
+                        enteredContinuation = continuation
+                        lock.unlock()
+                    }
+                }
+            }
+
+            func resumeAdd() {
+                lock.lock()
+                let cont = resumeContinuation
+                resumeContinuation = nil
+                lock.unlock()
+                cont?.resume()
+            }
+
+            func add(_ request: UNNotificationRequest) async throws {
+                // Store resume continuation before signaling entry so resumeAdd cannot race ahead.
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    lock.lock()
+                    addCount += 1
+                    resumeContinuation = continuation
+                    let entered = enteredContinuation
+                    enteredContinuation = nil
+                    lock.unlock()
+                    entered?.resume()
+                }
+            }
+        }
+
+        let suite = "MuskometerTests-day-close-reentrant-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+        let deliverer = SuspendingDeliverer()
+        let service = DayCloseSummaryNotificationService(defaults: defaults, deliverer: deliverer)
+        let finalized = DailyRecordTracker.FinalizedTradingDay(
+            dayKey: "2026-06-30",
+            closeGain: 1_000_000_000,
+            peak: 2_000_000_000,
+            trough: -500_000_000,
+            date: Date()
+        )
+
+        async let first = service.deliverIfNeeded(
+            finalized: finalized,
+            personID: "musk",
+            possessiveName: "Elon's",
+            enabled: true
+        )
+        await deliverer.waitUntilAddEntered()
+
+        let second = await service.deliverIfNeeded(
+            finalized: finalized,
+            personID: "musk",
+            possessiveName: "Elon's",
+            enabled: true
+        )
+        XCTAssertEqual(second, .skipped)
+        XCTAssertEqual(deliverer.currentAddCount, 1)
+
+        deliverer.resumeAdd()
+        let firstOutcome = await first
+        XCTAssertEqual(firstOutcome, .delivered)
+        XCTAssertEqual(deliverer.currentAddCount, 1)
+    }
 }
 
 @MainActor
@@ -5177,9 +5261,29 @@ final class UpdateCoordinatorTests: XCTestCase {
                 URL(string: "https://github.com/jlgolson/muskometer/releases/../../evil")!
             )
         )
+        XCTAssertFalse(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases")!
+            )
+        )
+        XCTAssertFalse(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/download/v0.2.0/app.zip")!
+            )
+        )
+        XCTAssertTrue(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/latest")!
+            )
+        )
         XCTAssertTrue(
             AppURLs.isTrustedReleasePageURL(
                 URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v0.2.0")!
+            )
+        )
+        XCTAssertTrue(
+            AppURLs.isTrustedReleasePageURL(
+                URL(string: "https://github.com/jlgolson/muskometer/releases/tag/v1.0.0")!
             )
         )
     }

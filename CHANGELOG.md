@@ -6,6 +6,10 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ## [Unreleased]
 
+## [0.1.7] - 2026-09-10
+
+Restore the main popover's comparison and chart depth, and improve holdings, refresh, and notification reliability.
+
 ### Fixed
 
 - Restore the Tesla/SpaceX comparison above secondary popover details, move ownership methodology into Holdings, and show honest intraday chart depth with range labels, a gradient, and the latest point in both the popover and shared image.
@@ -22,6 +26,7 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/). Versioni
 
 ### Changed
 
+- **Version** — marketing **0.1.7**, build **28**.
 - Split subsystem tests while preserving the original baseline; add controlled ownership, concurrency, lifecycle, calendar, and hosted-layout regressions.
 - Update architecture/holdings documentation and correct the verification script's bundled Yahoo share-count fixture to TSLA 710,172,677 and SPCX 5,116,475,230.
 

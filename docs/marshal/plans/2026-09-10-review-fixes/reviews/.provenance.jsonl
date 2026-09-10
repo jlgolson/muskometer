@@ -47,3 +47,6 @@
 {"kind":"integration","scope":"2026-09-10-review-fixes","task":2,"round":null,"commit":"f39001702c907031bba27681f82e338aa980044f","base":"50d7946cb694e44c39ab04484ead60fd7c3b3e2c","ts":"2026-09-10T09:29:54.777826Z"}
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"implementer","task":2,"round":null,"ts":"2026-09-10T09:29:54.778248Z"}
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"implementer","task":6,"round":null,"ts":"2026-09-10T09:41:17.230500Z"}
+{"kind":"integration","scope":"2026-09-10-review-fixes","task":6,"round":null,"commit":"e97685443d43c63895795c91e940b6c1aca8cb34","base":"943d5a11cf8327dd500bf6399a80570191a8971e","ts":"2026-09-10T09:51:36.744522Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"spec-reviewer","task":6,"round":null,"ts":"2026-09-10T09:51:36.745063Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"code-quality-reviewer","task":6,"round":null,"ts":"2026-09-10T09:51:36.745175Z"}

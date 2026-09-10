@@ -1,0 +1,202 @@
+---
+slug: 2026-09-10-popover-visual-correction
+plan_date: 2026-09-10
+spec_path: docs/marshal/specs/2026-09-10-popover-visual-correction-design.md
+gate: review
+local_only: true
+---
+
+# Popover visual correction implementation plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use marshal:execute-plan. Execute the checkboxes within Task 1 and complete its verification subtask before review.
+
+**Goal:** Move ownership methodology into Holdings, restore immediately visible Tesla/SpaceX parity, and give the shared chart useful, honest depth.
+
+**Architecture:** Keep this coupled presentation correction in one task. Update the existing SwiftUI cards and Canvas chart, expose the existing pure chart layout internally for focused tests, and strengthen the actual hosted-view regression. No model, persistence, service, dependency, project-file, or infrastructure changes are required.
+
+**Tech stack:** SwiftUI, AppKit, XCTest; Vision is an existing macOS system framework available for reading the rendered test image, without a package dependency.
+
+**Controller:** `/Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910`, branch `codex/review-fixes-20260910`, starting HEAD `64451834357b3e7d15648dcb32d25d87b6184d12`. The executable baseline is `c151d54d21efea2681fd255012b41a8f35984130`, with 391 passing cases and independent integration/conformance/quality reviews. Continue this repair worktree; preserve historical plans, specs, verdicts, and the original checkout.
+
+**Authorization:** The user's actual request, after supplying screenshots, explicitly asks to move the vested-options explanation into Settings, restore the missing comparison, and improve the sparkline. That request authorizes this scoped correction and another local preview; it is not recorded as a fabricated later spec approval. No repeated routine confirmation is needed. No push, PR, release, installation replacement, tracker work, external messages, or remote telemetry. The prior publication block remains in force.
+
+**Reference paths:** The spec named above; `Muskometer/Views/GainSparklineView.swift`, `PopoverContentView.swift`, `SettingsView.swift`, `MergerParityCardView.swift`, `ShareCardView.swift`; `MuskometerTests/InterfaceAndCalendarTests.swift`; read-only `Muskometer/Utilities/ShareImageExporter.swift`, `Muskometer/Services/IntradayGainSampleStore.swift`, and `build/run-aggregate.py`.
+
+**Before evidence:** `/Users/jlgolson/grok/muskometer/build/popover-visual-validation/before-popover.png`, `before-ownership.png`, `observed-chart-samples.json`, and `observed-chart-analysis.json` in that same directory. Decode the sample timestamps as `Date(timeIntervalSinceReferenceDate:)`, matching Codable Date's stored representation. Those nine samples are the actual September 10 series. Read them without altering them or querying/changing the user's defaults.
+
+## Task 1: Correct and visually verify the main popover and shared chart
+
+### Files touched
+
+- Muskometer/Views/GainSparklineView.swift
+- Muskometer/Views/PopoverContentView.swift
+- Muskometer/Views/SettingsView.swift
+- Muskometer/Views/MergerParityCardView.swift
+- Muskometer/Views/ShareCardView.swift
+- MuskometerTests/InterfaceAndCalendarTests.swift
+- CHANGELOG.md
+
+The last two view files change only where the parity identifiers/compact presentation and shared dark export require it. No generic cleanup. Put temporary capture tooling and raw output under the controller's ignored `build/popover-visual-correction/`; place a concise, durable evidence manifest under `docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-validation/`. Review metadata is separate from the production write set.
+
+### Execution and launch discipline
+
+- [ ] Read the spec, listed source files, before images, and existing `PopoverLayoutRegressionTests` before changing code. Preserve the 391 baseline test cases and all prior correctness behavior. Retain the existing layout test's name and its scrolling/footer/Settings/back assertions; strengthen its initial view coverage.
+- [ ] Use isolated `UserDefaults(suiteName: "MuskometerTests-visual-\(UUID().uuidString)")`, `MockLaunchAtLoginManager`, fixed Eastern test dates, existing quote/notification test doubles, and controlled sample stores. Never clear or modify real preferences/history/ownership, click real reset, change login items, enable alerts, or initiate real SEC/update work in captures.
+- [ ] Every build, test, executable probe, and app launch runs with host `require_escalated`, through `python3 /Users/jlgolson/grok/muskometer/.worktrees/review-fixes-20260910/build/run-aggregate.py WORKTREE COMMAND ARGS...`. For the commands below set `WORKTREE` to the exact current task checkout and use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`. The shared launcher quits any prior Muskometer, verifies exit at host level, acquires one shared lock, and disables parallel test hosts, including nested `scripts/verify.sh` calls. Never launch outside it or trust a sandbox-only process inventory. Do not launch a user preview during this task; the controller performs the one final handoff after reviews.
+
+### Red regressions
+
+- [ ] In `GainSparklineView.swift`, change only `private struct SparklineLayout` to internal `struct SparklineLayout` as a behavior-neutral test seam. Do not alter its math yet. Add `SparklineLayoutRegressionTests` to `InterfaceAndCalendarTests.swift`. Use this runnable first regression:
+
+```swift
+func testNarrowPositiveMovementUsesVisibleHeight() {
+    let gains = [13_855_060_779.811922, 14_187_615_509.983934,
+        13_385_345_764.31092, 16_083_600_343.614992,
+        14_670_726_847.679981, 14_618_948_881.370857,
+        15_949_845_655.179981, 15_827_663_635.18001,
+        15_921_438_748.099966]
+    let times = [810753101.078183, 810753192.039462, 810753287.968565,
+        810753383.70998, 810753475.567488, 810753568.721071,
+        810753661.558663, 810753752.990089, 810753844.606051]
+    let samples = zip(times, gains).map {
+        GainSample(timestamp: Date(timeIntervalSinceReferenceDate: $0.0),
+                   combinedPaperGain: $0.1)
+    }
+    let layout = SparklineLayout(samples: samples, size: CGSize(width: 288, height: 60))
+    let ys = samples.map { layout.point(for: $0).y }
+    XCTAssertGreaterThan(layout.minGain, 0, "Distant zero must not flatten positive movement")
+    XCTAssertGreaterThan(ys.max()! - ys.min()!, 35, "Observed $2.7B range must be legible")
+}
+```
+
+- [ ] Strengthen `testPopulatedPopoverFitsAvailableHeightAndRetainsScrolling()` before its existing `document.scroll` call. Populate both stock cards, both best/worst daily records, enabled parity, ownership source detail, and the real narrow-range chart. Use the existing store injection and `reloadPersistedDisplayState()` to show controlled samples without inventing a new live point. Render the initial `NSHostingView` at each 600/700/800/900 height before scrolling. Check the complete title and formatted implied price lie inside the actual `NSScrollView.contentView` viewport. Prefer semantic accessibility frames if available; if SwiftUI omits them, the concrete screenshot-based fallback below is required, not a source-order/total-height assertion.
+
+```swift
+// Add import Vision in the test file. Capture the existing host into a bitmap,
+// using bitmapImageRepForCachingDisplay/cacheDisplay as attachSnapshot already does.
+let request = VNRecognizeTextRequest()
+request.recognitionLevel = .accurate
+request.usesLanguageCorrection = false
+try VNImageRequestHandler(cgImage: try XCTUnwrap(bitmap.cgImage), options: [:])
+    .perform([request])
+let observed = (request.results ?? []).compactMap { observation -> (String, CGRect)? in
+    guard let text = observation.topCandidates(1).first?.string else { return nil }
+    let box = observation.boundingBox
+    let rect = CGRect(x: box.minX * host.bounds.width,
+                      y: (1 - box.maxY) * host.bounds.height,
+                      width: box.width * host.bounds.width,
+                      height: box.height * host.bounds.height)
+    return (text, rect)
+}
+// Convert the real clip view bounds to host coordinates. Standardize to the
+// same top-left coordinate convention as the image (flip y if !host.isFlipped).
+// Normalize only whitespace/typographic apostrophes for the complete title;
+// compare the full formatted parity price, not an arbitrary currency token.
+// XCTUnwrap both recognized strings, then XCTAssertTrue(clipRect.contains(box))
+// for each. Persist observed text/boxes, clipRect and the pre-scroll PNG.
+```
+
+No first-viewport test can be waived because OCR/accessibility lacks a node. If the fallback needs a deterministic same-surface geometry adapter, keep it test-scoped and demonstrate that it fails on the original ordering before accepting it. Do not substitute footer accessibility, total fitting height, or simply finding the card in the full scroll document.
+
+- [ ] Run the two focused classes through the launcher, saving output and result bundle. From the task checkout the concrete command is `xcodebuild test -scheme Muskometer -configuration Debug -destination 'platform=macOS' -derivedDataPath build/popover-visual-correction/red-derived -resultBundlePath build/popover-visual-correction/red.xcresult -only-testing:MuskometerTests/SparklineLayoutRegressionTests -only-testing:MuskometerTests/PopoverLayoutRegressionTests -quiet`. Expect assertion failures for `minGain > 0`, visible movement >35 points, and the initial complete parity title/price at small heights; preserve red evidence. A compile failure alone is not the required red proof.
+
+### Implement the chart and composition together
+
+- [ ] Keep `SparklineLayout` pure and internal in the same file. Stop forcing raw extrema to zero. Use actual extrema (empty fallback 0), centered minimum span `max(1, max(abs(rawMin), abs(rawMax)) * 0.01)` and 8% padding after applying that minimum. For ordinary data this is:
+
+```swift
+let rawMin = gains.min() ?? 0
+let rawMax = gains.max() ?? 0
+let midpoint = rawMin + (rawMax - rawMin) / 2
+let minimumSpan = max(1, max(abs(rawMin), abs(rawMax)) * 0.01)
+let span = max(rawMax - rawMin, minimumSpan)
+let halfRange = span * 0.58
+self.minGain = midpoint - halfRange
+self.maxGain = midpoint + halfRange
+```
+
+Derive safe first/last time defaults for empty input; a single point is centered horizontally, and a flat series stays horizontal. Keep x positions proportional to the original timestamps and bounded to the plotting inset. Keep current zero-crossing interpolation/sign segmentation. Add `containsZero` based on the visible domain and draw zero only when true. Padding/insets must keep the rounded stroke and endpoint inside bounds. No smoothing that invents extrema or fake oscillation.
+
+- [ ] Give the Canvas 60 points of plotting height with a rounded 2-point stroke, modest vertical transparent area gradient, and a visible latest-point dot. For one point, draw the dot without a made-up line/history. Draw fills before strokes/endpoint. For all-positive data fill toward the lower domain edge, all-negative toward the upper edge; for genuine crossings fill each sign segment toward visible zero. Do not use an offscreen zero as a fill boundary. Show upper/lower monetary domain labels beside or immediately beneath the plot so its scale is clear. Include domain context in the existing combined accessibility description. Honor the view environment's color scheme, contrast and reduced-transparency needs; do not change system settings.
+- [ ] Remove the permanent methodology `Text` from `ownershipCard`, and add it once inside `SettingsView.holdingsTab` near the existing SEC/source information. Keep ownership totals, transient ownership-change feedback, milestone overlay, holdings fields and outstanding provenance intact. Verify the relocation in rendered content, with no string-mirroring unit test.
+- [ ] In `dataView`, order ownership, combined gain/chart, parity, daily records, then stocks. Omit the long `outstandingCaption` argument from the main parity invocation, leaving existing Holdings provenance visible. Keep parity's title, implied price and short SPCX/TSLA caption, and preserve the preference/availability conditions and calculation. Compact card spacing/padding and combine the gain/percent row as necessary to fit the first three cards within the actual 600-point first viewport while retaining readable type, chart, status and both share buttons. Keep scrolling secondary content and fixed footer controls. Iterate layout using actual rendered geometry, not estimates.
+- [ ] Verify `ShareCardView` still uses the same `GainSparklineView`. Give the shared chart an explicit dark environment within the export if needed for its existing dark background, so range labels are legible even when the app is light. The production `ShareImageExporter.renderPNGData` path must render the asset-backed chart correctly; preserve export size/quality, parity and holdings. No unrelated export behavior changes.
+
+### Verification subtask — owned by Task 1
+
+**WHAT:** The actual main view now shows complete parity immediately, methodology is discoverable only in Holdings, the chart shows genuine movement honestly, and the exported shared chart remains legible. Existing correctness behavior remains green.
+
+**HOW:** Run the focused tests above to green, produce and inspect the required asset-backed captures below from actual hosted SwiftUI and `ShareImageExporter.renderPNGData`, and run the final deterministic `scripts/verify.sh` once after executable changes converge. The task's spec and quality reviewers independently inspect both source and the after images. These are blocking execution gates, completed before reporting the task done.
+
+**WHO:** Task 1 implementer owns all tests, captures, comparisons and the evidence manifest. Task 1 spec/quality reviewers own independent source/image acceptance. The top controller independently inspects the final images and owns the subsequent one-app preview handoff.
+
+- [ ] Add focused layout assertions for negative-only, mixed-sign, flat positive/negative/zero, one-point, empty, irregular time spacing and a full 400-point series. Check finite bounded point coordinates, data order/relative timestamp spacing, zero visibility iff inside the domain, both crossing signs, and constant y for flat inputs. For example mirror the real positive series with negative values and require `maxGain < 0`; use `[-2e9, 1e9]` for visible zero; use `[16e9,16e9,16e9]` for constant y; use `[]`/`[16e9]` for safe layouts. Test 400 generated monotonic samples only as a labelled test fixture; never write synthetic samples to the user's history. Preserve the existing store cap and service code.
+- [ ] Re-run focused classes with `green-derived`/`green.xcresult` in place of red paths. Capture `main-600-top.png`, `main-700-top.png`, `main-800-top.png`, `main-900-top.png` before scrolling, plus `main-600-detail.png` after scrolling. Capture the actual Holdings tab and Settings/back interaction using test-local settings. Verify methodology is absent from the main capture and present exactly once in Holdings. Retain frame/text evidence proving both parity heading and price inside the first viewport.
+- [ ] Run captures inside the built app/XCTest host with its compiled `Assets.car`; record the bundle path and asset existence. A standalone probe must be packaged with that compiled app catalog if used. No placeholder ImageRenderer image or missing-asset chart counts as visual evidence. Inspect the PNGs with `view_image` and compare directly with the user's before images.
+- [ ] Save chart and share-card PNGs for the actual nine-point narrow-positive series plus labelled negative, mixed, flat, single, empty and 400-point fixtures. At minimum inspect the main view in light and dark appearances and one increased-contrast/reduced-transparency environment, without touching system preferences. Check unclipped endpoint, gradient/stroke distinction, range-label legibility, honest constant/single/empty behavior, sign changes, readable stock/record details and export bounds. Use the same fixture data for any before/after comparison; never call different data a visual improvement. Final preview may naturally show fewer samples on a later session.
+- [ ] After executable edits and focused checks converge, run exactly once through the launcher: `env MUSKOMETER_SKIP_LIVE_YAHOO=1 bash scripts/verify.sh`. Capture typecheck, full XCTest, Release build, sandbox/network entitlements and marketing checks. This script already includes Release; do not add an unchanged duplicate build or baseline suite. Record actual count, baseline identifier preservation and any deliberately strengthened presentation assertion. Preserve raw logs/result bundles and an exact final source SHA-256 manifest. The 391-case baseline proof is `build/execution-evidence/task-6/task6-evidence/verify.xcresult`; reuse it as the prior reference.
+- [ ] Write the concise durable evidence manifest with command, source SHA/hash, test count, red/green assertions, initial viewport bounds at all four heights, captured bundle/assets path, image paths and observations. Add one relevant `CHANGELOG.md` entry based on the actual correction diff (`git diff 64451834357b3e7d15648dcb32d25d87b6184d12 -- Muskometer/Views MuskometerTests/InterfaceAndCalendarTests.swift`), with no version bump. Commit the reviewed scoped implementation locally after verification. Do not modify historical review verdicts.
+
+### Implementer dispatch
+
+```text
+MARSHAL_TASK_ID: 1
+MARSHAL_PLAN_SLUG: 2026-09-10-popover-visual-correction
+MARSHAL_ROLE: implementer
+
+Implement Task 1: Correct and visually verify the main popover and shared chart.
+Read this plan, its spec, and the exact files named in Task 1. Execute all
+checkboxes, including the WHAT/HOW/WHO verification subtask. Use the common
+launch guard and isolated defaults. Preserve the baseline cases and local-only
+scope. Write evidence to the named task-1-validation directory and report the
+actual image paths, red/green results and source hashes. No preview launch yet.
+When finished report DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT or BLOCKED with a
+short summary. The runner dispatches independent reviewers before completion.
+```
+
+### Spec-reviewer dispatch
+
+```text
+MARSHAL_TASK_ID: 1
+MARSHAL_PLAN_SLUG: 2026-09-10-popover-visual-correction
+MARSHAL_ROLE: spec-reviewer
+
+Review Task 1 against docs/marshal/specs/2026-09-10-popover-visual-correction-design.md
+and this plan. Independently read the exact implementation diff and validation
+manifest and use view_image to inspect the real before/after, Holdings and export
+PNGs. Verify complete first-viewport parity at all required heights, real chart
+data/scale honesty, isolated defaults, retained correctness behavior, source
+hashes and completed integrated verification. No app launch or duplicate tests.
+Write docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-spec.md.
+Use the installed current reviewer template's canonical Findings and Findings
+JSON with your real dispatch_id, reviewed files and source base/head. Stamp your
+own verdict with the installed _verdict_trailer.py and final APPROVED or
+NEEDS_FIXES result. Do not let the runner author or replace your findings.
+```
+
+### Code-quality-reviewer dispatch
+
+```text
+MARSHAL_TASK_ID: 1
+MARSHAL_PLAN_SLUG: 2026-09-10-popover-visual-correction
+MARSHAL_ROLE: code-quality-reviewer
+
+Review Task 1's exact diff, tests, manifest and real PNGs independently. Check
+SwiftUI/Canvas idioms, bounded finite math and real timestamps, correct sign
+segments, flat/single/empty data, readable range labels in app/export, initial
+viewport assertions that catch actual clipping, retained baseline cases and
+source-hash-bound evidence. Reject unrelated work or fake visual movement.
+Write docs/marshal/plans/2026-09-10-popover-visual-correction/reviews/task-1-quality.md.
+Use the installed current reviewer template's canonical Findings and Findings
+JSON with your real dispatch_id, reviewed files and source base/head. Stamp your
+own verdict with the installed _verdict_trailer.py and final APPROVED or
+NEEDS_FIXES result. No app launch or duplicate tests; no runner-authored verdict.
+```
+
+## Completion handoff
+
+After both genuine task reviews and required final integration review converge, the top controller inspects the accepted images, then uses the same host-level launcher to quit the old app, open exactly one verified newly built local Muskometer and confirm its executable path through host-level NSWorkspace/process evidence. No replacement installation or publication. This is local delivery, not a deferred verification task; Task 1's actual UI/image/test acceptance must already have passed.
+
+## Deferred
+
+None.

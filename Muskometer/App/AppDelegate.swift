@@ -66,9 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
 
         switch destination {
         case .openPopover:
-            await MainActor.run {
-                MenuBarPopoverPresenter.openIfNeeded()
-            }
+            _ = await MenuBarPopoverPresenter.openIfNeeded()
         case .openURL(let url):
             NSWorkspace.shared.open(url)
         case .ignore:

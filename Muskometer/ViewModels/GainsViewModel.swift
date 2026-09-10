@@ -521,13 +521,17 @@ final class GainsViewModel {
             isQuotable: snapshot.isQuotable
         )
 
-        if let finalized = dailyRecordTracker.consumePendingFinalizedDay(for: personID) {
-            _ = await dayCloseSummaryNotificationService.deliverIfNeeded(
+        if let finalized = dailyRecordTracker.peekPendingFinalizedDay(for: personID) {
+            let outcome = await dayCloseSummaryNotificationService.deliverIfNeeded(
                 finalized: finalized,
                 personID: personID,
                 possessiveName: profile.possessiveName,
                 enabled: settings.notifyDayCloseSummary
             )
+            // Keep pending on delivery failure so the same dayKey can retry (finalize won't re-queue).
+            if outcome != .failed {
+                _ = dailyRecordTracker.consumePendingFinalizedDay(for: personID)
+            }
         }
 
         intradayGainSampleStore.append(

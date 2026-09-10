@@ -13,7 +13,19 @@ enum AppURLs {
     static func isTrustedReleasePageURL(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(), scheme == "https" else { return false }
         guard let host = url.host?.lowercased(), host == "github.com" else { return false }
-        let path = url.path.lowercased()
-        return path.hasPrefix("/jlgolson/muskometer/")
+
+        // Reject `.` / `..` / empty segments before any prefix check (path traversal).
+        let segments = url.pathComponents.filter { $0 != "/" }
+        guard !segments.isEmpty,
+              segments.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
+            return false
+        }
+        guard segments.count >= 3,
+              segments[0].caseInsensitiveCompare("jlgolson") == .orderedSame,
+              segments[1].caseInsensitiveCompare("muskometer") == .orderedSame,
+              segments[2].caseInsensitiveCompare("releases") == .orderedSame else {
+            return false
+        }
+        return true
     }
 }

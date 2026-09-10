@@ -14,6 +14,12 @@ struct SystemDayCloseSummaryNotificationDeliverer: DayCloseSummaryNotificationDe
 /// Opt-in end-of-day paper gain/loss summary (once per ET trading day).
 @MainActor
 final class DayCloseSummaryNotificationService {
+    enum DeliveryOutcome: Equatable, Sendable {
+        case delivered
+        case skipped
+        case failed
+    }
+
     private let defaults: UserDefaults
     private let deliverer: any DayCloseSummaryNotificationDelivering
 
@@ -31,10 +37,10 @@ final class DayCloseSummaryNotificationService {
         personID: String,
         possessiveName: String,
         enabled: Bool
-    ) async -> Bool {
-        guard enabled else { return false }
+    ) async -> DeliveryOutcome {
+        guard enabled else { return .skipped }
         let notifiedKey = Self.lastNotifiedDayKey(personID)
-        guard defaults.string(forKey: notifiedKey) != finalized.dayKey else { return false }
+        guard defaults.string(forKey: notifiedKey) != finalized.dayKey else { return .skipped }
 
         let content = UNMutableNotificationContent()
         content.title = "\(possessiveName) day close"
@@ -57,9 +63,9 @@ final class DayCloseSummaryNotificationService {
         do {
             try await deliverer.add(request)
             defaults.set(finalized.dayKey, forKey: notifiedKey)
-            return true
+            return .delivered
         } catch {
-            return false
+            return .failed
         }
     }
 

@@ -1,14 +1,17 @@
 import AppKit
 
 enum MenuBarDisplayModeCycleMatcher {
-    /// ⌥-click on the menu bar status item cycles display mode without opening Settings.
+    /// ⌥-click (option alone) on the menu bar status item cycles display mode without opening Settings.
     static func shouldCycle(modifierFlags: NSEvent.ModifierFlags, window: NSWindow?) -> Bool {
         shouldCycle(modifierFlags: modifierFlags, windowClassName: window.map { NSStringFromClass(type(of: $0)) })
     }
 
     static func shouldCycle(modifierFlags: NSEvent.ModifierFlags, windowClassName: String?) -> Bool {
         let flags = modifierFlags.intersection(.deviceIndependentFlagsMask)
-        guard flags.contains(.option), !flags.contains(.command), !flags.contains(.control) else {
+        guard flags.contains(.option),
+              !flags.contains(.command),
+              !flags.contains(.control),
+              !flags.contains(.shift) else {
             return false
         }
         return isStatusBarWindowClassName(windowClassName)

@@ -4,10 +4,29 @@ import AppKit
 /// synthesizing a click on this process’s status-item button when needed.
 @MainActor
 enum MenuBarPopoverPresenter {
-    static func openIfNeeded() {
+    @discardableResult
+    static func openIfNeeded() async -> Bool {
         NSApp.activate(ignoringOtherApps: true)
-        guard !PopoverVisibility.isVisible else { return }
-        statusItemButton()?.performClick(nil)
+        if PopoverVisibility.isVisible { return true }
+
+        if let button = statusItemButton() {
+            button.performClick(nil)
+            return true
+        }
+
+        // Status item windows can lag briefly after activation; retry once.
+        try? await Task.sleep(for: .milliseconds(80))
+        if PopoverVisibility.isVisible { return true }
+        if let button = statusItemButton() {
+            button.performClick(nil)
+            return true
+        }
+
+        #if DEBUG
+        print("MenuBarPopoverPresenter.openIfNeeded: status item button missing after activate+retry")
+        assertionFailure("MenuBarPopoverPresenter: status item button missing after activate+retry")
+        #endif
+        return false
     }
 
     static func statusItemButton() -> NSStatusBarButton? {

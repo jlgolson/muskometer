@@ -88,9 +88,19 @@ final class DailyRecordTracker {
         pendingFinalizedDayByPerson.removeValue(forKey: personID)
     }
 
+    /// Returns the most recent finalized trading day without clearing it (for delivery-then-consume).
+    func peekPendingFinalizedDay(for personID: String) -> FinalizedTradingDay? {
+        pendingFinalizedDayByPerson[personID]
+    }
+
     /// Returns and clears the most recent finalized trading day for notification side effects.
     func consumePendingFinalizedDay(for personID: String) -> FinalizedTradingDay? {
         pendingFinalizedDayByPerson.removeValue(forKey: personID)
+    }
+
+    /// Restores a pending finalized day after a failed notification delivery (does not clear lastCompleted).
+    func restorePendingFinalizedDay(_ day: FinalizedTradingDay, for personID: String) {
+        pendingFinalizedDayByPerson[personID] = day
     }
 
     func snapshot(for personID: String) -> Snapshot {

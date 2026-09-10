@@ -47,6 +47,8 @@ final class GainsViewModel {
         var retryUsed = false
     }
     private var closingRecovery: ClosingRecovery?
+    private var pendingClosingDate: Date?
+    private var closingWindowElapsed = false
     private var closingRetryTask: Task<Void, Never>?
     private var lifecycle = UUID()
     private var holdingsToken: UUID?
@@ -103,7 +105,8 @@ final class GainsViewModel {
         // Capture the observed session before any network suspension. The timer owns
         // session transitions; even a cancellation-unaware quote cannot hold the clock.
         var sessionClose = currentRegularClose()
-        var closeAttempts = 0
+        var closeWindowStarted = false
+        var closeWindowFinished = false
         beginHoldingsSync(force: false)
         beginRefresh(force: false)
         refreshTask = Task { [weak self] in
@@ -116,7 +119,8 @@ final class GainsViewModel {
                     let newClose = self?.marketHours.regularCloseDate(on: now)
                     if newClose != sessionClose {
                         sessionClose = newClose
-                        closeAttempts = 0
+                        closeWindowStarted = false
+                        closeWindowFinished = false
                         self?.clearClosingRecovery()
                         self?.beginHoldingsSync(force: false)
                         self?.beginRefresh(force: true)
@@ -133,16 +137,16 @@ final class GainsViewModel {
                     continue
                 }
 
-                if let close = sessionClose, now >= close, closeAttempts == 0 {
-                    closeAttempts = 1
-                    self?.beginClosingRefresh()
+                if let close = sessionClose, now >= close, !closeWindowStarted {
+                    closeWindowStarted = true
+                    self?.beginClosingRefresh(on: close)
                     // One bounded recovery window. The timer keeps advancing even
                     // when either the pre-close or the closing request never returns.
                     do { try await sleep(30) } catch { return }
                     continue
                 }
-                if closeAttempts == 1 {
-                    closeAttempts = 2
+                if closeWindowStarted, !closeWindowFinished {
+                    closeWindowFinished = true
                     self?.finishClosingWindow()
                 }
                 self?.beginPendingSummary()
@@ -152,12 +156,29 @@ final class GainsViewModel {
         }
     }
 
-    private func beginClosingRefresh() {
+    private func beginClosingRefresh(on close: Date) {
+        // Admission can wait behind the initial and holdings-triggered requests.
+        // Keep one obligation; physical completions retry admission without polling.
+        pendingClosingDate = close
+        admitPendingClosingRefreshIfPossible()
+    }
+
+    private func admitPendingClosingRefreshIfPossible() {
+        guard let close = pendingClosingDate, hasStarted else { return }
+        let now = dateProvider()
+        guard now >= close else { return }
+        if marketHours.isQuotable(at: now)
+            || marketHours.nextOpenDate(from: close).map({ now >= $0 }) == true {
+            pendingClosingDate = nil
+            return
+        }
         guard beginRefresh(force: true) != nil else { return }
-        closingRecovery = ClosingRecovery(generation: refreshGeneration)
+        pendingClosingDate = nil
+        closingRecovery = ClosingRecovery(generation: refreshGeneration, windowElapsed: closingWindowElapsed)
     }
 
     private func finishClosingWindow() {
+        closingWindowElapsed = true
         guard var recovery = closingRecovery, recovery.generation == refreshGeneration else { return }
         recovery.windowElapsed = true
         if errorMessage != nil {
@@ -191,6 +212,8 @@ final class GainsViewModel {
         closingRetryTask?.cancel()
         closingRetryTask = nil
         closingRecovery = nil
+        pendingClosingDate = nil
+        closingWindowElapsed = false
     }
 
     private func currentRegularClose() -> Date? {
@@ -286,8 +309,10 @@ final class GainsViewModel {
 
     private func finishQuoteTask(generation: Int, token: UUID) {
         quoteTasks.removeValue(forKey: generation)
-        guard lifecycle == token else { return }
-        if generation == refreshGeneration { isLoading = false }
+        if lifecycle == token, generation == refreshGeneration { isLoading = false }
+        // Even a superseded transport releases capacity for the current lifecycle's
+        // obligation. stop/reset clears that obligation before any old tail resumes.
+        admitPendingClosingRefreshIfPossible()
     }
 
     private func acceptQuotes(_ quotes: [StockQuote], generation: Int, token: UUID, personID: String) -> GainsSnapshot? {

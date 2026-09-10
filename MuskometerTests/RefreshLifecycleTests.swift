@@ -1550,4 +1550,59 @@ final class GainsViewModelLifecycleRegressionTests: XCTestCase {
         f.vm.stop(); await f.sleeper.wake(4, cancelled: true)
     }
 
+    private func saturatedClose(releaseAfterWindow: Bool, closeFails: Bool, stopBeforeRelease: Bool = false) async {
+        let f = fixture(at: date(30, 15, 59), due: true)
+        await f.stock.configure(fail: true, gated: true)
+        f.vm.start()
+        await settle { let q = await f.stock.calls; let h = await f.holdings.calls; return q == 1 && h == 1 }
+        await f.holdings.release(1, count: 2)
+        await settle { await f.stock.calls == 2 }
+        await settle { await f.sleeper.intervals.count == 1 }
+        f.clock.now = date(30, 16)
+        await f.sleeper.wake(1)
+        await settle { await f.sleeper.intervals.count == 2 }
+        let atClose = await f.stock.calls
+        XCTAssertEqual(atClose, 2, "The physical cap remains enforced at close")
+        if releaseAfterWindow {
+            f.clock.now = date(30, 16, 1)
+            await f.sleeper.wake(2)
+            await settle { await f.sleeper.intervals.count == 3 }
+            let sleeps = await f.sleeper.intervals
+            XCTAssertTrue((sleeps.last ?? 0) > 3600, "A waiting close obligation must not poll Yahoo overnight")
+        }
+        if stopBeforeRelease { f.vm.stop() }
+        await f.stock.configure(fail: closeFails)
+        await f.stock.release(1); await f.stock.release(2)
+        await settle { await f.stock.calls >= (stopBeforeRelease ? 2 : 3) }
+        for _ in 0..<100 { await Task.yield() }
+        let admitted = await f.stock.calls
+        XCTAssertEqual(admitted, stopBeforeRelease ? 2 : 3, "A close is counted only after admission; freeing capacity services the one pending obligation")
+        if !stopBeforeRelease {
+            await settle { !f.vm.isLoading }
+            if closeFails {
+                let retrySleep = releaseAfterWindow ? 4 : 2
+                await settle { await f.sleeper.intervals.count >= retrySleep }
+                f.clock.now = date(30, 16, 2)
+                await f.stock.configure()
+                await f.sleeper.wake(retrySleep)
+                await settle { await f.stock.calls == 4 }
+                let retried = await f.stock.calls
+                XCTAssertEqual(retried, 4, "Exactly one recovery request follows the admitted failing close")
+            } else {
+                XCTAssertEqual(f.vm.snapshot?.tradingSession, .closed)
+            }
+        }
+        f.vm.stop()
+        let sleepCount = await f.sleeper.intervals.count
+        for id in 1...max(sleepCount, 1) { await f.sleeper.wake(id, cancelled: true) }
+        for _ in 0..<100 { await Task.yield() }
+        let finalCalls = await f.stock.calls
+        XCTAssertEqual(finalCalls, stopBeforeRelease ? 2 : (closeFails ? 4 : 3))
+    }
+
+    func testSaturatedCloseAdmitsWhenCapacityFreesBeforeRecoveryWindow() async { await saturatedClose(releaseAfterWindow: false, closeFails: true) }
+    func testSaturatedCloseAdmitsAfterWindowAndRetainsOneRetry() async { await saturatedClose(releaseAfterWindow: true, closeFails: true) }
+    func testSuccessfulDeferredCloseDoesNotAddRetry() async { await saturatedClose(releaseAfterWindow: true, closeFails: false) }
+    func testStopCancelsSaturatedCloseObligation() async { await saturatedClose(releaseAfterWindow: true, closeFails: false, stopBeforeRelease: true) }
+
 }

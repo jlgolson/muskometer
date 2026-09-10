@@ -31,6 +31,7 @@ final class GainThresholdNotificationService {
     }
 
     private struct DeliveryClaim {
+        let personID: String
         let stateKey: String
         let lifecycleID: UUID
         let id: UUID
@@ -78,7 +79,29 @@ final class GainThresholdNotificationService {
     }
 
     func setEnabledThresholdIDs(_ ids: Set<String>, for personID: String) {
+        let removed = enabledThresholdIDs(for: personID).subtracting(ids)
         defaults.set(Array(ids).sorted(), forKey: Self.enabledThresholdsKey(personID))
+        for thresholdID in removed {
+            retireDisabledClaim(personID: personID, thresholdID: thresholdID)
+        }
+    }
+
+    private func retireDisabledClaim(personID: String, thresholdID: String) {
+        let key = Self.stateKey(personID: personID, thresholdID: thresholdID)
+        pendingDeliveries.removeValue(forKey: key)
+        deliveryTasks[key]?.cancel()
+        // Cancellation does not free a physical slot. Retire the semantic reservation
+        // so a later enabled above observation can retry the unconfirmed crossing.
+        if var state = stateByKey[key], state.claimID != nil {
+            state.claimID = nil
+            state.lifecycleID = UUID()
+            stateByKey[key] = state
+            saveState(state, forKey: key)
+        }
+    }
+
+    private func isEnabled(_ claim: DeliveryClaim) -> Bool {
+        enabledThresholdIDs(for: claim.personID).contains(claim.event.threshold.id)
     }
 
     func resetRuntimeState(for personID: String) {
@@ -103,8 +126,11 @@ final class GainThresholdNotificationService {
         let enabled = enabledThresholdIDs(for: personID)
         for threshold in GainNotificationThreshold.presets {
             let key = Self.stateKey(personID: personID, thresholdID: threshold.id)
-            if let pending = pendingDeliveries[key],
-               !enabled.contains(threshold.id) || !isCurrent(pending.claim) {
+            if !enabled.contains(threshold.id) {
+                retireDisabledClaim(personID: personID, thresholdID: threshold.id)
+                continue
+            }
+            if let pending = pendingDeliveries[key], !isCurrent(pending.claim) {
                 pendingDeliveries.removeValue(forKey: key)
             }
             startDeliveryIfNeeded(for: key)
@@ -120,10 +146,16 @@ final class GainThresholdNotificationService {
         guard deliveryTasks[key] == nil,
               let pending = pendingDeliveries.removeValue(forKey: key),
               isCurrent(pending.claim) else { return }
+        guard isEnabled(pending.claim) else {
+            retireDisabledClaim(personID: pending.claim.personID, thresholdID: pending.claim.event.threshold.id)
+            return
+        }
         deliveryTasks[key] = Task { [self] in
             let claim = pending.claim
             // Observations may invalidate this reservation before its task first runs.
-            if !Task.isCancelled, isCurrent(claim) {
+            if !isEnabled(claim) {
+                retireDisabledClaim(personID: claim.personID, thresholdID: claim.event.threshold.id)
+            } else if !Task.isCancelled, isCurrent(claim) {
                 let delivered = await deliverNotification(event: claim.event, possessiveName: pending.possessiveName)
                 finish(claim, delivered: delivered && !Task.isCancelled)
             } else {
@@ -208,6 +240,7 @@ final class GainThresholdNotificationService {
                 // Persist an unconfirmed claim as retryable across cancellation/relaunch.
                 state.retryPending = true
                 claims.append(DeliveryClaim(
+                    personID: personID,
                     stateKey: stateKey,
                     lifecycleID: state.lifecycleID,
                     id: id,

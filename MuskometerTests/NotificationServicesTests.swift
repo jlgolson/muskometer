@@ -1490,4 +1490,73 @@ final class BoundedThresholdObservationTests: XCTestCase {
         XCTAssertEqual(countAfterRecross, 2)
         await gate.release(1)
     }
+    func testDisableBeforeWorkerRunsPreventsSubmissionAndAllowsLaterAboveRetry() async {
+        let gate = NotificationDeliveryGate(holding: [])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        service.setEnabledThresholdIDs([], for: "musk")
+        for _ in 0..<100 { await Task.yield() }
+        let disabledCalls = await gate.requests.count
+        XCTAssertEqual(disabledCalls, 0, "A worker must reread enablement before its first submission")
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        observe(service, 12)
+        await settle { await gate.requests.count == 1 }
+        let requests = await gate.requests
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertTrue(requests.last?.content.body.contains("12.0B") == true)
+        await settle { self.state(defaults)["retryPending"] as? Bool == false }
+    }
+
+    private func disabledQueuedRecross(observeWhileDisabled: Bool, enableBeforeCompletion: Bool) async {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        await settle { await gate.requests.count == 1 }
+        observe(service, 9); observe(service, 12)
+        service.setEnabledThresholdIDs([], for: "musk")
+        if observeWhileDisabled { observe(service, 13) }
+        if enableBeforeCompletion {
+            service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+            observe(service, 14)
+        }
+        await gate.release(0)
+        for _ in 0..<100 { await Task.yield() }
+        let afterCompletion = await gate.requests.count
+        XCTAssertEqual(afterCompletion, enableBeforeCompletion ? 2 : 1,
+                       "Disabling retires the queued claim immediately without freeing the held physical slot")
+        if !enableBeforeCompletion {
+            service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+            observe(service, 14)
+        }
+        await settle { await gate.requests.count == 2 }
+        let requests = await gate.requests
+        XCTAssertEqual(requests.count, 2, "Re-enabling above the threshold must not be stuck behind an abandoned claim")
+        XCTAssertTrue(requests.last?.content.body.contains("14.0B") == true)
+        await gate.release(1)
+        await settle { self.state(defaults)["retryPending"] as? Bool == false }
+        observe(service, 15)
+        for _ in 0..<100 { await Task.yield() }
+        let confirmedCount = await gate.requests.count
+        XCTAssertEqual(confirmedCount, 2)
+    }
+    func testDisableQueuedRecrossThenReenableWithoutObservation() async { await disabledQueuedRecross(observeWhileDisabled: false, enableBeforeCompletion: false) }
+    func testDisableQueuedRecrossThenReenableWithDisabledObservation() async { await disabledQueuedRecross(observeWhileDisabled: true, enableBeforeCompletion: false) }
+    func testDisableThenReenableWhileOldPhysicalDeliveryStillWaits() async { await disabledQueuedRecross(observeWhileDisabled: true, enableBeforeCompletion: true) }
+
+    func testWorkerRechecksStoredEnablementImmediatelyBeforeSubmission() async {
+        let gate = NotificationDeliveryGate(holding: [])
+        let (service, defaults) = makeService(gate)
+        observe(service, 9); observe(service, 11)
+        // Simulates a persisted settings update arriving before another polling observation.
+        defaults.set([], forKey: "gainNotificationEnabledThresholds_musk")
+        for _ in 0..<100 { await Task.yield() }
+        let calls = await gate.requests.count
+        XCTAssertEqual(calls, 0)
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        observe(service, 12)
+        await settle { await gate.requests.count == 1 }
+        let requests = await gate.requests
+        XCTAssertTrue(requests.last?.content.body.contains("12.0B") == true)
+    }
+
 }

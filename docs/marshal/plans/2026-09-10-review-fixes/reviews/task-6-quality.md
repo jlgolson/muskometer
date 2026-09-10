@@ -92,3 +92,65 @@ VERDICT: NEEDS_FIXES
 reviewed-content-sha256: 3227744f027299e885ca5aefd3828a6d6fb317dfae99bd997c5ab56f875ca60b
 
 plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
+## Round 2
+
+### Scope and approach
+
+Fresh independent code quality review of `523b3d2c72b8291dc0e83b14b233ef03e1db4652..81d0f6278cf976d5fb3c76d8ab7401a9378641b4`. Source C_N: `81d0f6278cf976d5fb3c76d8ab7401a9378641b4`; working HEAD `c4cbf59035798f0bae95cdb77c834a9a7e45ea10` adds provenance only. Reviewed the canonical Task 6 requirements/spec and implementation summary, then recorded independent failure hypotheses before reading the delta. Prior reviewer findings were not read for guidance.
+
+Classification: documentation/evidence-only. N/A: the code-test criteria do not apply because this delta changes no executable code, test, fixture, or verification script. N/A: logic decomposition and executable interfaces have no changed surface. The historical manifest has one clear archival responsibility; Markdown clarity, source accuracy, consistency, and evidence integrity remain applicable.
+
+### Strengths
+
+- The three documents accurately distinguish quote completion from delivery completion. `GainsViewModel.refresh()` awaits only the summary handle returned by its quote task (lines 244–257). Complete accepted quotes and accepted thrown failures can return that handle (289–303, 348–356). The incomplete branch advances the clock and calls `beginPendingSummary()`, then returns nil (329–336), so the quote worker's guard also returns nil. The new wording correctly says delivery *can* remain suspended and directs assertions to the actual controlled delivery boundary.
+- The qualification handles admission and overlap correctly. Loading/capacity/generation/lifecycle guards can reject work; `beginPendingSummary()` can return nil when capacity is full or no day is pending. The documents do not promise that every incomplete batch creates a delivery. A subsequent attempt can observe the service's in-flight claim; failure preserves pending work and only a delivered/skipped result consumes the matching day. This static readback supports the documented completion boundary without changing those paths.
+- Evidence history is explicit. The added round-1 manifest exactly matches the original at both the delta base and tested source commit `e97685443d43c63895795c91e940b6c1aca8cb34`. The current manifest updates documentation hashes and records the retained verification binding without claiming a fresh test run.
+
+### Checks and issues
+
+Independent static verification passed: all 83 manifest entries plus the README hash match current files; all 77 executable inputs match the original manifest and tested source commit; the verification/probe result records are byte-unchanged; the original verification log matches its recorded SHA-256. The retained result records 391 passed tests, zero failures/skips, and successful deterministic verification stages. The raw log still records successful typecheck, tests, Release build, entitlements, and marketing checks. `git diff --check` passed for the reviewed delta.
+
+The original documentation checker and its saved results were inspected; its historical precommit HEAD assertion was not rerun or altered. No fresh product tests, app/probe launches, or network requests were needed. Independent hypotheses and readback results are in `build/task6-quality-round2-evidence/`.
+
+Critical: none. Important: none. Minor: none.
+
+### Assessment
+
+The correction is precise, internally consistent, and preserves truthful verification history. Approved for this narrow round-2 scope; cumulative product review remains separately owned.
+
+## Findings
+
+None.
+
+## Findings (machine-readable)
+
+<!-- MARSHAL_FINDINGS_JSON v1 -->
+```json
+{"schema_version":1,"dispatch_id":"fc1ae892-6653-4aaa-bd1a-02bf81746d20-task-6","verdict":"approved","round":2,"findings":[]}
+```
+
+VERDICT: APPROVED
+
+## Reviewed files
+
+- `docs/ARCHITECTURE.md`
+- `docs/DEVELOPING.md`
+- `docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/README.md`
+- `docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/source-manifest.json`
+- `docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/source-manifest-round-1.json`
+- `docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/verification-results.json`
+- `docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/probe-source-reuse.json` (unchanged evidence identity)
+- `Muskometer/ViewModels/GainsViewModel.swift` (relevant refresh, clock, and summary paths)
+- `Muskometer/Services/DayCloseSummaryNotificationService.swift`
+- `docs/marshal/plans/2026-09-10-review-fixes.md` (Task 6)
+- `docs/marshal/specs/2026-09-10-review-fixes-design.md`
+- `build/task6-evidence/round-2/implementer-summary.md`
+- `build/task6-evidence/round-2/check-documentation.py`
+- `build/task6-evidence/round-2/validation-results.json`
+- `build/task6-evidence/verify.log`
+
+reviewed-content-sha256: e1d8501ac5523f7b2ddda164e1c134fad7429eb4a56058b9ef501c435fdc4b4e
+
+plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
+
+ADJUDICATED: adjudicate-error — (fixed: 81d0f6278cf976d5fb3c76d8ab7401a9378641b4)

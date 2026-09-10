@@ -73,3 +73,54 @@ VERDICT: APPROVED
 reviewed-content-sha256: 3227744f027299e885ca5aefd3828a6d6fb317dfae99bd997c5ab56f875ca60b
 
 plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
+## Round 2
+
+MARSHAL_TASK_ID: 6
+MARSHAL_PLAN_SLUG: 2026-09-10-review-fixes
+MARSHAL_ROLE: spec-reviewer
+dispatch_id: 2e853deb-f691-45cb-a6bc-08a45eadca9e-task-6
+
+Independent, narrow review of `523b3d2c72b8291dc0e83b14b233ef03e1db4652..81d0f6278cf976d5fb3c76d8ab7401a9378641b4`. Current HEAD `c4cbf59035798f0bae95cdb77c834a9a7e45ea10` adds only provenance. I formed four hypotheses before inspecting the delta: an overstated refresh-completion guarantee, conflation of synchronous state and delivery completion, broken verification provenance, and inconsistent or unrelated documentation changes. Those hypotheses and fresh integrity results are preserved under `build/task6-spec-round2-evidence/`. Prior reviewer findings were not consulted.
+
+The change satisfies the Task 6 requirement to document shipped scheduling and close behavior (`docs/marshal/plans/2026-09-10-review-fixes.md:140`) and the spec's notification/refresh ordering, clock-finalization, and verification requirements (`docs/marshal/specs/2026-09-10-review-fixes-design.md:26`, `:32`, `:50`). This is a clarification of the existing API boundary, with no additional product behavior, test changes, version bump, or release work.
+
+The corrected wording at `docs/ARCHITECTURE.md:120`, `docs/DEVELOPING.md:80`, and `docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/README.md:49` agrees with the actual branches. `GainsViewModel.refresh()` awaits the admitted quote task, then only its optional returned summary handle (`Muskometer/ViewModels/GainsViewModel.swift:244–257`). Accepted complete quotes can return the summary handle (`:289–298`); an accepted thrown failure can also return one (`:299–303`, `:348–356`). Incomplete quotes advance the clock, call `beginPendingSummary()`, and return nil from `acceptQuotes` (`:329–336`), causing the quote worker's guard to return nil (`:289–290`). The explicit caller can therefore finish while that day-close delivery is suspended. Non-admission and stale/canceled work also make no universal delivery promise.
+
+The clarification preserves the distinction between committed state and asynchronous effects. Accepted snapshot side effects run synchronously (`:338–345`, `:656–697`); threshold observation uses the synchronous API that owns background workers (`Muskometer/Services/GainThresholdNotificationService.swift:118–168`). Summary tasks remain separately owned and acknowledge the matching pending value only for delivered/skipped outcomes (`Muskometer/ViewModels/GainsViewModel.swift:715–736`). Scheduled quote completion does not await summary completion (`:260–266`, `:281–303`). The documentation consistently directs callers/tests needing delivery effects to the controlled delivery boundary. No newly introduced retry, error, race, or next-request mismatch was found in this delta.
+
+Fresh static verification passed with `python3 build/task6-spec-round2-evidence/check-integrity.py` and revision/worktree whitespace checks. The delta contains exactly the three documentation files, the current manifest update, and the historical manifest copy. All 83 current manifest entries and the additional README hash match; all 77 executable inputs match both manifests and verified commit `e97685443d43c63895795c91e940b6c1aca8cb34`. The historical manifest is byte-identical to its original committed/raw copies (SHA-256 `899526fa2f80b902607386e5c8b63863916feda0c0d89dd19cba1e548534ae57`).
+
+The unchanged verification record reports 391 passed, zero failed/skipped, and passing deterministic stages. Its original raw log still hashes to `71c7e292585a3a4d642b8bdc97f1de1981a58120885fbb808bbee86b3bd04c1e`; all 13 referenced original probe artifacts retain their recorded hashes. The round-2 README explicitly identifies this as retained evidence. I inspected the implementer's historical documentation-check script and results, then performed my own current-revision integrity check. No test-suite reparsing, new test/app/probe launch, or network request was needed or performed. Broader cumulative conformance remains the separately assigned review scope.
+
+## Findings
+
+None.
+
+## Findings (machine-readable)
+<!-- MARSHAL_FINDINGS_JSON v1 -->
+```json
+{"schema_version":1,"dispatch_id":"2e853deb-f691-45cb-a6bc-08a45eadca9e-task-6","verdict":"approved","round":2,"findings":[]}
+```
+
+VERDICT: APPROVED
+
+## Reviewed files
+
+- docs/marshal/specs/2026-09-10-review-fixes-design.md
+- docs/marshal/plans/2026-09-10-review-fixes.md
+- build/task6-evidence/round-2/implementer-summary.md
+- docs/ARCHITECTURE.md
+- docs/DEVELOPING.md
+- docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/README.md
+- docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/source-manifest.json
+- docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/source-manifest-round-1.json
+- docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/verification-results.json
+- docs/marshal/plans/2026-09-10-review-fixes/reviews/task-6-validation/probe-source-reuse.json
+- build/task6-evidence/round-2/validation-results.json
+- build/task6-evidence/round-2/check-documentation.py
+- Muskometer/ViewModels/GainsViewModel.swift (refresh, acceptance, clock, side-effect and summary paths)
+- Muskometer/Services/GainThresholdNotificationService.swift (observation/delivery entry paths)
+
+reviewed-content-sha256: e1d8501ac5523f7b2ddda164e1c134fad7429eb4a56058b9ef501c435fdc4b4e
+
+plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760

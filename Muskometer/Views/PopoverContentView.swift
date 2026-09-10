@@ -6,7 +6,12 @@ struct PopoverContentView: View {
     @State private var showingSettings = false
     @State private var didCopyShare = false
     @State private var copyFeedbackTask: Task<Void, Never>?
-    @State private var settingsPanelSize = CGSize(width: 560, height: 420)
+    /// Override for previews/tests; production reserves room around the screen's visible frame.
+    var availableHeight: CGFloat? = nil
+
+    private var panelHeight: CGFloat {
+        min(900, availableHeight ?? max(1, (NSScreen.main?.visibleFrame.height ?? 932) - 32))
+    }
 
     var body: some View {
         Group {
@@ -18,8 +23,8 @@ struct PopoverContentView: View {
         }
         .padding(16)
         .frame(
-            width: showingSettings ? settingsPanelSize.width + 32 : 360,
-            height: showingSettings ? settingsPanelSize.height + 32 : nil,
+            width: showingSettings ? 592 : 360,
+            height: showingSettings ? min(650, panelHeight) : panelHeight,
             alignment: .topLeading
         )
         .onAppear {
@@ -40,19 +45,19 @@ struct PopoverContentView: View {
     private var mainPanel: some View {
         VStack(alignment: .leading, spacing: 16) {
             header
-            content
+            ScrollView(.vertical) {
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityIdentifier("popover-content")
             footer
         }
     }
 
     private var settingsPanel: some View {
-        SettingsView(settings: viewModel.settings, viewModel: viewModel) {
+        SettingsView(settings: viewModel.settings, viewModel: viewModel,
+                     availableHeight: min(650, panelHeight) - 32) {
             showingSettings = false
-        }
-        .onPreferenceChange(SettingsPanelSizeKey.self) { size in
-            if size.width > 0, size.height > 0 {
-                settingsPanelSize = size
-            }
         }
     }
 

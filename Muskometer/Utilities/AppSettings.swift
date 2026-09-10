@@ -458,51 +458,44 @@ final class AppSettings {
     }
 
     func syncLaunchAtLoginFromService() {
-        let desired = launchAtLogin
-        let actual = launchAtLoginManager.isEnabled
-
-        if desired != actual {
-            // Re-apply desired preference. Soft enable (pending Login Items approval)
-            // keeps desired=true rather than adopting the still-disabled service state.
-            applyLaunchAtLoginPreference(desired: desired)
-        } else {
-            launchAtLoginError = nil
-            persistLaunchAtLoginPreference(desired)
-        }
+        applyLaunchAtLoginPreference(desired: launchAtLogin)
     }
 
-    /// Registers/unregisters with the system service, then reconciles local state.
-    ///
-    /// - Thrown failures: surface error and adopt service reality.
-    /// - Non-throwing enable that leaves the service disabled (common when
-    ///   `SMAppService` is `.requiresApproval`): keep desired `true`, persist it,
-    ///   and show a pending-approval message — do not adopt false.
-    /// - Non-throwing disable that leaves the service enabled: surface mismatch
-    ///   and adopt service reality.
-    /// - Full match: clear error and persist desired.
+    /// Reconcile intent with the full service status. A pending registration is
+    /// already registered; retrying it can throw and erase the user's preference.
     private func applyLaunchAtLoginPreference(desired: Bool) {
+        let status = launchAtLoginManager.status
+        if status == .unavailable {
+            launchAtLoginError = "Launch at login is unavailable. Check the app installation and System Settings → General → Login Items."
+            adoptResolvedLaunchAtLoginState()
+            return
+        }
+        if (desired && status == .enabled) || (!desired && status == .notRegistered) {
+            launchAtLoginError = nil
+            persistLaunchAtLoginPreference(desired)
+            return
+        }
+        if desired && status == .requiresApproval {
+            launchAtLoginError = Self.launchAtLoginPendingApprovalMessage
+            persistLaunchAtLoginPreference(true)
+            return
+        }
+
         do {
             try launchAtLoginManager.setEnabled(desired)
-            let actual = launchAtLoginManager.isEnabled
-
-            if actual == desired {
+            let resolved = launchAtLoginManager.status
+            if (desired && resolved == .enabled) || (!desired && resolved == .notRegistered) {
                 launchAtLoginError = nil
                 persistLaunchAtLoginPreference(desired)
-                return
-            }
-
-            if desired {
-                // Soft enable: registration did not throw but the service is not yet
-                // enabled (typically awaiting Login Items approval). Preserve intent.
+            } else if desired && (resolved == .requiresApproval || resolved == .notRegistered) {
+                // Preserve the legacy Boolean-only adapter's soft-success behavior.
                 launchAtLoginError = Self.launchAtLoginPendingApprovalMessage
                 persistLaunchAtLoginPreference(true)
                 ensureLaunchAtLoginToggle(true)
-                return
+            } else {
+                launchAtLoginError = Self.launchAtLoginMismatchMessage(desired: desired)
+                adoptResolvedLaunchAtLoginState()
             }
-
-            // Soft disable mismatch: service still enabled — adopt reality.
-            launchAtLoginError = Self.launchAtLoginMismatchMessage(desired: false)
-            adoptResolvedLaunchAtLoginState()
         } catch {
             launchAtLoginError = Self.launchAtLoginFailureMessage(desired: desired, error: error)
             adoptResolvedLaunchAtLoginState()
@@ -521,9 +514,10 @@ final class AppSettings {
         isSyncingLaunchAtLogin = false
     }
 
-    /// Reads `isEnabled` and forces `launchAtLogin` + UserDefaults to match, without re-applying.
+    /// Adopt registration reality after failure, including a still-pending registration.
     private func adoptResolvedLaunchAtLoginState() {
-        let resolved = launchAtLoginManager.isEnabled
+        let status = launchAtLoginManager.status
+        let resolved = status == .enabled || status == .requiresApproval
         persistLaunchAtLoginPreference(resolved)
         ensureLaunchAtLoginToggle(resolved)
     }

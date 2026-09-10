@@ -8,18 +8,19 @@ struct SettingsView: View {
 
     private let onDone: (() -> Void)?
     private let embeddedInPopover: Bool
+    private let availableHeight: CGFloat?
 
     @State private var selectedTab: SettingsTab = .general
-    @State private var tabContentHeight: CGFloat = 280
     @State private var refreshInterval: Double
     @State private var shareTexts: [String: String] = [:]
     @State private var shareErrors: [String: String] = [:]
     @State private var showingResetConfirmation = false
 
-    init(settings: AppSettings, viewModel: GainsViewModel? = nil, onDone: (() -> Void)? = nil) {
+    init(settings: AppSettings, viewModel: GainsViewModel? = nil, availableHeight: CGFloat? = nil, onDone: (() -> Void)? = nil) {
         self.settings = settings
         self.viewModel = viewModel
         self.onDone = onDone
+        self.availableHeight = availableHeight
         self.embeddedInPopover = onDone != nil
         _refreshInterval = State(initialValue: settings.refreshIntervalSeconds)
     }
@@ -36,22 +37,11 @@ struct SettingsView: View {
                 tabPage(.holdings) { holdingsTab }
             }
             .tabViewStyle(.automatic)
-            .frame(minHeight: tabContentHeight)
+            .frame(maxHeight: .infinity)
 
             footer
         }
-        .frame(minWidth: 560)
-        .fixedSize(horizontal: false, vertical: true)
-        .background {
-            GeometryReader { geometry in
-                Color.clear.preference(key: SettingsPanelSizeKey.self, value: geometry.size)
-            }
-        }
-        .onPreferenceChange(SettingsContentHeightKey.self) { height in
-            if height > 0 {
-                tabContentHeight = height
-            }
-        }
+        .frame(width: 560, height: availableHeight ?? min(618, max(1, (NSScreen.main?.visibleFrame.height ?? 682) - 64)))
         .onAppear {
             syncTextFieldsFromSettings()
             // Re-check Login Items after user may have approved in System Settings
@@ -88,22 +78,16 @@ struct SettingsView: View {
     }
 
     private func tabPage<Content: View>(_ tab: SettingsTab, @ViewBuilder content: () -> Content) -> some View {
-        content()
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 4)
-            .padding(.bottom, 8)
-            .background {
-                GeometryReader { geometry in
-                    Color.clear.preference(
-                        key: SettingsContentHeightKey.self,
-                        value: selectedTab == tab ? geometry.size.height : 0
-                    )
-                }
-            }
-            .tabItem {
-                Label(tab.title, systemImage: tab.systemImage)
-            }
-            .tag(tab)
+        ScrollView(.vertical) {
+            content()
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 4)
+                .padding(.bottom, 8)
+        }
+        .tabItem {
+            Label(tab.title, systemImage: tab.systemImage)
+        }
+        .tag(tab)
     }
 
     private var header: some View {

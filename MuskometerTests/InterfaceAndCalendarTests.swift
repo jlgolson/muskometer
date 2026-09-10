@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import UserNotifications
 import XCTest
 @testable import Muskometer
@@ -125,12 +126,16 @@ final class MarketHoursServiceTests: XCTestCase {
         XCTAssertTrue(service.isMarketOpen(at: nextDay))
     }
 
-    func test2028ObservedNewYearsCloseIsDec31_2027() throws {
-        // Jan 1 2028 is Saturday → NYSE observes New Year’s on Fri Dec 31 2027.
+    func testDecember31_2027IsRegularTradingBeforeSaturdayNewYear() throws {
+        // NYSE does not observe a Saturday New Year on the preceding Friday.
         let observedClose = try EasternTestDates.date(year: 2027, month: 12, day: 31, hour: 11)
         let jan3 = try EasternTestDates.date(year: 2028, month: 1, day: 3, hour: 11)
         let service = MarketHoursService(calendar: calendar, timeZone: eastern)
-        XCTAssertFalse(service.isMarketOpen(at: observedClose))
+        XCTAssertTrue(service.isMarketOpen(at: observedClose))
+        let close = try XCTUnwrap(service.regularCloseDate(on: observedClose))
+        XCTAssertEqual(calendar.component(.hour, from: close), 16)
+        let nextOpen = try XCTUnwrap(service.nextOpenDate(from: close))
+        XCTAssertEqual(nextOpen, try EasternTestDates.date(year: 2028, month: 1, day: 3, hour: 9, minute: 30))
         XCTAssertTrue(service.isMarketOpen(at: jan3))
     }
 
@@ -635,8 +640,7 @@ final class AppSettingsLaunchAtLoginTests: XCTestCase {
         XCTAssertNotNil(settings.launchAtLoginError)
         let callsAfterFailure = manager.setEnabledCalls.count
 
-        // Successful re-apply on reset should clear the stale error even though
-        // the toggle was already false (didSet would not fire).
+        // Already unregistered: reset clears stale errors without another service call.
         manager.setEnabledHandler = { enabled in
             manager.isEnabled = enabled
         }
@@ -646,8 +650,7 @@ final class AppSettingsLaunchAtLoginTests: XCTestCase {
         XCTAssertFalse(settings.launchAtLogin)
         XCTAssertNil(settings.launchAtLoginError)
         XCTAssertFalse(defaults.bool(forKey: "launchAtLogin"))
-        XCTAssertEqual(manager.setEnabledCalls.count, callsAfterFailure + 1)
-        XCTAssertEqual(manager.setEnabledCalls.last, false)
+        XCTAssertEqual(manager.setEnabledCalls.count, callsAfterFailure)
         XCTAssertFalse(manager.isEnabled)
     }
 }
@@ -668,5 +671,242 @@ private final class MockLaunchAtLoginManager: LaunchAtLoginManaging {
         } else {
             isEnabled = enabled
         }
+    }
+}
+
+// Models SMAppService: registration can require approval, and registering twice
+// throws. No service management calls are made by these tests.
+private final class StatusAwareLoginManager: LaunchAtLoginManaging {
+    typealias Status = LaunchAtLoginStatus
+    var status: Status = .notRegistered
+    var isEnabled: Bool { status == .enabled }
+    var failure: Error?
+    private(set) var calls: [Bool] = []
+    func setEnabled(_ enabled: Bool) throws {
+        calls.append(enabled)
+        if let failure { throw failure }
+        if enabled {
+            guard status == .notRegistered else {
+                throw NSError(domain: "SMAppServiceErrorDomain", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: "already registered"])
+            }
+            status = .requiresApproval
+        } else {
+            status = .notRegistered
+        }
+    }
+}
+
+final class LoginStatusRegressionTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        UserDefaults(suiteName: "MuskometerTests-status-\(UUID().uuidString)")!
+    }
+
+    func testPendingRegistrationSurvivesReopenRestartAndApproval() {
+        let defaults = defaults()
+        let manager = StatusAwareLoginManager()
+        let settings = AppSettings(defaults: defaults, launchAtLoginManager: manager)
+        settings.launchAtLogin = true
+        for _ in 0..<3 { settings.syncLaunchAtLoginFromService() }
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.calls, [true])
+        XCTAssertNotNil(settings.launchAtLoginError)
+
+        let restarted = AppSettings(defaults: defaults, launchAtLoginManager: manager)
+        restarted.syncLaunchAtLoginFromService()
+        XCTAssertTrue(restarted.launchAtLogin)
+        XCTAssertEqual(manager.calls, [true])
+        manager.status = .enabled
+        for _ in 0..<3 { restarted.syncLaunchAtLoginFromService() }
+        XCTAssertTrue(restarted.launchAtLogin)
+        XCTAssertNil(restarted.launchAtLoginError)
+        XCTAssertEqual(manager.status, .enabled)
+        XCTAssertEqual(manager.calls, [true])
+    }
+
+    func testRepeatedEnableDoesNotRegisterPendingOrEnabledServiceAgain() {
+        for status in [StatusAwareLoginManager.Status.requiresApproval, .enabled] {
+            let manager = StatusAwareLoginManager()
+            manager.status = status
+            let settings = AppSettings(defaults: defaults(), launchAtLoginManager: manager)
+            settings.launchAtLogin = true
+            settings.launchAtLogin = true
+            XCTAssertTrue(settings.launchAtLogin)
+            XCTAssertEqual(manager.calls, [])
+            XCTAssertEqual(manager.status, status)
+        }
+    }
+
+    func testDisableUnregistersPendingAndEnabledOnlyOnce() {
+        for status in [StatusAwareLoginManager.Status.requiresApproval, .enabled] {
+            let manager = StatusAwareLoginManager()
+            manager.status = status
+            let defaults = defaults()
+            defaults.set(true, forKey: "launchAtLogin")
+            let settings = AppSettings(defaults: defaults, launchAtLoginManager: manager)
+            settings.launchAtLogin = false
+            settings.launchAtLogin = false
+            settings.syncLaunchAtLoginFromService()
+            XCTAssertEqual(manager.status, .notRegistered)
+            XCTAssertEqual(manager.calls, [false])
+            XCTAssertFalse(defaults.bool(forKey: "launchAtLogin"))
+            XCTAssertNil(settings.launchAtLoginError)
+        }
+    }
+
+    func testDisableNotRegisteredIsNoOp() {
+        let manager = StatusAwareLoginManager()
+        let settings = AppSettings(defaults: defaults(), launchAtLoginManager: manager)
+        settings.launchAtLogin = false
+        settings.syncLaunchAtLoginFromService()
+        XCTAssertEqual(manager.calls, [])
+        XCTAssertFalse(settings.launchAtLogin)
+    }
+
+    func testFailedDisablePreservesPendingRegistrationAndPreference() {
+        let manager = StatusAwareLoginManager()
+        manager.status = .requiresApproval
+        manager.failure = NSError(domain: "test", code: 2, userInfo: [NSLocalizedDescriptionKey: "unregister failed"])
+        let defaults = defaults()
+        defaults.set(true, forKey: "launchAtLogin")
+        let settings = AppSettings(defaults: defaults, launchAtLoginManager: manager)
+        settings.launchAtLogin = false
+        XCTAssertTrue(settings.launchAtLogin)
+        XCTAssertTrue(defaults.bool(forKey: "launchAtLogin"))
+        XCTAssertEqual(manager.status, .requiresApproval)
+        XCTAssertEqual(settings.launchAtLoginError, "Couldn't disable launch at login: unregister failed")
+    }
+
+    func testUnavailableDoesNotAttemptRegistrationAndSurfacesError() {
+        let manager = StatusAwareLoginManager()
+        manager.status = .unavailable
+        let settings = AppSettings(defaults: defaults(), launchAtLoginManager: manager)
+        settings.launchAtLogin = true
+        XCTAssertEqual(manager.calls, [])
+        XCTAssertFalse(settings.launchAtLogin)
+        XCTAssertNotNil(settings.launchAtLoginError)
+    }
+}
+
+private struct InterfaceProbeStock: StockPriceServiceProtocol {
+    func fetchQuotes(for symbols: [String]) async throws -> [StockQuote] {
+        symbols.map { StockQuote(symbol: $0, displayName: $0,
+            currentPrice: $0 == "TSLA" ? 400 : 100,
+            previousClose: $0 == "TSLA" ? 395 : 98, currency: "USD") }
+    }
+}
+
+final class PopoverLayoutRegressionTests: XCTestCase {
+    @MainActor
+    func testPopulatedPopoverFitsAvailableHeightAndRetainsScrolling() async throws {
+        let defaults = UserDefaults(suiteName: "MuskometerTests-layout-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults, launchAtLoginManager: MockLaunchAtLoginManager())
+        let now = try EasternTestDates.date(year: 2026, month: 9, day: 10, hour: 11)
+        let tracker = DailyRecordTracker(defaults: defaults)
+        _ = tracker.update(personID: "musk", paperGain: 2e9, at: now.addingTimeInterval(-86400), isQuotable: true)
+        _ = tracker.update(personID: "musk", paperGain: 2e9, at: now.addingTimeInterval(-86400 + 6*3600), isQuotable: false)
+        let vm = GainsViewModel(settings: settings, stockService: InterfaceProbeStock(),
+            dailyRecordTracker: tracker,
+            gainThresholdNotificationService: GainThresholdNotificationService(defaults: defaults),
+            dayCloseSummaryNotificationService: DayCloseSummaryNotificationService(defaults: defaults),
+            intradayGainSampleStore: IntradayGainSampleStore(defaults: defaults, now: { now }),
+            netWorthMilestoneTracker: NetWorthMilestoneTracker(defaults: defaults), dateProvider: { now })
+        await vm.refresh(force: true)
+        XCTAssertNotNil(vm.snapshot)
+        XCTAssertNotNil(vm.dailyRecordsSnapshot.bestRecord)
+        XCTAssertNotNil(vm.mergerParityPresentation)
+        for height in [600.0, 700.0, 800.0, 900.0] {
+            let host = NSHostingView(rootView: PopoverContentView(viewModel: vm, availableHeight: height))
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 360, height: height),
+                                  styleMask: [.borderless], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
+            window.contentView = host
+            window.orderFront(nil)
+            host.frame = NSRect(x: 0, y: 0, width: 360, height: height)
+            await settle(host)
+            print("LAYOUT main available=\(height) fitting=\(host.fittingSize)")
+            XCTAssertEqual(host.fittingSize.width, 360, accuracy: 0.5)
+            XCTAssertLessThanOrEqual(host.fittingSize.height, height)
+            let scroll = try XCTUnwrap(scrollViews(in: host).first)
+            let document = try XCTUnwrap(scroll.documentView)
+            XCTAssertGreaterThan(document.bounds.height, scroll.contentView.bounds.height,
+                                 "Populated cards must occupy a scrollable document")
+            let before = scroll.contentView.bounds.origin.y
+            document.scroll(NSPoint(x: 0, y: document.bounds.height))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            XCTAssertGreaterThan(scroll.contentView.bounds.origin.y, before)
+            XCTAssertEqual(scroll.contentView.bounds.maxY, document.bounds.maxY, accuracy: 1)
+            attachSnapshot(host, name: "main-\(Int(height))-scrolled")
+
+            // SwiftUI exposes compact button focus/hit-test frames as direct subviews.
+            // Deduplicate overlapping focus proxies without relying on private class names.
+            let footerFrames = compactControlFrames(in: host).filter { $0.minY >= scroll.superview!.frame.maxY }
+            XCTAssertEqual(footerFrames.count, 3, "Refresh, Settings and Quit must remain outside the scrolling area")
+            for frame in footerFrames {
+                XCTAssertTrue(host.bounds.contains(frame), "Footer control must remain visible")
+            }
+            NotificationCenter.default.post(name: .openMuskometerSettings, object: nil)
+            await settle(host)
+            window.setContentSize(host.fittingSize)
+            await settle(host)
+            print("LAYOUT settings available=\(height) fitting=\(host.fittingSize)")
+            XCTAssertEqual(host.fittingSize.width, 592, accuracy: 0.5)
+            XCTAssertLessThanOrEqual(host.fittingSize.height, height)
+            XCTAssertFalse(scrollViews(in: host).isEmpty)
+            let back = try XCTUnwrap(compactControlFrames(in: host).first { $0.minY < 60 })
+            XCTAssertTrue(host.bounds.contains(back), "Back must remain visible")
+            attachSnapshot(host, name: "settings-\(Int(height))")
+            let location = host.convert(NSPoint(x: back.midX, y: back.midY), to: nil)
+            for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+                let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: location,
+                    modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+                window.sendEvent(event)
+            }
+            await settle(host)
+            XCTAssertEqual(host.fittingSize.width, 360, accuracy: 0.5, "Back must return to the main panel")
+            window.close()
+        }
+    }
+
+    @MainActor
+    private func settle(_ host: NSView) async {
+        for _ in 0..<6 {
+            await Task.yield()
+            host.layoutSubtreeIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func attachSnapshot(_ host: NSView, name: String) {
+        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else {
+            XCTFail("Unable to capture \(name)")
+            return
+        }
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let image = NSImage(size: host.bounds.size, flipped: false) { rect in
+            NSColor.windowBackgroundColor.setFill()
+            rect.fill()
+            bitmap.draw(in: rect)
+            return true
+        }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    @MainActor
+    private func compactControlFrames(in host: NSView) -> [NSRect] {
+        host.subviews.map(\.frame).filter { $0.height >= 18 && $0.height <= 24 && $0.width > 20 }
+            .reduce(into: [NSRect]()) { frames, frame in
+                if !frames.contains(frame) { frames.append(frame) }
+            }
+    }
+
+    @MainActor
+    private func scrollViews(in view: NSView) -> [NSScrollView] {
+        (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews(in: $0) }
     }
 }

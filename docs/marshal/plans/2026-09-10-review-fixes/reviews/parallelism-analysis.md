@@ -12,11 +12,11 @@ dispatch_id: ac6e9023-6c65-4ae7-95d4-d1d0b607cb78-task-0
 
 Reviewed plan: `docs/marshal/plans/2026-09-10-review-fixes.md`
 
-Plan Git blob: `124cd9050e77c68b8eb709834290c2158a19ecff`
+Plan Git blob: `c11d925adad41791ea9360c36ba53b926bba2fba`
 
-Source checkout HEAD at inspection: `e5cb55172cfcf30593d23fa8953978b4c44312fe`
+Source checkout HEAD at inspection: `50474f800c1364a49ff4b71e1bd78d2b55aace07`
 
-Plan-graph-sha256: 59c907e0f4d911017e21abd7f2d95dcaf33fec574819ef39c43e0060b538d6c0
+Plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
 
 The requested `scripts/plan_graph.py` is absent from Marshal 0.37.0. The digest above was computed using the inspected, available `scripts/_plan_graph_hash.py` API, `compute_plan_graph_hash(Path(...))`. Its files-block parser also captures checklist bullets until the next section heading in this plan's layout; consequently some checklist edits will invalidate this digest as well. The Git blob identifies the entire exact reviewed plan.
 
@@ -33,7 +33,7 @@ Declared predecessors:
 | 5 | 1, 3 | Refresh test file plus completed notification/record APIs |
 | 6 | 2, 4, 5 | All fixes integrated; Task 3 is a transitive prerequisite |
 
-The effective structure is `1 → {2, 3, 4}`, `3 → 5`, `{2, 4, 5} → 6`. The explicit `1 → 5` edge is redundant transitively but harmless. Task 1 is a real prerequisite because it owns every initial test-file creation and project registration. Task 3 is a real prerequisite of Task 5 because it supplies `inFlight`, matching pending-day consumption, and clock advancement. Task 6 must remain after the complete fan-in because its verification, documentation, and possible integration fixes read/write prior task outputs.
+The effective structure is `1 → {2, 3, 4}`, `3 → 5`, `{2, 4, 5} → 6`. The explicit `1 → 5` edge is redundant transitively but harmless. Task 1 is a real prerequisite because it owns every initial test-file creation and project registration. Task 3 is a real prerequisite of Task 5 because it supplies `inFlight`, matching pending-day consumption, clock advancement, and instance day-close lifecycle invalidation. Task 6 must remain after the complete fan-in because its verification, documentation, and possible integration fixes read/write prior task outputs.
 
 Allowed maximal work sets are `{1}`, then `{2, 3, 4}`, then `{2, 4, 5}` once Task 3 has completed its review gate. Any ready subset is also safe; Task 5 need not wait for either Task 2 or Task 4. Task 6 begins only after Tasks 2, 4, and 5 pass and are integrated. “After” includes the plan's required reviews and delivery of the actual prerequisite changes into the child's starting tree, not merely receipt of an implementer's message.
 
@@ -63,6 +63,8 @@ Task 1 names the actual cross-file helpers needed by the moved tests: `MockHoldi
 The existing `MockURLProtocol` (5292) remains private in the original file and has mutable static `requestHandler` state shared by the existing Yahoo/update tests. Task 2 must use its own private SEC fixture transport, adapted from the probe's `FixtureURLProtocol`, inside `OwnershipSyncTests.swift`; it must not expand or reuse the original mutable handler. Ownership fixtures are source-relative and exclusively owned, so they require no new project resource registration.
 
 Task 3's `DeliveryOutcome.inFlight` is additive and does not break an exhaustive switch in the current view model: `GainsViewModel.swift:532` uses `outcome != .failed`. That existing condition still treats an in-flight result incorrectly until Task 5 changes the consumer; this is the already-planned integration requirement, not an omitted concurrency edge. Retaining the old `consumePendingFinalizedDay(for:)` overload keeps current callers compiling. The exact new contract must be delivered with the approved Task 3 source before Task 5 starts. Task 3 must retain the current public `processUpdate` call shape or provide compatibility if it adds a synchronous observation API.
+
+Fresh review of plan commit `50474f800c1364a49ff4b71e1bd78d2b55aace07`: Task 3 now explicitly adds `DayCloseSummaryNotificationService.resetRuntimeState(for personID: String)`; Task 5 calls it at stop/reset boundaries and verifies that an older completion cannot restore notified-day state, consume pending work, or remove a newer claim. This additive instance API is defined wholly in Task 3’s existing service/test write set and consumed wholly in Task 5’s existing view-model/test write set. The existing `3 → 5` edge therefore covers the dependency. Task 3 also owns last-observed wording and formatting of existing `FinalizedTradingDay.date`; Task 5 captures that content after a failed closing fetch. The existing date field avoids a model/persistence edit, and content assertions remain in each task’s owned test file. No new write-set overlap or dependency on Tasks 2 or 4 is introduced.
 
 Task 2 expressly retains `HoldingsSyncResult` and AppSettings interfaces. Task 5 can therefore implement scheduling against existing holdings/outstanding protocols while Task 2 changes reconstruction behind those protocols. Task 4 changes AppSettings only in login behavior; Task 2's holdings tests and Task 5's refresh code read a separate, unchanged part of that type. Task 4's calendar correction changes one holiday entry, not `MarketHoursServiceProtocol`, whose existing `regularCloseDate(on:)` already supports Tasks 3 and 5.
 

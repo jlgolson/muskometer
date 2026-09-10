@@ -164,3 +164,84 @@ VERDICT: NEEDS_FIXES: Disabling a threshold does not prevent its queued crossing
 reviewed-content-sha256: 4bfcfcfa794c8d2b393271df71ad991f22620c09806452a929d557615c299b33
 
 plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760
+## Round 3
+
+### Independent review scope
+
+Cold, full cumulative code-quality review of Task 5 from `68cccc9aa2033295dbb10b1a8f7bbd8963d99d75` through exact reviewed source HEAD `adab4cb0efa2142900cac456abf817b97e315d14`. Dispatch: `a4d10f29-8ab4-4f7d-9d90-9dbe07e98473-task-5`.
+
+Classification: Swift production and test code change; file organization, tests, clarity, and patterns all apply. Supporting review/evidence files have no executable-test requirement. Independent hypotheses were recorded in `build/task5-evidence/quality-review-r3/cold-hypotheses.md` before source/diff-body inspection. This assessment used the full cumulative change and preserved Task 3 contracts, without consulting prior verdicts or sibling reviews.
+
+### Strengths
+
+The acceptance path commits records, samples, milestone state, and threshold observations synchronously before notification suspension. Quote generations and lifecycle tokens isolate obsolete completion from current state. Quote acceptance reads current holdings, preserving count updates made while transport waits. Polling owns a timer separate from SEC and delivery work, while task completion frees only its own physical slot.
+
+Threshold delivery has one worker plus one replaceable pending claim per person/preset. Below observations rearm; reset, rollover, and disable invalidate semantic reservations while retaining occupied physical capacity until the boundary returns. A failed current crossing waits for a later above observation; an older failure cannot erase a newer crossing. The awaitable `processUpdate` API retains its direct-caller behavior and existing Task 3 regression coverage.
+
+Closing scheduling separates a pending obligation from an admitted request. Capacity release can admit the pending close after the recovery window; failure then permits one delayed retry. The actual loop tests cover normal and early closes, saturation, next opening, success/failure, and stop/restart. Clock-only advancement finalizes real stored observations without fabricating samples or changing their observation time. Summary consumption requires delivery/intentional skip and exact pending-value identity; failure, in-flight duplication, and obsolete completion preserve pending work.
+
+The added helpers separate admission, acceptance, cleanup, and recovery with clear responsibilities. Existing protocol injection and actor isolation remain consistent. Physical request dictionaries are capped at two each in the view model; the threshold worker/pending maps are bounded by the preset set. Tests verify actual held boundary calls through repeated recrossings/resets and weak-reference deallocation, in addition to checking observable and persisted outcomes. The unchanged sample store retains its 400-sample cap.
+
+### Issues
+
+Critical: none. Important: none. Minor: none.
+
+### Verification and assessment
+
+Independently parsed the supplied raw logs: `round-3/green.log` contains 87 unique passed test cases and zero failed cases; `round-3/full-suite.log` contains 336 unique passed test cases and zero failed cases. Both contain `TEST SUCCEEDED`, agree with `validation-results.json`, and record task-local derived data with parallel testing disabled. The red assertions exercise the revised admission and disable/re-enable behavior. No broad successful-suite rerun was performed because there was no new concrete failure or source change requiring one.
+
+The entire BASE version of each test file is a byte-identical prefix of reviewed HEAD: all 23 existing refresh tests and 54 existing notification/record tests are preserved, including the Task 3 suspension, reset, rollover, legacy-decoding, exact-acknowledgment, and clock cases. The cumulative additions bring both files to 64 tests. This independently verifies preservation more broadly than the supplied round-3-only preservation report. The cumulative four-file source diff passes `git diff --check`.
+
+All four disk files independently match `git show` bytes from the exact reviewed HEAD and the supplied source manifest. The implementation summaries contain earlier pre-freeze HEAD references; the verified source-byte match establishes the review and validation identity. Detailed traces and verification are retained in `build/task5-evidence/quality-review-r3/assessment.md` and `independent-attestation.json`.
+
+Assessment: approve the full cumulative implementation. No actionable error/retry/race/next-request finding remained after independent tracing. Controlled boundary evidence does not claim actual system notification delivery or a long-duration memory profile.
+
+### Mandatory added-path source attestation
+
+Explicit scope authority: `build/task5-evidence/authorized-integration-scope.md` authorizes the service and service-test additions to Task 5 alongside its original two plan files. The frozen plan/spec remain unchanged. I independently read each added path from disk, computed SHA256, and compared its bytes against `git show adab4cb0efa2142900cac456abf817b97e315d14:<path>`; both comparisons are equal.
+
+- `Muskometer/Services/GainThresholdNotificationService.swift` — SHA256 `f233c20585caf3855355ee412b8d989d4f1bd216b14da60e0cae0554db0c7dfd`.
+- `MuskometerTests/NotificationServicesTests.swift` — SHA256 `72a7dbf8be71cbf6d3b7572c48b8968a007d9d2bcafa0f3d4dd0336ebfc671ad`.
+
+These independent hashes attest the authorized added paths at reviewed HEAD `adab4cb0efa2142900cac456abf817b97e315d14` separately from the standard original-plan-files trailer.
+
+## Findings
+
+None.
+
+## Findings (machine-readable)
+<!-- MARSHAL_FINDINGS_JSON v1 -->
+```json
+{"schema_version":1,"dispatch_id":"a4d10f29-8ab4-4f7d-9d90-9dbe07e98473-task-5","verdict":"approved","round":3,"findings":[]}
+```
+
+VERDICT: APPROVED
+
+## Reviewed files
+
+- Muskometer/ViewModels/GainsViewModel.swift
+- Muskometer/Services/GainThresholdNotificationService.swift
+- MuskometerTests/RefreshLifecycleTests.swift
+- MuskometerTests/NotificationServicesTests.swift
+- Muskometer/Services/DayCloseSummaryNotificationService.swift
+- Muskometer/Services/DailyRecordTracker.swift
+- Muskometer/Services/IntradayGainSampleStore.swift
+- Muskometer/Utilities/AppSettings.swift
+- Muskometer/Models/TrackedPersonProfile.swift
+- docs/marshal/specs/2026-09-10-review-fixes-design.md
+- docs/marshal/plans/2026-09-10-review-fixes.md
+- build/task5-evidence/authorized-integration-scope.md
+- build/task5-evidence/done-summary.md
+- build/task5-evidence/round-2/scope-and-api.md
+- build/task5-evidence/round-3/completion-api.md
+- build/task5-evidence/round-3/validation-commands.txt
+- build/task5-evidence/round-3/green.log
+- build/task5-evidence/round-3/full-suite.log
+- build/task5-evidence/round-3/red-assertions.txt
+- build/task5-evidence/round-3/validation-results.json
+- build/task5-evidence/round-3/source-manifest.json
+- build/task5-evidence/round-3/test-preservation.json
+
+reviewed-content-sha256: ab68db21231972418c4ca07a1550614843ee1426ecfa1821a9df8eaac506c931
+
+plan-graph-sha256: c5582aec64ba1273dc1ddb9487db6d546ccf6879bd93cdd16eda9a28cf89a760

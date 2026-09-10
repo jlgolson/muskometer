@@ -107,6 +107,28 @@ final class DailyRecordTracker {
         return day
     }
 
+    /// Acknowledges only the exact delivered value, preserving any newer pending observation.
+    @discardableResult
+    func consumePendingFinalizedDay(for personID: String, matching day: FinalizedTradingDay) -> FinalizedTradingDay? {
+        loadPendingFinalizedDayIfNeeded(for: personID)
+        guard pendingFinalizedDayByPerson[personID] == day else { return nil }
+        return consumePendingFinalizedDay(for: personID)
+    }
+
+    /// Advances the session clock using only real, persisted observations. No quote is invented.
+    @discardableResult
+    func advanceClock(personID: String, at date: Date = .now) -> Snapshot {
+        loadUnfinishedDayExtremesIfNeeded(for: personID)
+        loadPendingFinalizedDayIfNeeded(for: personID)
+        let dayKey = calendar.dayKey(for: date)
+        guard (currentDayKeyByPerson[personID] ?? dayKey) <= dayKey else {
+            return snapshot(for: personID)
+        }
+        currentDayKeyByPerson[personID] = dayKey
+        finalizeCompletedDayIfNeeded(personID: personID, at: date)
+        return snapshot(for: personID)
+    }
+
     /// Restores a pending finalized day after a failed notification delivery (does not clear lastCompleted).
     func restorePendingFinalizedDay(_ day: FinalizedTradingDay, for personID: String) {
         storePendingFinalizedDay(day, for: personID)
@@ -136,12 +158,18 @@ final class DailyRecordTracker {
         loadPendingFinalizedDayIfNeeded(for: personID)
 
         let dayKey = calendar.dayKey(for: date)
+        guard (currentDayKeyByPerson[personID] ?? dayKey) <= dayKey else {
+            return snapshot(for: personID)
+        }
 
         if defaults.string(forKey: Self.installDayKey(personID)) == nil {
             defaults.set(dayKey, forKey: Self.installDayKey(personID))
         }
 
-        rolloverDayIfNeeded(personID: personID, to: dayKey, at: date)
+        // Complete an earlier session before accepting the new session's first sample.
+        if let extremes = dayExtremesByPerson[personID], extremes.dayKey < dayKey {
+            finalizeCompletedDayIfNeeded(personID: personID, at: date)
+        }
 
         // Always track the ET day key so overnight/closed refreshes can roll over and
         // finalize prior days without inventing peak/trough from non-quotable gains.
@@ -177,33 +205,24 @@ final class DailyRecordTracker {
             persistUnfinishedDayExtremes(extremes, for: personID)
         }
 
-        if let extremes = dayExtremesByPerson[personID],
-           extremes.hadQuotableSample,
-           calendar.hasTradingDayCompleted(dayKey: extremes.dayKey, at: date, marketHours: marketHours) {
-            finalizeTradingDay(personID: personID, dayKey: extremes.dayKey, extremes: extremes)
-            markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: extremes.dayKey, at: date)
-            clearUnfinishedDayExtremes(for: personID)
-        }
-
+        finalizeCompletedDayIfNeeded(personID: personID, at: date)
         return snapshot(for: personID)
     }
 
-    private func rolloverDayIfNeeded(personID: String, to newDayKey: String, at date: Date) {
-        guard let previousDayKey = currentDayKeyByPerson[personID], previousDayKey != newDayKey else {
-            return
-        }
-
-        if let extremes = dayExtremesByPerson[personID], extremes.dayKey == previousDayKey {
-            finalizeTradingDay(personID: personID, dayKey: previousDayKey, extremes: extremes)
-            markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: previousDayKey, at: date)
-        }
-
+    private func finalizeCompletedDayIfNeeded(personID: String, at date: Date) {
+        guard let extremes = dayExtremesByPerson[personID], extremes.hadQuotableSample,
+              let dayStart = calendar.startOfDay(for: extremes.dayKey),
+              let regularClose = marketHours.regularCloseDate(on: dayStart),
+              date >= regularClose else { return }
+        // A prior session is complete even while the next day's regular session is open.
+        finalizeTradingDay(personID: personID, dayKey: extremes.dayKey, extremes: extremes)
+        markFirstTradingDayCompleteIfNeeded(personID: personID, completedDayKey: extremes.dayKey, at: date)
         clearUnfinishedDayExtremes(for: personID)
     }
 
     private func finalizeTradingDay(personID: String, dayKey: String, extremes: DayExtremes) {
         guard extremes.hadQuotableSample else { return }
-        guard lastCompletedDayKeyByPerson[personID] != dayKey else { return }
+        guard (lastCompletedDayKeyByPerson[personID] ?? "") < dayKey else { return }
         lastCompletedDayKeyByPerson[personID] = dayKey
 
         updateBestIfNeeded(personID: personID, amount: extremes.peak, date: extremes.lastSampleDate)

@@ -746,12 +746,631 @@ final class DayCloseSummaryNotificationServiceTests: XCTestCase {
             possessiveName: "Elon's",
             enabled: true
         )
-        XCTAssertEqual(second, .skipped)
+        XCTAssertEqual(second, .inFlight)
         XCTAssertEqual(deliverer.currentAddCount, 1)
 
         deliverer.resumeAdd()
         let firstOutcome = await first
         XCTAssertEqual(firstOutcome, .delivered)
         XCTAssertEqual(deliverer.currentAddCount, 1)
+    }
+}
+
+/// Gates only selected delivery attempts; all others finish immediately so a duplicate
+/// submission is an assertion failure, rather than a test deadlock.
+private actor NotificationDeliveryGate: GainThresholdNotificationDelivering, DayCloseSummaryNotificationDelivering {
+    private let heldAttempts: Set<Int>
+    private var continuations: [Int: CheckedContinuation<Void, Error>] = [:]
+    private var entryWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private(set) var requests: [UNNotificationRequest] = []
+
+    init(holding attempts: Set<Int> = [0]) { heldAttempts = attempts }
+
+    func add(_ request: UNNotificationRequest) async throws {
+        let index = requests.count
+        requests.append(request)
+        if heldAttempts.contains(index) {
+            try await withCheckedThrowingContinuation { continuation in
+                continuations[index] = continuation
+                signalEntry()
+            }
+        } else {
+            signalEntry()
+        }
+    }
+
+    private func signalEntry() {
+        let ready = entryWaiters.filter { requests.count >= $0.0 }
+        entryWaiters.removeAll { requests.count >= $0.0 }
+        for (_, continuation) in ready { continuation.resume() }
+    }
+
+    func waitForFirstEntry() async {
+        if !requests.isEmpty { return }
+        await withCheckedContinuation { entryWaiters.append((1, $0)) }
+    }
+
+    func waitForEntries(_ count: Int) async -> Bool {
+        // A missing replacement claim must fail within a bound, not hang the red run.
+        for _ in 0..<200 {
+            if requests.count >= count { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return false
+    }
+
+    func release(_ index: Int = 0, failing: Bool = false) {
+        let continuation = continuations.removeValue(forKey: index)
+        if failing { continuation?.resume(throwing: URLError(.notConnectedToInternet)) }
+        else { continuation?.resume() }
+    }
+}
+
+@MainActor
+final class NotificationSuspensionRegressionTests: XCTestCase {
+    private func defaults() -> UserDefaults {
+        let suite = "MuskometerTests-notification-suspension-\(UUID().uuidString)"
+        let result = UserDefaults(suiteName: suite)!
+        result.removePersistentDomain(forName: suite)
+        addTeardownBlock { result.removePersistentDomain(forName: suite) }
+        return result
+    }
+
+    private func date(day: Int = 30, hour: Int = 11, minute: Int = 0) throws -> Date {
+        try EasternTestDates.date(year: 2026, month: 6, day: day, hour: hour, minute: minute)
+    }
+
+    private func gainService(_ gate: NotificationDeliveryGate, defaults: UserDefaults? = nil,
+                             thresholds: Set<String> = ["gain-10b"]) -> GainThresholdNotificationService {
+        let service = GainThresholdNotificationService(defaults: defaults ?? self.defaults(), deliverer: gate)
+        service.setEnabledThresholdIDs(thresholds, for: "musk")
+        return service
+    }
+
+    @discardableResult
+    private func sample(_ service: GainThresholdNotificationService, _ billions: Double,
+                        at date: Date) async -> [GainThresholdNotificationService.CrossingEvent] {
+        await service.processUpdate(paperGain: billions * 1_000_000_000, personID: "musk",
+                                    possessiveName: "Elon's", at: date, isQuotable: true)
+    }
+
+    private func finalized(dayKey: String = "2026-06-30", at date: Date) -> DailyRecordTracker.FinalizedTradingDay {
+        .init(dayKey: dayKey, closeGain: 3_000_000_000, peak: 4_000_000_000,
+              trough: -1_000_000_000, date: date)
+    }
+
+    func testOlderSuccessCannotEraseBelowThresholdRearm() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        await sample(service, 8, at: now.addingTimeInterval(2))
+        await gate.release()
+        let firstEvents = await first.value
+        let secondEvents = await sample(service, 12, at: now.addingTimeInterval(3))
+        let count = await gate.requests.count
+        XCTAssertEqual(firstEvents.count, 1)
+        XCTAssertEqual(secondEvents.count, 1, "9→11(await)→8→complete11→12 must retain the second crossing")
+        XCTAssertEqual(count, 2)
+    }
+
+    func testOverlappingAboveObservationsReserveOneCrossing() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        let overlap = await sample(service, 12, at: now.addingTimeInterval(2))
+        let count = await gate.requests.count
+        XCTAssertTrue(overlap.isEmpty, "An in-flight crossing must already be reserved")
+        XCTAssertEqual(count, 1)
+        await gate.release()
+        _ = await first.value
+    }
+
+    func testEveryPresetObservationAndClaimIsCommittedBeforeFirstAwait() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate, thresholds: ["gain-5b", "gain-10b", "gain-20b"])
+        let now = try date()
+        await sample(service, 4, at: now)
+        let first = Task { await self.sample(service, 21, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        let overlap = await sample(service, 22, at: now.addingTimeInterval(2))
+        let during = await gate.requests.count
+        XCTAssertTrue(overlap.isEmpty, "Later presets must be reserved even while the first delivery waits")
+        XCTAssertEqual(during, 1)
+        await gate.release()
+        let firstEvents = await first.value
+        XCTAssertEqual(Set(firstEvents.map(\.threshold.id)), ["gain-5b", "gain-10b", "gain-20b"])
+        let requests = await gate.requests
+        XCTAssertEqual(requests.count, 3)
+        XCTAssertTrue(requests.allSatisfy { $0.content.body.contains("21") }, "Each claim retains its observed gain")
+    }
+
+    func testMultiPresetOlderSuccessCannotEraseNewerBelowObservations() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate, thresholds: ["gain-5b", "gain-10b", "gain-20b"])
+        let now = try date()
+        await sample(service, 4, at: now)
+        let first = Task { await self.sample(service, 21, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        await sample(service, 3, at: now.addingTimeInterval(2))
+        await gate.release()
+        _ = await first.value
+        let recross = await sample(service, 22, at: now.addingTimeInterval(3))
+        XCTAssertEqual(Set(recross.map(\.threshold.id)), ["gain-5b", "gain-10b", "gain-20b"])
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 6)
+    }
+
+    func testFailureAfterNewerAboveObservationRemainsRetryable() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        let overlap = await sample(service, 12, at: now.addingTimeInterval(2))
+        XCTAssertTrue(overlap.isEmpty)
+        await gate.release(failing: true)
+        let failed = await first.value
+        let retry = await sample(service, 13, at: now.addingTimeInterval(3))
+        let count = await gate.requests.count
+        XCTAssertTrue(failed.isEmpty)
+        XCTAssertEqual(retry.count, 1)
+        XCTAssertEqual(retry.first?.paperGain, 13_000_000_000)
+        XCTAssertEqual(count, 2)
+    }
+
+    func testFailureCannotUndoNewerRecrossSuccess() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        await sample(service, 8, at: now.addingTimeInterval(2))
+        let recross = await sample(service, 12, at: now.addingTimeInterval(3))
+        XCTAssertEqual(recross.count, 1)
+        await gate.release(failing: true)
+        _ = await first.value
+        let above = await sample(service, 13, at: now.addingTimeInterval(4))
+        XCTAssertTrue(above.isEmpty, "Old failure must not retry a newer delivered crossing")
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testFailureAfterBelowObservationKeepsDistinctRecross() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        await sample(service, 8, at: now.addingTimeInterval(2))
+        await gate.release(failing: true)
+        _ = await first.value
+        let recross = await sample(service, 12, at: now.addingTimeInterval(3))
+        XCTAssertEqual(recross.count, 1)
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testGainResetInvalidatesOldSuccessWithoutErasingNewObservation() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let service = gainService(gate, defaults: store)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        GainThresholdNotificationService.resetPersistedState(for: "musk", defaults: store)
+        service.resetRuntimeState(for: "musk")
+        service.setEnabledThresholdIDs(["gain-10b"], for: "musk")
+        await sample(service, 8, at: now.addingTimeInterval(2))
+        await gate.release()
+        let stale = await first.value
+        let recross = await sample(service, 12, at: now.addingTimeInterval(3))
+        XCTAssertTrue(stale.isEmpty, "Invalidated completions cannot report a current event")
+        XCTAssertEqual(recross.count, 1)
+    }
+
+    func testGainRolloverInvalidatesOldSuccess() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        let tomorrow = now.addingTimeInterval(86_400)
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        await sample(service, 8, at: tomorrow)
+        await gate.release()
+        let stale = await first.value
+        let recross = await sample(service, 12, at: tomorrow.addingTimeInterval(1))
+        XCTAssertTrue(stale.isEmpty)
+        XCTAssertEqual(recross.count, 1)
+        XCTAssertEqual(recross.first?.tradingDayKey, "2026-07-01")
+    }
+
+    func testCancelledGainDeliveryCanRetryAfterRuntimeRestart() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        first.cancel()
+        service.resetRuntimeState(for: "musk")
+        let retry = await sample(service, 12, at: now.addingTimeInterval(2))
+        await gate.release()
+        let stale = await first.value
+        XCTAssertEqual(retry.count, 1, "Unconfirmed persisted crossing remains retryable after restart")
+        XCTAssertTrue(stale.isEmpty)
+        let above = await sample(service, 13, at: now.addingTimeInterval(3))
+        XCTAssertTrue(above.isEmpty)
+    }
+
+    func testLegacyThresholdStateDecodesAndRearmsNormally() async throws {
+        let gate = NotificationDeliveryGate(holding: [])
+        let store = defaults()
+        store.set(Data(#"{"armed":true,"lastGain":9000000000,"tradingDayKey":"2026-06-30"}"#.utf8),
+                  forKey: "gainNotificationThresholdState_musk-gain-10b")
+        let service = gainService(gate, defaults: store)
+        let events = await sample(service, 11, at: try date())
+        XCTAssertEqual(events.count, 1)
+    }
+
+    func testDayCloseInFlightFailureRetainsDurablePendingDay() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let tracker = DailyRecordTracker(defaults: store)
+        let day = finalized(at: try date())
+        tracker.restorePendingFinalizedDay(day, for: "musk")
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        let overlap = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(overlap, .inFlight)
+        if overlap == .delivered || overlap == .skipped {
+            tracker.consumePendingFinalizedDay(for: "musk", matching: day)
+        }
+        await gate.release(failing: true)
+        let failure = await first.value
+        XCTAssertEqual(failure, .failed)
+        XCTAssertNil(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"))
+        let reloaded = DailyRecordTracker(defaults: store)
+        XCTAssertEqual(reloaded.peekPendingFinalizedDay(for: "musk"), day)
+        let retry = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(retry, .delivered)
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 2)
+    }
+
+    func testDayCloseResetInvalidatesSuspendedSuccessWithoutDeletingPending() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let tracker = DailyRecordTracker(defaults: store)
+        let day = finalized(at: try date())
+        tracker.restorePendingFinalizedDay(day, for: "musk")
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        service.resetRuntimeState(for: "musk")
+        await gate.release()
+        let stale = await first.value
+        XCTAssertEqual(stale, .failed)
+        XCTAssertNil(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"))
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk"), day)
+        let retry = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(retry, .delivered)
+    }
+
+    func testCancelledDayCloseCannotConfirmAfterRestart() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let day = finalized(at: try date())
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        first.cancel()
+        service.resetRuntimeState(for: "musk")
+        let retry = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(retry, .delivered)
+        await gate.release()
+        let stale = await first.value
+        XCTAssertEqual(stale, .failed)
+        XCTAssertEqual(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"), day.dayKey)
+    }
+
+    func testDayCloseCancellationWithoutResetDoesNotPersistSuccess() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let day = finalized(at: try date())
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        first.cancel()
+        await gate.release()
+        let stale = await first.value
+        XCTAssertEqual(stale, .failed)
+        XCTAssertNil(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"))
+        let retry = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(retry, .delivered)
+    }
+
+    func testOlderDifferentDayCompletionCannotRegressNotifiedDayOrConsumeNewPending() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let tracker = DailyRecordTracker(defaults: store)
+        let old = finalized(at: try date())
+        let newer = finalized(dayKey: "2026-07-01", at: try date().addingTimeInterval(86_400))
+        tracker.restorePendingFinalizedDay(old, for: "musk")
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: old, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        tracker.restorePendingFinalizedDay(newer, for: "musk")
+        let delivered = await service.deliverIfNeeded(finalized: newer, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(delivered, .delivered)
+        await gate.release()
+        _ = await first.value
+        XCTAssertEqual(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"), newer.dayKey)
+        XCTAssertNil(tracker.consumePendingFinalizedDay(for: "musk", matching: old))
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk"), newer)
+        let duplicate = await service.deliverIfNeeded(finalized: newer, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(duplicate, .skipped)
+    }
+
+    func testDayCloseContentUsesLastObservedSessionAndSampleTime() async throws {
+        let gate = NotificationDeliveryGate(holding: [])
+        let service = DayCloseSummaryNotificationService(defaults: defaults(), deliverer: gate)
+        let day = finalized(at: try date(hour: 15, minute: 42))
+        let result = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(result, .delivered)
+        let requests = await gate.requests
+        let body = try XCTUnwrap(requests.first?.content.body)
+        XCTAssertTrue(body.contains("Last observed session"), body)
+        XCTAssertTrue(body.contains("3:42 PM"), "Must report the actual last sample time: \(body)")
+        XCTAssertTrue(body.contains("EDT"), body)
+        XCTAssertTrue(body.contains("Jun 30, 2026"), body)
+    }
+
+    func testIdentityConsumeRequiresExactFinalizedValueAndPersistsClear() throws {
+        let store = defaults()
+        let tracker = DailyRecordTracker(defaults: store)
+        let day = finalized(at: try date())
+        tracker.restorePendingFinalizedDay(day, for: "musk")
+        let mismatched = finalized(at: try date(hour: 12))
+        XCTAssertNil(tracker.consumePendingFinalizedDay(for: "musk", matching: mismatched))
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk"), day)
+        XCTAssertEqual(tracker.consumePendingFinalizedDay(for: "musk", matching: day), day)
+        XCTAssertNil(DailyRecordTracker(defaults: store).peekPendingFinalizedDay(for: "musk"))
+    }
+
+    func testAdvanceClockFinalizesCloseWithoutAddingSample() throws {
+        let tracker = DailyRecordTracker(defaults: defaults())
+        let lastSample = try date(hour: 15, minute: 42)
+        tracker.update(personID: "musk", paperGain: 7, at: try date(), isQuotable: true)
+        tracker.update(personID: "musk", paperGain: -3, at: lastSample, isQuotable: true)
+        let before = tracker.advanceClock(personID: "musk", at: try date(hour: 15, minute: 59))
+        XCTAssertFalse(before.hasCompletedFirstTradingDay)
+        let closed = tracker.advanceClock(personID: "musk", at: try date(hour: 16))
+        XCTAssertTrue(closed.hasCompletedFirstTradingDay)
+        XCTAssertEqual(closed.bestRecord?.amount, 7)
+        XCTAssertEqual(closed.worstRecord?.amount, -3)
+        let day = tracker.peekPendingFinalizedDay(for: "musk")
+        XCTAssertEqual(day?.closeGain, -3)
+        XCTAssertEqual(day?.date, lastSample)
+        _ = tracker.advanceClock(personID: "musk", at: try date(hour: 20))
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk"), day)
+    }
+
+    func testAdvanceClockRespectsEarlyClose() throws {
+        let tracker = DailyRecordTracker(defaults: defaults())
+        let sampleTime = try EasternTestDates.date(year: 2026, month: 11, day: 27, hour: 12, minute: 44)
+        tracker.update(personID: "musk", paperGain: 7, at: sampleTime, isQuotable: true)
+        let before = tracker.advanceClock(personID: "musk", at: sampleTime.addingTimeInterval(15 * 60))
+        XCTAssertFalse(before.hasCompletedFirstTradingDay)
+        let closed = tracker.advanceClock(personID: "musk", at: sampleTime.addingTimeInterval(16 * 60))
+        XCTAssertTrue(closed.hasCompletedFirstTradingDay)
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.date, sampleTime)
+    }
+
+    func testAdvanceClockRelaunchLoadsRealUnfinishedDayAtCloseAndNextOpen() throws {
+        for nextDay in [false, true] {
+            let store = defaults()
+            let sampleTime = try date(hour: 15, minute: 42)
+            DailyRecordTracker(defaults: store).update(personID: "musk", paperGain: 7, at: sampleTime, isQuotable: true)
+            let reloaded = DailyRecordTracker(defaults: store)
+            let clock = nextDay ? try date().addingTimeInterval(86_400) : try date(hour: 16)
+            let result = reloaded.advanceClock(personID: "musk", at: clock)
+            XCTAssertTrue(result.hasCompletedFirstTradingDay, "nextDay=\(nextDay)")
+            XCTAssertEqual(result.bestRecord?.amount, 7)
+            XCTAssertEqual(reloaded.peekPendingFinalizedDay(for: "musk")?.date, sampleTime)
+            if let day = reloaded.peekPendingFinalizedDay(for: "musk") {
+                reloaded.consumePendingFinalizedDay(for: "musk", matching: day)
+            }
+            _ = reloaded.advanceClock(personID: "musk", at: clock.addingTimeInterval(5 * 3_600))
+            XCTAssertNil(reloaded.peekPendingFinalizedDay(for: "musk"), "No invented next-day sample")
+        }
+    }
+
+    func testAdvanceClockWithoutAnyQuoteCreatesNoDay() throws {
+        let store = defaults()
+        let tracker = DailyRecordTracker(defaults: store)
+        let result = tracker.advanceClock(personID: "musk", at: try date(hour: 16))
+        XCTAssertFalse(result.hasCompletedFirstTradingDay)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"))
+        XCTAssertNil(store.data(forKey: "dailyRecordUnfinished_musk"))
+    }
+
+    func testBackwardClockAndSampleCannotRegressCurrentTradingDay() throws {
+        let store = defaults()
+        let tracker = DailyRecordTracker(defaults: store)
+        let current = try date()
+        tracker.update(personID: "musk", paperGain: 7, at: current, isQuotable: true)
+        _ = tracker.advanceClock(personID: "musk", at: current.addingTimeInterval(-86_400))
+        tracker.update(personID: "musk", paperGain: 999, at: current.addingTimeInterval(-86_400), isQuotable: true)
+        XCTAssertNil(tracker.peekPendingFinalizedDay(for: "musk"), "Backward dates cannot prematurely finalize today")
+        let result = tracker.advanceClock(personID: "musk", at: try date(hour: 16))
+        XCTAssertEqual(result.bestRecord?.amount, 7)
+        XCTAssertEqual(result.worstRecord?.amount, 7)
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.dayKey, "2026-06-30")
+        XCTAssertEqual(tracker.peekPendingFinalizedDay(for: "musk")?.date, current)
+    }
+}
+
+
+extension NotificationSuspensionRegressionTests {
+    func testOldDayCloseSuccessCannotRemoveRestartedSameDayClaim() async throws {
+        try await checkReplacementDayCloseClaim(oldFails: false)
+    }
+
+    func testOldDayCloseFailureCannotRemoveRestartedSameDayClaim() async throws {
+        try await checkReplacementDayCloseClaim(oldFails: true)
+    }
+
+    private func checkReplacementDayCloseClaim(oldFails: Bool) async throws {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let store = defaults()
+        let day = finalized(at: try date())
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        first.cancel()
+        service.resetRuntimeState(for: "musk")
+        let replacement = Task { await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        let entered = await gate.waitForEntries(2)
+        XCTAssertTrue(entered, "Reset must allow a replacement claim while the canceled attempt is suspended")
+        guard entered else {
+            await gate.release(failing: oldFails)
+            _ = await first.value
+            _ = await replacement.value
+            return
+        }
+        await gate.release(failing: oldFails)
+        let stale = await first.value
+        XCTAssertEqual(stale, .failed)
+        XCTAssertNil(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"))
+        let duplicate = await service.deliverIfNeeded(finalized: day, personID: "musk", possessiveName: "Elon's", enabled: true)
+        XCTAssertEqual(duplicate, .inFlight, "Old completion cannot remove the replacement claim")
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 2)
+        await gate.release(1)
+        let replaced = await replacement.value
+        XCTAssertEqual(replaced, .delivered)
+        XCTAssertEqual(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"), day.dayKey)
+    }
+
+    func testOlderDayCompletingFirstPreservesNewerInFlightClaim() async throws {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let store = defaults()
+        let old = finalized(at: try date())
+        let newer = finalized(dayKey: "2026-07-01", at: try date().addingTimeInterval(86_400))
+        let service = DayCloseSummaryNotificationService(defaults: store, deliverer: gate)
+        let first = Task { await service.deliverIfNeeded(finalized: old, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        await gate.waitForFirstEntry()
+        let second = Task { await service.deliverIfNeeded(finalized: newer, personID: "musk", possessiveName: "Elon's", enabled: true) }
+        let entered = await gate.waitForEntries(2)
+        XCTAssertTrue(entered)
+        await gate.release()
+        _ = await first.value
+        XCTAssertEqual(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"), old.dayKey)
+        if entered {
+            let duplicate = await service.deliverIfNeeded(finalized: newer, personID: "musk", possessiveName: "Elon's", enabled: true)
+            XCTAssertEqual(duplicate, .inFlight)
+        }
+        await gate.release(1)
+        let secondResult = await second.value
+        XCTAssertEqual(secondResult, .delivered)
+        XCTAssertEqual(store.string(forKey: "dayCloseSummaryNotifiedDay_musk"), newer.dayKey)
+    }
+
+    func testOldThresholdFailureCannotClearNewerSuspendedCrossingClaim() async throws {
+        let gate = NotificationDeliveryGate(holding: [0, 1])
+        let service = gainService(gate)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        await sample(service, 8, at: now.addingTimeInterval(2))
+        let second = Task { await self.sample(service, 12, at: now.addingTimeInterval(3)) }
+        let entered = await gate.waitForEntries(2)
+        XCTAssertTrue(entered)
+        await gate.release(failing: true)
+        _ = await first.value
+        let duplicate = await sample(service, 13, at: now.addingTimeInterval(4))
+        XCTAssertTrue(duplicate.isEmpty, "Older failure cannot clear a newer crossing claim")
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 2)
+        await gate.release(1)
+        let delivered = await second.value
+        XCTAssertEqual(delivered.count, 1)
+    }
+
+    func testAllGainAndLossPresetsCommitBeforeDeliveryAndRetainRearm() async throws {
+        for direction in [1.0, -1.0] {
+            let gate = NotificationDeliveryGate()
+            let ids = Set(GainNotificationThreshold.presets.map(\.id))
+            let service = gainService(gate, thresholds: ids)
+            let now = try date()
+            await sample(service, 0, at: now)
+            let first = Task { await self.sample(service, 51 * direction, at: now.addingTimeInterval(1)) }
+            await gate.waitForFirstEntry()
+            let overlap = await sample(service, 52 * direction, at: now.addingTimeInterval(2))
+            XCTAssertTrue(overlap.isEmpty)
+            await sample(service, 0, at: now.addingTimeInterval(3))
+            await gate.release()
+            let firstEvents = await first.value
+            XCTAssertEqual(firstEvents.count, 4)
+            let recross = await sample(service, 53 * direction, at: now.addingTimeInterval(4))
+            XCTAssertEqual(recross.count, 4)
+            let count = await gate.requests.count
+            XCTAssertEqual(count, 8, "Every enabled preset has exactly two distinct crossings")
+        }
+    }
+
+    func testCanceledMultiPresetDeliveryLeavesEveryUnconfirmedCrossingRetryable() async throws {
+        let gate = NotificationDeliveryGate()
+        let service = gainService(gate, thresholds: ["gain-5b", "gain-10b", "gain-20b", "gain-50b"])
+        let now = try date()
+        await sample(service, 0, at: now)
+        let first = Task { await self.sample(service, 51, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        first.cancel()
+        await gate.release()
+        let canceled = await first.value
+        XCTAssertTrue(canceled.isEmpty)
+        let countAfterCancellation = await gate.requests.count
+        XCTAssertEqual(countAfterCancellation, 1, "Cancellation prevents remaining queued preset sends")
+        let retry = await sample(service, 52, at: now.addingTimeInterval(2))
+        XCTAssertEqual(retry.count, 4)
+        let count = await gate.requests.count
+        XCTAssertEqual(count, 5)
+    }
+}
+
+extension NotificationSuspensionRegressionTests {
+    func testClosedMarketDayRolloverInvalidatesSuspendedThresholdDelivery() async throws {
+        let gate = NotificationDeliveryGate()
+        let store = defaults()
+        let service = gainService(gate, defaults: store)
+        let now = try date()
+        await sample(service, 9, at: now)
+        let first = Task { await self.sample(service, 11, at: now.addingTimeInterval(1)) }
+        await gate.waitForFirstEntry()
+        let tomorrow = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 2)
+        _ = await service.processUpdate(paperGain: 11_000_000_000, personID: "musk", possessiveName: "Elon's", at: tomorrow, isQuotable: false)
+        await gate.release()
+        let stale = await first.value
+        XCTAssertTrue(stale.isEmpty, "A closed-market day change must invalidate yesterday's delivery lifecycle")
+        let opening = try EasternTestDates.date(year: 2026, month: 7, day: 1, hour: 10)
+        let initial = await sample(service, 12, at: opening)
+        XCTAssertTrue(initial.isEmpty, "Clock advancement cannot invent a threshold crossing")
+        await sample(service, 8, at: opening.addingTimeInterval(1))
+        let recross = await sample(service, 13, at: opening.addingTimeInterval(2))
+        XCTAssertEqual(recross.count, 1)
     }
 }

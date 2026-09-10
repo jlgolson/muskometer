@@ -24,12 +24,25 @@ final class GainThresholdNotificationService {
         var armed: Bool
         var lastGain: Double?
         var tradingDayKey: String?
+        // One current crossing per preset; below-threshold samples supersede it.
+        var retryPending = false
+        var claimID: UUID?
+        var lifecycleID = UUID()
+    }
+
+    private struct DeliveryClaim {
+        let stateKey: String
+        let lifecycleID: UUID
+        let id: UUID
+        let event: CrossingEvent
     }
 
     private struct PersistedThresholdState: Codable, Equatable {
         var armed: Bool
         var lastGain: Double?
         var tradingDayKey: String?
+        // Optional for compatibility with pre-claim persisted state.
+        var retryPending: Bool?
     }
 
     private let defaults: UserDefaults
@@ -61,8 +74,9 @@ final class GainThresholdNotificationService {
     }
 
     func resetRuntimeState(for personID: String) {
-        let prefix = "\(personID)-"
-        stateByKey = stateByKey.filter { !$0.key.hasPrefix(prefix) }
+        for threshold in GainNotificationThreshold.presets {
+            stateByKey.removeValue(forKey: Self.stateKey(personID: personID, thresholdID: threshold.id))
+        }
     }
 
     @discardableResult
@@ -73,50 +87,86 @@ final class GainThresholdNotificationService {
         at date: Date = .now,
         isQuotable: Bool
     ) async -> [CrossingEvent] {
-        guard isQuotable else { return [] }
+        guard !Task.isCancelled else { return [] }
 
         let dayKey = calendar.dayKey(for: date)
+        // Day advancement invalidates suspended work even when the new observation is closed/stale.
+        for threshold in GainNotificationThreshold.presets {
+            let key = Self.stateKey(personID: personID, thresholdID: threshold.id)
+            guard let state = stateByKey[key],
+                  let previousDay = state.tradingDayKey, previousDay < dayKey else { continue }
+            let fresh = ThresholdState(armed: true, lastGain: nil, tradingDayKey: dayKey)
+            stateByKey[key] = fresh
+            saveState(fresh, forKey: key)
+        }
+        guard isQuotable else { return [] }
         let enabledIDs = enabledThresholdIDs(for: personID)
-        guard !enabledIDs.isEmpty else { return [] }
+        var claims: [DeliveryClaim] = []
 
-        var fired: [CrossingEvent] = []
-
+        // Commit every observation and crossing reservation before any delivery can suspend.
         for threshold in GainNotificationThreshold.presets where enabledIDs.contains(threshold.id) {
             let stateKey = Self.stateKey(personID: personID, thresholdID: threshold.id)
             var state = stateByKey[stateKey] ?? loadState(forKey: stateKey)
-
+            if let previousDay = state.tradingDayKey, previousDay > dayKey { continue }
             if state.tradingDayKey != dayKey {
+                state = ThresholdState(armed: true, lastGain: nil, tradingDayKey: dayKey)
+            }
+
+            let pastThreshold = isPastThreshold(threshold: threshold, paperGain: paperGain)
+            if !pastThreshold {
                 state.armed = true
-                state.lastGain = nil
-                state.tradingDayKey = dayKey
-            }
-
-            if state.lastGain == nil, state.tradingDayKey == dayKey, isPastThreshold(threshold: threshold, paperGain: paperGain) {
+                state.retryPending = false
+                state.claimID = nil
+            } else if state.lastGain == nil {
+                // Starting a session beyond a threshold is not a crossing.
                 state.armed = false
+            } else if let previousGain = state.lastGain, state.claimID == nil,
+                      state.retryPending || (state.armed && didCross(
+                        threshold: threshold, from: previousGain, to: paperGain
+                      )) {
+                let id = UUID()
+                state.claimID = id
+                state.armed = false
+                // Persist an unconfirmed claim as retryable across cancellation/relaunch.
+                state.retryPending = true
+                claims.append(DeliveryClaim(
+                    stateKey: stateKey,
+                    lifecycleID: state.lifecycleID,
+                    id: id,
+                    event: CrossingEvent(threshold: threshold, paperGain: paperGain, tradingDayKey: dayKey)
+                ))
             }
-
-            if let previousGain = state.lastGain, state.armed, didCross(threshold: threshold, from: previousGain, to: paperGain) {
-                let event = CrossingEvent(threshold: threshold, paperGain: paperGain, tradingDayKey: dayKey)
-                let delivered = await deliverNotification(
-                    event: event,
-                    possessiveName: possessiveName
-                )
-                if delivered {
-                    fired.append(event)
-                    state.armed = false
-                    state.lastGain = paperGain
-                }
-                // Delivery failure: leave lastGain below the threshold so the next tick can re-cross.
-            } else {
-                state.lastGain = paperGain
-            }
-
-            state.armed = shouldRearm(threshold: threshold, paperGain: paperGain, currentlyArmed: state.armed)
+            state.lastGain = paperGain
             stateByKey[stateKey] = state
             saveState(state, forKey: stateKey)
         }
 
+        var fired: [CrossingEvent] = []
+        for claim in claims {
+            // Reset/rollover invalidates even claims queued behind an earlier preset.
+            guard stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID else { continue }
+            if Task.isCancelled {
+                finish(claim, delivered: false)
+                continue
+            }
+            let delivered = await deliverNotification(event: claim.event, possessiveName: possessiveName)
+            guard stateByKey[claim.stateKey]?.lifecycleID == claim.lifecycleID else { continue }
+            let confirmed = delivered && !Task.isCancelled
+            finish(claim, delivered: confirmed)
+            if confirmed { fired.append(claim.event) }
+        }
         return fired
+    }
+
+    private func finish(_ claim: DeliveryClaim, delivered: Bool) {
+        guard var state = stateByKey[claim.stateKey],
+              state.lifecycleID == claim.lifecycleID,
+              state.claimID == claim.id else { return }
+        // Never write a captured observation back over a newer sample or rearm/recross.
+        state.claimID = nil
+        state.retryPending = !delivered
+        stateByKey[claim.stateKey] = state
+        saveState(state, forKey: claim.stateKey)
     }
 
     private func loadState(forKey stateKey: String) -> ThresholdState {
@@ -128,7 +178,8 @@ final class GainThresholdNotificationService {
         return ThresholdState(
             armed: persisted.armed,
             lastGain: persisted.lastGain,
-            tradingDayKey: persisted.tradingDayKey
+            tradingDayKey: persisted.tradingDayKey,
+            retryPending: persisted.retryPending ?? false
         )
     }
 
@@ -137,7 +188,8 @@ final class GainThresholdNotificationService {
         let persisted = PersistedThresholdState(
             armed: state.armed,
             lastGain: state.lastGain,
-            tradingDayKey: state.tradingDayKey
+            tradingDayKey: state.tradingDayKey,
+            retryPending: state.retryPending
         )
         guard let data = try? JSONEncoder().encode(persisted) else { return }
         defaults.set(data, forKey: persistKey)
@@ -155,14 +207,6 @@ final class GainThresholdNotificationService {
             return previous < threshold.amount && current >= threshold.amount
         }
         return previous > threshold.amount && current <= threshold.amount
-    }
-
-    private func shouldRearm(threshold: GainNotificationThreshold, paperGain: Double, currentlyArmed: Bool) -> Bool {
-        guard !currentlyArmed else { return true }
-        if threshold.isGainThreshold {
-            return paperGain < threshold.amount
-        }
-        return paperGain > threshold.amount
     }
 
     @discardableResult

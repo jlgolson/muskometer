@@ -3,7 +3,7 @@ import Foundation
 /// Best-effort fetch of issuer shares outstanding from SEC companyfacts (for market-cap parity).
 /// Orthogonal to Form 4 ownership: failures never throw out of `fetchOutstanding`.
 protocol IssuerOutstandingSyncServiceProtocol: Sendable {
-    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: Int64]
+    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: IssuerOutstandingFact]
 }
 
 /// Fetches companyfacts JSON per issuer CIK and resolves point-in-time common shares outstanding.
@@ -13,28 +13,33 @@ final class IssuerOutstandingSyncService: IssuerOutstandingSyncServiceProtocol, 
         "Muskometer/\(AppVersion.short) (info@muskometer.org; https://muskometer.org)"
     }
 
-    init(session: URLSession = .shared) {
+    init(session: URLSession = MuskometerNetworking.ephemeralSession) {
         self.session = session
     }
 
-    /// Returns symbol → positive outstanding for specs that resolve successfully.
+    /// Returns symbol → positive outstanding fact for specs that resolve successfully.
     /// Specs without an issuer CIK, network/HTTP failures, and unresolved payloads are omitted.
-    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: Int64] {
-        var results: [String: Int64] = [:]
+    func fetchOutstanding(for specs: [TrackedHoldingSpec]) async -> [String: IssuerOutstandingFact] {
+        var results: [String: IssuerOutstandingFact] = [:]
         var requestIndex = 0
 
         for spec in specs {
+            guard !Task.isCancelled else { return results }
             guard let cik = spec.issuerCIKPadded, !cik.isEmpty else { continue }
 
             if requestIndex > 0 {
-                try? await Task.sleep(for: .milliseconds(120))
+                do {
+                    try await Task.sleep(for: .milliseconds(120))
+                } catch {
+                    return results
+                }
             }
             requestIndex += 1
 
-            guard let shares = await fetchOutstanding(cikPadded: cik), shares > 0 else {
+            guard let fact = await fetchOutstanding(cikPadded: cik), fact.shares > 0 else {
                 continue
             }
-            results[spec.symbol.uppercased()] = shares
+            results[spec.symbol.uppercased()] = fact
         }
 
         return results
@@ -42,13 +47,13 @@ final class IssuerOutstandingSyncService: IssuerOutstandingSyncServiceProtocol, 
 
     // MARK: - Private
 
-    private func fetchOutstanding(cikPadded: String) async -> Int64? {
+    private func fetchOutstanding(cikPadded: String) async -> IssuerOutstandingFact? {
         guard let url = URL(string: "https://data.sec.gov/api/xbrl/companyfacts/CIK\(cikPadded).json") else {
             return nil
         }
         do {
             let data = try await fetchData(from: url)
-            return CompanyFactsOutstandingResolver.resolveSharesOutstanding(from: data)
+            return CompanyFactsOutstandingResolver.resolve(from: data)
         } catch {
             return nil
         }

@@ -12,3 +12,4 @@ Config/Release.xcconfig
 *.p8
 *.dSYM.zip
 *.dSYM
+.venv-icons/

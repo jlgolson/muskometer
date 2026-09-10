@@ -5,6 +5,7 @@ struct ShareCardView: View {
     let snapshot: GainsSnapshot
     let profile: TrackedPersonProfile
     var intradaySamples: [GainSample] = []
+    var parity: MergerParityPresentation? = nil
 
     private let background = Color(red: 0.09, green: 0.09, blue: 0.1)
     private let surface = Color(red: 0.14, green: 0.14, blue: 0.16)
@@ -16,6 +17,9 @@ struct ShareCardView: View {
             header
             ownershipBlock
             combinedBlock
+            if let parity {
+                parityBlock(parity)
+            }
             holdingsBlock
             footer
         }
@@ -90,6 +94,27 @@ struct ShareCardView: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(accentSurface)
         }
+    }
+
+    private func parityBlock(_ presentation: MergerParityPresentation) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("If Tesla had SpaceX's market cap")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(muted)
+
+            Text(CurrencyFormatter.formatPrice(presentation.impliedTSLAPrice))
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .monospacedDigit()
+
+            Text(
+                "SPCX \(CurrencyFormatter.formatMarketValue(presentation.spcxMarketCap)) · TSLA \(CurrencyFormatter.formatMarketValue(presentation.tslaMarketCap))"
+            )
+            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .foregroundStyle(muted)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(cardBackground)
     }
 
     private var holdingsBlock: some View {

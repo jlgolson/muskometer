@@ -22,7 +22,7 @@ final class GitHubReleaseUpdateChecker: UpdateChecking, @unchecked Sendable {
     private let decoder: JSONDecoder
 
     init(
-        session: URLSession = .shared,
+        session: URLSession = MuskometerNetworking.ephemeralSession,
         apiURL: URL = GitHubReleaseUpdateChecker.apiURL
     ) {
         self.session = session

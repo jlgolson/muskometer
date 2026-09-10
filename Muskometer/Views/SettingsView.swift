@@ -14,6 +14,7 @@ struct SettingsView: View {
     @State private var refreshInterval: Double
     @State private var shareTexts: [String: String] = [:]
     @State private var shareErrors: [String: String] = [:]
+    @State private var showingResetConfirmation = false
 
     init(settings: AppSettings, viewModel: GainsViewModel? = nil, onDone: (() -> Void)? = nil) {
         self.settings = settings
@@ -71,6 +72,18 @@ struct SettingsView: View {
             if wasSyncing && !isSyncing {
                 syncTextFieldsFromSettings()
             }
+        }
+        .confirmationDialog(
+            "Reset all settings to defaults?",
+            isPresented: $showingResetConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Reset", role: .destructive) {
+                performResetToDefaults()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This clears share counts, alerts, daily records, sparkline samples, milestones, and other preferences for the current person.")
         }
     }
 
@@ -233,9 +246,9 @@ struct SettingsView: View {
                 .foregroundStyle(.secondary)
 
             if let viewModel {
-                Text("Alert when combined paper gain crosses a threshold during market hours.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Text("Alert when combined paper gain crosses a threshold during market hours.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Gains")
@@ -263,6 +276,14 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+
+                Toggle("Day-close summary", isOn: Binding(
+                    get: { settings.notifyDayCloseSummary },
+                    set: { viewModel.setNotifyDayCloseSummaryEnabled($0) }
+                ))
+                Text("Once per trading day after the close, summarize combined paper P&L (high / low). Off by default.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } else {
                 Text("Open settings from the menu bar popover to configure gain alerts.")
                     .font(.caption)
@@ -283,6 +304,10 @@ struct SettingsView: View {
                 }
             }
             .pickerStyle(.menu)
+
+            Text("⌥-click the menu bar label to cycle modes.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
 
             Toggle("Show trend icon", isOn: $settings.showMenuBarIcon)
         }
@@ -336,6 +361,10 @@ struct SettingsView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            Text("Outstanding: TSLA \(settings.outstandingProvenanceCaption(for: "TSLA")) · SPCX \(settings.outstandingProvenanceCaption(for: "SPCX"))")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
             ForEach(settings.selectedProfile.holdingSpecs) { spec in
                 VStack(alignment: .leading, spacing: 4) {
                     Text("\(spec.symbol) shares (override)")
@@ -369,20 +398,24 @@ struct SettingsView: View {
     }
 
     private var resetSection: some View {
-        Button("Reset to defaults") {
-            settings.resetToDefaults()
-            refreshInterval = settings.refreshIntervalSeconds
-            syncTextFieldsFromSettings()
-            shareErrors = [:]
-
-            if let viewModel {
-                viewModel.reloadPersistedDisplayState()
-                UpdateCoordinator.resetNotificationDebounce()
-                viewModel.updateCoordinator.stop()
-                Task { await viewModel.refresh(force: true) }
-            }
+        Button("Reset to defaults", role: .destructive) {
+            showingResetConfirmation = true
         }
         .buttonStyle(.bordered)
+    }
+
+    private func performResetToDefaults() {
+        settings.resetToDefaults()
+        refreshInterval = settings.refreshIntervalSeconds
+        syncTextFieldsFromSettings()
+        shareErrors = [:]
+
+        if let viewModel {
+            viewModel.reloadPersistedDisplayState()
+            UpdateCoordinator.resetNotificationDebounce()
+            viewModel.updateCoordinator.stop()
+            Task { await viewModel.refresh(force: true) }
+        }
     }
 
     private func groupedCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
@@ -391,12 +424,7 @@ struct SettingsView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(sectionBackground)
-    }
-
-    private var sectionBackground: some View {
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
+        .muskometerGlassCard(cornerRadius: MuskometerGlass.compactCornerRadius)
     }
 
     private func shareTextBinding(for symbol: String) -> Binding<String> {
@@ -487,14 +515,6 @@ private struct UpdatesSettingsContent: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            // Automatic install (Sparkle) is not wired yet. Hide the delivery
-            // mode control so users cannot select a path that cannot install.
-            // Keep UpdateDeliveryMode.automatic in the model for future use;
-            // checks fall back to the GitHub notify path if that value is stored.
-            Text("Automatic install requires a signed build (coming soon). Download stays manual for now.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
             Button {
                 coordinator.checkNow()
             } label: {
@@ -514,7 +534,8 @@ private struct UpdatesSettingsContent: View {
                     .foregroundStyle(.secondary)
             }
 
-            if let update = coordinator.availableUpdate {
+            if let update = coordinator.availableUpdate,
+               AppURLs.isTrustedReleasePageURL(update.releasePageURL) {
                 Link("Download update", destination: update.releasePageURL)
                     .font(.caption)
             }

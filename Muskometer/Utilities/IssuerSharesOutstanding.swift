@@ -22,8 +22,29 @@ enum IssuerSharesOutstanding {
         }
     }
 
+    /// Human-readable “as of” for bundled defaults (matches comments above).
+    static func defaultAsOfLabel(for symbol: String) -> String? {
+        switch symbol.uppercased() {
+        case "TSLA": return "2026-07-16"
+        case "SPCX": return "2026-07-28 + Cursor 8-K"
+        default: return nil
+        }
+    }
+
     static func userDefaultsKey(for symbol: String) -> String {
         "sharesOutstanding_\(symbol.uppercased())"
+    }
+
+    static func provenanceKey(for symbol: String) -> String {
+        "sharesOutstandingProvenance_\(symbol.uppercased())"
+    }
+
+    static func periodEndKey(for symbol: String) -> String {
+        "sharesOutstandingPeriodEnd_\(symbol.uppercased())"
+    }
+
+    static func filedKey(for symbol: String) -> String {
+        "sharesOutstandingFiled_\(symbol.uppercased())"
     }
 
     /// Remigrates exact prior bundled fingerprints; other stored values pass through.
@@ -33,4 +54,72 @@ enum IssuerSharesOutstanding {
         }
         return stored
     }
+}
+
+/// Where issuer outstanding came from for parity UI.
+enum OutstandingSharesProvenance: Equatable, Sendable {
+    case bundledDefault
+    case companyfacts(periodEnd: String?, filed: String?)
+
+    var shortCaption: String {
+        switch self {
+        case .bundledDefault:
+            return "bundled default"
+        case .companyfacts(let periodEnd, _):
+            if let periodEnd, !periodEnd.isEmpty {
+                return "SEC companyfacts · as of \(periodEnd)"
+            }
+            return "SEC companyfacts"
+        }
+    }
+
+    func caption(defaultAsOf: String?) -> String {
+        switch self {
+        case .bundledDefault:
+            if let defaultAsOf, !defaultAsOf.isEmpty {
+                return "bundled default · as of \(defaultAsOf)"
+            }
+            return "bundled default"
+        case .companyfacts:
+            return shortCaption
+        }
+    }
+
+    var storageRawValue: String {
+        switch self {
+        case .bundledDefault: return "bundledDefault"
+        case .companyfacts: return "companyfacts"
+        }
+    }
+
+    static func fromStorage(
+        raw: String?,
+        periodEnd: String?,
+        filed: String?,
+        storedShares: Int64?,
+        defaultShares: Int64?
+    ) -> OutstandingSharesProvenance {
+        switch raw {
+        case "bundledDefault":
+            return .bundledDefault
+        case "companyfacts":
+            return .companyfacts(periodEnd: periodEnd, filed: filed)
+        default:
+            // Legacy installs: no provenance key — infer from equality to bundled default.
+            if let storedShares, let defaultShares, storedShares == defaultShares {
+                return .bundledDefault
+            }
+            if storedShares != nil {
+                return .companyfacts(periodEnd: periodEnd, filed: filed)
+            }
+            return .bundledDefault
+        }
+    }
+}
+
+/// Resolved companyfacts outstanding with filing dates for provenance captions.
+struct IssuerOutstandingFact: Equatable, Sendable {
+    let shares: Int64
+    let periodEnd: String
+    let filed: String
 }

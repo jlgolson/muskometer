@@ -5,6 +5,7 @@ struct MilestoneCelebrationOverlay: View {
     let milestone: NetWorthMilestone?
     var onFinished: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var pieces: [ConfettiPiece] = []
     @State private var animationStart: Date?
     @State private var activeMilestoneID: String?
@@ -17,21 +18,23 @@ struct MilestoneCelebrationOverlay: View {
         ZStack {
             if let milestone, animationStart != nil {
                 milestoneBanner(milestone)
-                    .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    .transition(.opacity)
             }
 
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: animationStart == nil)) { timeline in
-                Canvas { context, size in
-                    guard let start = animationStart else { return }
+            if !reduceMotion {
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0, paused: animationStart == nil)) { timeline in
+                    Canvas { context, size in
+                        guard let start = animationStart else { return }
 
-                    let elapsed = timeline.date.timeIntervalSince(start)
-                    guard elapsed <= animationDuration else { return }
+                        let elapsed = timeline.date.timeIntervalSince(start)
+                        guard elapsed <= animationDuration else { return }
 
-                    let progress = elapsed / animationDuration
-                    let fade = 1 - max(0, (progress - 0.55) / 0.45)
+                        let progress = elapsed / animationDuration
+                        let fade = 1 - max(0, (progress - 0.55) / 0.45)
 
-                    for piece in pieces {
-                        drawPiece(piece, elapsed: elapsed, fade: fade, canvasSize: size, in: &context)
+                        for piece in pieces {
+                            drawPiece(piece, elapsed: elapsed, fade: fade, canvasSize: size, in: &context)
+                        }
                     }
                 }
             }
@@ -49,7 +52,13 @@ struct MilestoneCelebrationOverlay: View {
         .onDisappear {
             finishTask?.cancel()
             finishTask = nil
+            // Clear sticky milestone so reopening the popover doesn't restart confetti.
+            if animationStart != nil || activeMilestoneID != nil {
+                completeCelebration()
+            }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(milestone.map { "\($0.title), \($0.thresholdLabel)" } ?? "Milestone celebration")
     }
 
     private func milestoneBanner(_ milestone: NetWorthMilestone) -> some View {
@@ -64,24 +73,25 @@ struct MilestoneCelebrationOverlay: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .background {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: .black.opacity(0.12), radius: 10, y: 4)
-        }
+        .muskometerGlassCard(cornerRadius: 14)
     }
 
     private func beginCelebration(for milestone: NetWorthMilestone) {
         finishTask?.cancel()
 
         activeMilestoneID = milestone.id
-        pieces = makePieces(count: pieceCount)
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+        pieces = reduceMotion ? [] : makePieces(count: pieceCount)
+        if reduceMotion {
             animationStart = .now
+        } else {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.82)) {
+                animationStart = .now
+            }
         }
 
+        let duration = reduceMotion ? 1.6 : animationDuration
         finishTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(animationDuration))
+            try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled, activeMilestoneID == milestone.id else { return }
             completeCelebration()
         }

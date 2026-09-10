@@ -10,7 +10,7 @@ Preferences are stored in **UserDefaults** under the app bundle ID (`org.muskome
 - Issuer shares outstanding for market-cap parity (company totals, separate from ownership)
 - Menu bar display mode, trend icon preference, and market-cap parity card toggle
 - Share format (copy image card vs text summary)
-- Update-notify flag (and delivery mode) for available GitHub releases
+- Update-notify flag for available GitHub releases
 - Auto-refresh interval
 - Launch-at-login setting
 - Last SEC holdings sync timestamp
@@ -28,6 +28,7 @@ The app makes **outbound HTTPS** requests only:
 |-------------|---------|
 | Yahoo Finance (`query1.finance.yahoo.com`) | Live TSLA and SPCX quotes |
 | SEC EDGAR (`data.sec.gov`, `www.sec.gov`) | Public Form 4 filings (ownership) and companyfacts (issuer outstanding) |
+| GitHub Releases API (`api.github.com`) | Optional update checks when notify-of-updates is enabled |
 
 These services receive standard request metadata (IP address, TLS handshake, etc.) as any HTTPS client would. Muskometer does **not** send your name, email, Apple ID, or other personal identifiers.
 

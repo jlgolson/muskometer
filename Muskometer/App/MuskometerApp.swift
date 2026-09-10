@@ -20,6 +20,9 @@ struct MuskometerApp: App {
         AppDelegate.shareShortcutHandler = { @MainActor in
             viewModel.copyShareToPasteboard()
         }
+        AppDelegate.menuBarDisplayModeCycleHandler = { @MainActor in
+            settings.cycleMenuBarDisplayMode()
+        }
     }
 
     var body: some Scene {

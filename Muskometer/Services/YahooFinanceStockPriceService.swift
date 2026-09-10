@@ -7,7 +7,7 @@ final class YahooFinanceStockPriceService: StockPriceServiceProtocol, @unchecked
     private let baseURL = "https://query1.finance.yahoo.com/v8/finance/chart"
 
     init(
-        session: URLSession = .shared,
+        session: URLSession = MuskometerNetworking.ephemeralSession,
         marketHours: any MarketHoursServiceProtocol = MarketHoursService(),
         dateProvider: @escaping () -> Date = { .now }
     ) {

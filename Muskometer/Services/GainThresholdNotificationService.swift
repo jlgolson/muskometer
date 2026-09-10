@@ -97,16 +97,20 @@ final class GainThresholdNotificationService {
 
             if let previousGain = state.lastGain, state.armed, didCross(threshold: threshold, from: previousGain, to: paperGain) {
                 let event = CrossingEvent(threshold: threshold, paperGain: paperGain, tradingDayKey: dayKey)
-                fired.append(event)
-                state.armed = false
-
-                await deliverNotification(
+                let delivered = await deliverNotification(
                     event: event,
                     possessiveName: possessiveName
                 )
+                if delivered {
+                    fired.append(event)
+                    state.armed = false
+                    state.lastGain = paperGain
+                }
+                // Delivery failure: leave lastGain below the threshold so the next tick can re-cross.
+            } else {
+                state.lastGain = paperGain
             }
 
-            state.lastGain = paperGain
             state.armed = shouldRearm(threshold: threshold, paperGain: paperGain, currentlyArmed: state.armed)
             stateByKey[stateKey] = state
             saveState(state, forKey: stateKey)
@@ -161,8 +165,10 @@ final class GainThresholdNotificationService {
         return paperGain > threshold.amount
     }
 
-    private func deliverNotification(event: CrossingEvent, possessiveName: String) async {
+    @discardableResult
+    private func deliverNotification(event: CrossingEvent, possessiveName: String) async -> Bool {
         let content = UNMutableNotificationContent()
+        // Illustrative paper P&L for a public figure — treated as market “news,” not private finance.
         if event.threshold.isGainThreshold {
             content.title = "\(possessiveName) gain crossed \(event.threshold.label)"
             content.body = "Combined paper gain is now \(CurrencyFormatter.formatCurrency(event.paperGain))."
@@ -171,14 +177,24 @@ final class GainThresholdNotificationService {
             content.body = "Combined paper loss is now \(CurrencyFormatter.formatCurrency(event.paperGain))."
         }
         content.sound = .default
+        content.categoryIdentifier = NotificationAuthorization.gainThresholdCategoryID
+        content.userInfo = [
+            NotificationAuthorization.notificationKindKey: NotificationAuthorization.gainThresholdKind
+        ]
 
+        // Deterministic ID so retries replace rather than stack Notification Center entries.
         let request = UNNotificationRequest(
-            identifier: "gain-threshold-\(event.threshold.id)-\(event.tradingDayKey)-\(UUID().uuidString)",
+            identifier: "gain-threshold-\(event.threshold.id)-\(event.tradingDayKey)",
             content: content,
             trigger: nil
         )
 
-        try? await deliverer.add(request)
+        do {
+            try await deliverer.add(request)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private static func enabledThresholdsKey(_ personID: String) -> String {

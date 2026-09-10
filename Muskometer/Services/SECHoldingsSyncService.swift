@@ -13,7 +13,7 @@ final class SECHoldingsSyncService: HoldingsSyncServiceProtocol, @unchecked Send
         "Muskometer/\(AppVersion.short) (info@muskometer.org; https://muskometer.org)"
     }
 
-    init(profile: TrackedPersonProfile = .musk, session: URLSession = .shared) {
+    init(profile: TrackedPersonProfile = .musk, session: URLSession = MuskometerNetworking.ephemeralSession) {
         self.profile = profile
         self.expectedSymbols = profile.expectedSymbols
         self.session = session

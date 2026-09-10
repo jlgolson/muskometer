@@ -7,7 +7,7 @@ enum GainSummaryFormatter {
         return "Today's Gain/Loss"
     }
 
-    static func format(_ snapshot: GainsSnapshot) -> String {
+    static func format(_ snapshot: GainsSnapshot, parity: MergerParityPresentation? = nil) -> String {
         let combined = CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain)
         let percent = CurrencyFormatter.formatPercent(snapshot.combinedPercentChange)
         let breakdown = snapshot.holdings
@@ -15,6 +15,10 @@ enum GainSummaryFormatter {
             .joined(separator: " / ")
 
         let headline = todaysGainLossLabel(for: snapshot.combinedPaperGain).lowercased()
-        return "Muskometer — \(headline): \(combined) (\(percent)) — \(breakdown)"
+        var text = "Muskometer — \(headline): \(combined) (\(percent)) — \(breakdown)"
+        if let parity {
+            text += " — If Tesla had SpaceX's market cap: \(CurrencyFormatter.formatPrice(parity.impliedTSLAPrice))"
+        }
+        return text
     }
 }

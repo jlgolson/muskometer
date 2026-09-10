@@ -7,7 +7,7 @@ cd "$ROOT"
 echo "=== 1. Swift typecheck ==="
 SDK=$(xcrun --show-sdk-path)
 swiftc -typecheck \
-  -target arm64-apple-macos14.0 \
+  -target arm64-apple-macos26.0 \
   -sdk "$SDK" \
   -module-name Muskometer \
   -parse-as-library \

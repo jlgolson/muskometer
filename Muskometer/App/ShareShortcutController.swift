@@ -20,8 +20,8 @@ final class ShareShortcutController {
         case debounced
     }
 
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
+    private nonisolated(unsafe) var globalMonitor: Any?
+    private nonisolated(unsafe) var localMonitor: Any?
     private let handler: () -> Bool
     private var lastTriggerDate: Date?
     private let debounceInterval: TimeInterval
@@ -49,10 +49,14 @@ final class ShareShortcutController {
         stop()
 
         // Global monitors cannot consume events; they only observe.
-        // Snapshot key fields before the Task hop so NSEvent is not retained past the callback.
+        // Match before hopping to MainActor so every keystroke doesn't spawn a Task.
         globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             let modifierFlags = event.modifierFlags
             let charactersIgnoringModifiers = event.charactersIgnoringModifiers
+            guard ShareShortcutMatcher.matches(
+                modifierFlags: modifierFlags,
+                charactersIgnoringModifiers: charactersIgnoringModifiers
+            ) else { return }
             Task { @MainActor in
                 self?.handle(
                     modifierFlags: modifierFlags,
@@ -77,6 +81,15 @@ final class ShareShortcutController {
         if let localMonitor {
             NSEvent.removeMonitor(localMonitor)
             self.localMonitor = nil
+        }
+    }
+
+    deinit {
+        if let globalMonitor {
+            NSEvent.removeMonitor(globalMonitor)
+        }
+        if let localMonitor {
+            NSEvent.removeMonitor(localMonitor)
         }
     }
 

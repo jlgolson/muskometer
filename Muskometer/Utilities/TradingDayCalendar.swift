@@ -7,7 +7,7 @@ struct TradingDayCalendar: Sendable {
 
     init(
         calendar: Calendar = Calendar(identifier: .gregorian),
-        timeZone: TimeZone = TimeZone(identifier: "America/New_York") ?? .current
+        timeZone: TimeZone = EasternTimeZone.americaNewYork
     ) {
         var configured = calendar
         configured.timeZone = timeZone

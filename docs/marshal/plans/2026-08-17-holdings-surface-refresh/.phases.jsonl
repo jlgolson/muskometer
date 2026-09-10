@@ -1,5 +1,0 @@
-{"phase": "planning_start", "ts": "2026-08-17T10:19:51.016383Z", "source": "writing-plans"}
-{"phase": "planning_end", "ts": "2026-08-17T10:44:14.841511Z", "source": "plan-review"}
-{"phase": "execution_start", "ts": "2026-08-17T10:56:33.982215Z", "source": "execute-plan"}
-{"phase": "holistic_end", "ts": "2026-08-17T12:47:53.411468Z", "source": "execute-plan"}
-{"phase": "execution_end", "ts": "2026-08-17T12:57:31.903460Z", "source": "finishing"}

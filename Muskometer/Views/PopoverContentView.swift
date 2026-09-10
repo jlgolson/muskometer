@@ -110,35 +110,58 @@ struct PopoverContentView: View {
     }
 
     private func dataView(_ snapshot: GainsSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ownershipCard(snapshot)
-            combinedCard(snapshot)
+        GlassEffectContainer(spacing: MuskometerGlass.containerSpacing) {
+            VStack(alignment: .leading, spacing: 12) {
+                ownershipCard(snapshot)
+                combinedCard(snapshot)
 
-            if hasDailyRecords {
-                DailyRecordsCardView(
-                    bestRecord: viewModel.dailyRecordsSnapshot.bestRecord,
-                    worstRecord: viewModel.dailyRecordsSnapshot.worstRecord,
-                    animateValues: true
-                )
-            }
+                if hasDailyRecords {
+                    DailyRecordsCardView(
+                        bestRecord: viewModel.dailyRecordsSnapshot.bestRecord,
+                        worstRecord: viewModel.dailyRecordsSnapshot.worstRecord,
+                        animateValues: true
+                    )
+                }
 
-            ForEach(snapshot.holdings) { holding in
-                StockRowView(
-                    holding: holding,
-                    possessiveName: viewModel.settings.selectedProfile.possessiveName,
-                    animateValues: true
-                )
-            }
+                ForEach(snapshot.holdings) { holding in
+                    StockRowView(
+                        holding: holding,
+                        possessiveName: viewModel.settings.selectedProfile.possessiveName,
+                        animateValues: true
+                    )
+                }
 
-            if viewModel.settings.showMergerParityCard,
-               let presentation = viewModel.mergerParityPresentation {
-                MergerParityCardView(presentation: presentation, animateValues: true)
-            }
+                if viewModel.settings.showMergerParityCard,
+                   let presentation = viewModel.mergerParityPresentation {
+                    MergerParityCardView(
+                        presentation: presentation,
+                        outstandingCaption: viewModel.mergerParityOutstandingCaption,
+                        animateValues: true
+                    )
+                }
 
-            if let error = viewModel.errorMessage {
-                Text(error)
-                    .font(.caption2)
+                if viewModel.hasStaleData {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Showing last good quotes")
+                                .font(.caption.weight(.semibold))
+                            Text("Updated \(snapshot.lastUpdated.formatted(date: .omitted, time: .shortened)). Refresh to retry.")
+                                .font(.caption2)
+                        }
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
                     .foregroundStyle(.orange)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Stale data")
+                    .accessibilityValue("Showing last good quotes from \(snapshot.lastUpdated.formatted(date: .omitted, time: .shortened))")
+                }
+
+                if let error = viewModel.errorMessage {
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
             }
         }
     }
@@ -155,6 +178,8 @@ struct PopoverContentView: View {
                     .monospacedDigit()
                     .contentTransition(.numericText())
                     .animation(.smooth(duration: 0.25), value: snapshot.combinedMarketValue)
+                    .accessibilityLabel("\(viewModel.settings.selectedProfile.possessiveName) ownership market value")
+                    .accessibilityValue(CurrencyFormatter.formatMarketValue(snapshot.combinedMarketValue))
 
                 if let message = viewModel.trillionEasterEggMessage {
                     Text(message)
@@ -162,6 +187,20 @@ struct PopoverContentView: View {
                         .foregroundStyle(Color("GainNegative"))
                         .padding(.top, 2)
                 }
+
+                if let ownershipToast = viewModel.holdingsOwnershipChangeMessage {
+                    Text(ownershipToast)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 2)
+                        .accessibilityLabel("Ownership change")
+                        .accessibilityValue(ownershipToast)
+                }
+
+                Text("Form 4 common stock and vested options only; performance RSUs excluded until milestones.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -171,11 +210,7 @@ struct PopoverContentView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .muskometerGlassCard()
     }
 
     private func combinedCard(_ snapshot: GainsSnapshot) -> some View {
@@ -191,6 +226,8 @@ struct PopoverContentView: View {
                     .foregroundStyle(combinedColor(snapshot))
                     .contentTransition(.numericText())
                     .animation(.smooth(duration: 0.25), value: snapshot.combinedPaperGain)
+                    .accessibilityLabel("Combined paper gain or loss today")
+                    .accessibilityValue(CurrencyFormatter.formatCurrency(snapshot.combinedPaperGain))
 
                 Text(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
                     .font(.subheadline.weight(.semibold))
@@ -198,6 +235,8 @@ struct PopoverContentView: View {
                     .foregroundStyle(combinedColor(snapshot))
                     .contentTransition(.numericText())
                     .animation(.smooth(duration: 0.25), value: snapshot.combinedPercentChange)
+                    .accessibilityLabel("Combined percent change today")
+                    .accessibilityValue(CurrencyFormatter.formatPercent(snapshot.combinedPercentChange))
 
                 HStack(spacing: 6) {
                     Circle()
@@ -217,25 +256,34 @@ struct PopoverContentView: View {
 
             GainSparklineView(samples: viewModel.intradaySamples)
 
-            Button {
-                copyShare()
-            } label: {
-                Label(
-                    didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
-                    systemImage: viewModel.settings.shareFormat.buttonIcon
-                )
+            HStack(spacing: 8) {
+                Button {
+                    copyShare()
+                } label: {
+                    Label(
+                        didCopyShare ? "Copied!" : viewModel.settings.shareFormat.buttonTitle,
+                        systemImage: viewModel.settings.shareFormat.buttonIcon
+                    )
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(didCopyShare)
+                .help(viewModel.settings.shareFormat.helpText)
+
+                Button {
+                    _ = viewModel.presentSystemShare()
+                } label: {
+                    Label("Share…", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(viewModel.snapshot == nil)
+                .help("Open the system share sheet")
             }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .disabled(didCopyShare)
-            .help(viewModel.settings.shareFormat.helpText)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.accentColor.opacity(0.12))
-        }
+        .muskometerGlassCard(tint: Color.accentColor)
     }
 
     private var footer: some View {
@@ -259,7 +307,7 @@ struct PopoverContentView: View {
                 .controlSize(.small)
                 .keyboardShortcut("r", modifiers: .command)
 
-                Button("Settings") {
+                Button("Settings…") {
                     NSApp.activate(ignoringOtherApps: true)
                     NotificationCenter.default.post(name: .openMuskometerSettings, object: nil)
                 }

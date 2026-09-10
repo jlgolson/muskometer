@@ -4,9 +4,15 @@ Thanks for poking around the code. This is a small SwiftUI menu bar app — easy
 
 ## Prerequisites
 
-- macOS 14.0+
-- **Xcode 15+** (includes Swift 5.9+)
+- macOS 26.0+
+- **Xcode 26+** (macOS 26 SDK)
 - Command Line Tools (`xcode-select --install` if needed)
+
+## Liquid Glass
+
+Muskometer targets **macOS 26** and uses SwiftUI `glassEffect` / `GlassEffectContainer` for popover and Settings cards (`MuskometerGlass`). Rebuild with the macOS 26 SDK so system bars/controls also pick up Liquid Glass.
+
+App icons ship as full-bleed PNGs (system applies the squircle + specular edge treatment). For a full layered Liquid Glass icon (Default / Dark / Clear / Tinted), author an Icon Composer `.icon` from [Apple Design Resources](https://developer.apple.com/design/resources/) and add it to the Xcode target — step-by-step in `design/README.md`. PNG `AppIcon.appiconset` remains the shipping path until a `.icon` is committed.
 
 ## Clone & open
 
@@ -134,7 +140,7 @@ xcodebuild -scheme Muskometer -configuration Release build
 
 # Typecheck without Xcode GUI
 SDK=$(xcrun --show-sdk-path)
-swiftc -typecheck -target arm64-apple-macos14.0 -sdk "$SDK" \
+swiftc -typecheck -target arm64-apple-macos26.0 -sdk "$SDK" \
   -module-name Muskometer -parse-as-library \
   $(find Muskometer -name "*.swift" | sort)
 ```

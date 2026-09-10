@@ -9,6 +9,14 @@ final class DailyRecordTracker {
         let hasCompletedFirstTradingDay: Bool
     }
 
+    struct FinalizedTradingDay: Equatable, Sendable {
+        let dayKey: String
+        let closeGain: Double
+        let peak: Double
+        let trough: Double
+        let date: Date
+    }
+
     private struct PersistedRecord: Codable, Equatable {
         let amount: Double
         let date: Date
@@ -18,9 +26,36 @@ final class DailyRecordTracker {
     private struct DayExtremes: Equatable, Codable {
         var peak: Double
         var trough: Double
+        var lastSampleGain: Double
         var lastSampleDate: Date
         var dayKey: String
         var hadQuotableSample: Bool
+
+        init(
+            peak: Double,
+            trough: Double,
+            lastSampleGain: Double,
+            lastSampleDate: Date,
+            dayKey: String,
+            hadQuotableSample: Bool
+        ) {
+            self.peak = peak
+            self.trough = trough
+            self.lastSampleGain = lastSampleGain
+            self.lastSampleDate = lastSampleDate
+            self.dayKey = dayKey
+            self.hadQuotableSample = hadQuotableSample
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            peak = try container.decode(Double.self, forKey: .peak)
+            trough = try container.decode(Double.self, forKey: .trough)
+            lastSampleDate = try container.decode(Date.self, forKey: .lastSampleDate)
+            dayKey = try container.decode(String.self, forKey: .dayKey)
+            hadQuotableSample = try container.decode(Bool.self, forKey: .hadQuotableSample)
+            lastSampleGain = try container.decodeIfPresent(Double.self, forKey: .lastSampleGain) ?? peak
+        }
     }
 
     private let defaults: UserDefaults
@@ -29,10 +64,11 @@ final class DailyRecordTracker {
 
     private var dayExtremesByPerson: [String: DayExtremes] = [:]
     private var currentDayKeyByPerson: [String: String] = [:]
-    private var completedDayKeysByPerson: [String: Set<String>] = [:]
-    private var quotableSampleDayKeysByPerson: [String: Set<String>] = [:]
+    /// Last finalized trading day per person — avoids unbounded day-key Sets.
+    private var lastCompletedDayKeyByPerson: [String: String] = [:]
     /// Persons whose unfinished extremes have been loaded from UserDefaults this runtime session.
     private var loadedUnfinishedPersonIDs: Set<String> = []
+    private var pendingFinalizedDayByPerson: [String: FinalizedTradingDay] = [:]
 
     init(
         defaults: UserDefaults = .standard,
@@ -47,9 +83,14 @@ final class DailyRecordTracker {
     func resetRuntimeState(for personID: String) {
         dayExtremesByPerson.removeValue(forKey: personID)
         currentDayKeyByPerson.removeValue(forKey: personID)
-        completedDayKeysByPerson.removeValue(forKey: personID)
-        quotableSampleDayKeysByPerson.removeValue(forKey: personID)
+        lastCompletedDayKeyByPerson.removeValue(forKey: personID)
         loadedUnfinishedPersonIDs.remove(personID)
+        pendingFinalizedDayByPerson.removeValue(forKey: personID)
+    }
+
+    /// Returns and clears the most recent finalized trading day for notification side effects.
+    func consumePendingFinalizedDay(for personID: String) -> FinalizedTradingDay? {
+        pendingFinalizedDayByPerson.removeValue(forKey: personID)
     }
 
     func snapshot(for personID: String) -> Snapshot {
@@ -87,13 +128,10 @@ final class DailyRecordTracker {
         currentDayKeyByPerson[personID] = dayKey
 
         if isQuotable {
-            var sampledDays = quotableSampleDayKeysByPerson[personID] ?? []
-            sampledDays.insert(dayKey)
-            quotableSampleDayKeysByPerson[personID] = sampledDays
-
             var extremes = dayExtremesByPerson[personID] ?? DayExtremes(
                 peak: paperGain,
                 trough: paperGain,
+                lastSampleGain: paperGain,
                 lastSampleDate: date,
                 dayKey: dayKey,
                 hadQuotableSample: true
@@ -103,6 +141,7 @@ final class DailyRecordTracker {
                 extremes = DayExtremes(
                     peak: paperGain,
                     trough: paperGain,
+                    lastSampleGain: paperGain,
                     lastSampleDate: date,
                     dayKey: dayKey,
                     hadQuotableSample: true
@@ -110,6 +149,7 @@ final class DailyRecordTracker {
             } else {
                 extremes.peak = max(extremes.peak, paperGain)
                 extremes.trough = min(extremes.trough, paperGain)
+                extremes.lastSampleGain = paperGain
                 extremes.lastSampleDate = date
                 extremes.hadQuotableSample = true
             }
@@ -143,21 +183,23 @@ final class DailyRecordTracker {
 
     private func finalizeTradingDay(personID: String, dayKey: String, extremes: DayExtremes) {
         guard extremes.hadQuotableSample else { return }
-
-        var completed = completedDayKeysByPerson[personID] ?? []
-        guard !completed.contains(dayKey) else { return }
-        completed.insert(dayKey)
-        completedDayKeysByPerson[personID] = completed
+        guard lastCompletedDayKeyByPerson[personID] != dayKey else { return }
+        lastCompletedDayKeyByPerson[personID] = dayKey
 
         updateBestIfNeeded(personID: personID, amount: extremes.peak, date: extremes.lastSampleDate)
         updateWorstIfNeeded(personID: personID, amount: extremes.trough, date: extremes.lastSampleDate)
+        pendingFinalizedDayByPerson[personID] = FinalizedTradingDay(
+            dayKey: dayKey,
+            closeGain: extremes.lastSampleGain,
+            peak: extremes.peak,
+            trough: extremes.trough,
+            date: extremes.lastSampleDate
+        )
     }
 
     private func markFirstTradingDayCompleteIfNeeded(personID: String, completedDayKey: String, at date: Date) {
         guard !defaults.bool(forKey: Self.firstDayCompleteKey(personID)) else { return }
-        guard quotableSampleDayKeysByPerson[personID]?.contains(completedDayKey) == true else {
-            return
-        }
+        // Caller only finalizes days that had quotable samples (`extremes.hadQuotableSample`).
 
         // A later ET calendar day implies the prior trading day is complete,
         // even if the market is open again on the new day (hasTradingDayCompleted would
@@ -217,11 +259,6 @@ final class DailyRecordTracker {
 
         dayExtremesByPerson[personID] = extremes
         currentDayKeyByPerson[personID] = extremes.dayKey
-        if extremes.hadQuotableSample {
-            var sampledDays = quotableSampleDayKeysByPerson[personID] ?? []
-            sampledDays.insert(extremes.dayKey)
-            quotableSampleDayKeysByPerson[personID] = sampledDays
-        }
     }
 
     private func loadUnfinishedDayExtremes(for personID: String) -> DayExtremes? {

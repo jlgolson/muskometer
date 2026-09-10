@@ -21,7 +21,7 @@ final class AppSettings {
         static let launchAtLogin = "launchAtLogin"
         static let shareFormat = "shareFormat"
         static let notifyOfAvailableUpdates = "notifyOfAvailableUpdates"
-        static let updateDeliveryMode = "updateDeliveryMode"
+        static let notifyDayCloseSummary = "notifyDayCloseSummary"
     }
 
     private static func shareCountKey(for symbol: String) -> String {
@@ -66,6 +66,11 @@ final class AppSettings {
             defaults.set(menuBarDisplayMode.rawValue, forKey: Keys.menuBarDisplayMode)
             bumpMenuBarLabelEpoch()
         }
+    }
+
+    /// Advances `menuBarDisplayMode` to the next case (⌥-click on the menu bar label).
+    func cycleMenuBarDisplayMode() {
+        menuBarDisplayMode = menuBarDisplayMode.next
     }
 
     var showMenuBarIcon: Bool {
@@ -122,11 +127,55 @@ final class AppSettings {
     }
 
     /// Persists issuer outstanding when `count > 0`. Keys are independent of ownership `shareCount_*`.
-    func setSharesOutstanding(_ count: Int64, for symbol: String) {
+    func setSharesOutstanding(
+        _ count: Int64,
+        for symbol: String,
+        provenance: OutstandingSharesProvenance = .companyfacts(periodEnd: nil, filed: nil)
+    ) {
         guard count > 0 else { return }
         let normalized = symbol.uppercased()
         sharesOutstandingBySymbol[normalized] = count
         defaults.set(String(count), forKey: IssuerSharesOutstanding.userDefaultsKey(for: normalized))
+        persistOutstandingProvenance(provenance, for: normalized)
+    }
+
+    /// Provenance caption for parity / holdings UI (“bundled default · as of …” vs companyfacts).
+    func outstandingProvenanceCaption(for symbol: String) -> String {
+        let provenance = outstandingProvenance(for: symbol)
+        return provenance.caption(defaultAsOf: IssuerSharesOutstanding.defaultAsOfLabel(for: symbol))
+    }
+
+    func outstandingProvenance(for symbol: String) -> OutstandingSharesProvenance {
+        let normalized = symbol.uppercased()
+        let stored = sharesOutstandingBySymbol[normalized]
+        return OutstandingSharesProvenance.fromStorage(
+            raw: defaults.string(forKey: IssuerSharesOutstanding.provenanceKey(for: normalized)),
+            periodEnd: defaults.string(forKey: IssuerSharesOutstanding.periodEndKey(for: normalized)),
+            filed: defaults.string(forKey: IssuerSharesOutstanding.filedKey(for: normalized)),
+            storedShares: stored,
+            defaultShares: IssuerSharesOutstanding.defaultOutstanding(for: normalized)
+        )
+    }
+
+    private func persistOutstandingProvenance(_ provenance: OutstandingSharesProvenance, for symbol: String) {
+        let normalized = symbol.uppercased()
+        defaults.set(provenance.storageRawValue, forKey: IssuerSharesOutstanding.provenanceKey(for: normalized))
+        switch provenance {
+        case .bundledDefault:
+            defaults.removeObject(forKey: IssuerSharesOutstanding.periodEndKey(for: normalized))
+            defaults.removeObject(forKey: IssuerSharesOutstanding.filedKey(for: normalized))
+        case .companyfacts(let periodEnd, let filed):
+            if let periodEnd, !periodEnd.isEmpty {
+                defaults.set(periodEnd, forKey: IssuerSharesOutstanding.periodEndKey(for: normalized))
+            } else {
+                defaults.removeObject(forKey: IssuerSharesOutstanding.periodEndKey(for: normalized))
+            }
+            if let filed, !filed.isEmpty {
+                defaults.set(filed, forKey: IssuerSharesOutstanding.filedKey(for: normalized))
+            } else {
+                defaults.removeObject(forKey: IssuerSharesOutstanding.filedKey(for: normalized))
+            }
+        }
     }
 
     var lastHoldingsSyncDate: Date? {
@@ -172,9 +221,10 @@ final class AppSettings {
         }
     }
 
-    var updateDeliveryMode: UpdateDeliveryMode {
+    /// Opt-in local notification summarizing combined paper P&L when a trading day finalizes.
+    var notifyDayCloseSummary: Bool {
         didSet {
-            defaults.set(updateDeliveryMode.rawValue, forKey: Keys.updateDeliveryMode)
+            defaults.set(notifyDayCloseSummary, forKey: Keys.notifyDayCloseSummary)
         }
     }
 
@@ -259,15 +309,14 @@ final class AppSettings {
             self.notifyOfAvailableUpdates = false
         }
 
-        if let rawMode = defaults.string(forKey: Keys.updateDeliveryMode),
-           let mode = UpdateDeliveryMode(rawValue: rawMode) {
-            self.updateDeliveryMode = mode
+        if defaults.object(forKey: Keys.notifyDayCloseSummary) != nil {
+            self.notifyDayCloseSummary = defaults.bool(forKey: Keys.notifyDayCloseSummary)
         } else {
-            self.updateDeliveryMode = .notifyOnly
+            self.notifyDayCloseSummary = false
         }
 
-        // Drop leftover history keys from the removed caption feature on load.
-        Self.removeLegacyCaptionHistoryKeys(defaults: defaults)
+        // One-shot cleanup of removed features / unscoped legacy keys.
+        Self.purgeObsoleteDefaults(defaults: defaults)
     }
 
     private static func loadLastHoldingsSyncDate(personID: String, defaults: UserDefaults) -> Date? {
@@ -315,7 +364,12 @@ final class AppSettings {
 
     private static func migrateLegacyHoldingsSyncMetadata(defaults: UserDefaults) {
         let muskID = TrackedPersonProfile.musk.id
-        guard loadLastHoldingsSyncDate(personID: muskID, defaults: defaults) == nil else { return }
+        guard loadLastHoldingsSyncDate(personID: muskID, defaults: defaults) == nil else {
+            // Person-scoped key already exists — still drop unscoped leftovers.
+            defaults.removeObject(forKey: Keys.lastHoldingsSync)
+            defaults.removeObject(forKey: Keys.holdingsSyncSource)
+            return
+        }
 
         let legacySync = defaults.double(forKey: Keys.lastHoldingsSync)
         if legacySync > 0 {
@@ -325,6 +379,9 @@ final class AppSettings {
         if let legacySource = defaults.string(forKey: Keys.holdingsSyncSource) {
             storeHoldingsSyncSource(legacySource, personID: muskID, defaults: defaults)
         }
+
+        defaults.removeObject(forKey: Keys.lastHoldingsSync)
+        defaults.removeObject(forKey: Keys.holdingsSyncSource)
     }
 
     private static func migrateLegacyShareCounts(defaults: UserDefaults) {
@@ -340,6 +397,9 @@ final class AppSettings {
             let migrated = SPCXHoldings.migrateStoredShareCount(value)
             defaults.set(String(migrated), forKey: shareCountKey(for: "SPCX"))
         }
+
+        defaults.removeObject(forKey: Keys.tslaShares)
+        defaults.removeObject(forKey: Keys.spcxShares)
     }
 
     private static func loadShareCounts(defaults: UserDefaults) -> [String: Int64] {
@@ -488,13 +548,13 @@ final class AppSettings {
         showMergerParityCard = true
         shareFormat = .image
         notifyOfAvailableUpdates = false
-        updateDeliveryMode = .notifyOnly
+        notifyDayCloseSummary = false
         selectedPersonID = TrackedPersonProfile.musk.id
 
         for spec in selectedProfile.holdingSpecs {
             setShareCount(spec.defaultShareCount, for: spec.symbol)
             if let defaultOutstanding = IssuerSharesOutstanding.defaultOutstanding(for: spec.symbol) {
-                setSharesOutstanding(defaultOutstanding, for: spec.symbol)
+                setSharesOutstanding(defaultOutstanding, for: spec.symbol, provenance: .bundledDefault)
             }
         }
 
@@ -516,15 +576,21 @@ final class AppSettings {
 
     private static func resetPersistedState(for personID: String, defaults: UserDefaults) {
         GainThresholdNotificationService.resetPersistedState(for: personID, defaults: defaults)
+        DayCloseSummaryNotificationService.resetPersistedState(for: personID, defaults: defaults)
         NetWorthMilestoneTracker.resetPersistedState(for: personID, defaults: defaults)
         IntradayGainSampleStore.resetPersistedState(for: personID, defaults: defaults)
         DailyRecordTracker.resetPersistedState(for: personID, defaults: defaults)
-        removeLegacyCaptionHistoryKeys(defaults: defaults)
+        purgeObsoleteDefaults(defaults: defaults)
     }
 
-    /// Deletes leftover UserDefaults keys from the removed caption feature.
-    private static func removeLegacyCaptionHistoryKeys(defaults: UserDefaults) {
+    /// Deletes leftovers from removed features and unscoped legacy keys.
+    private static func purgeObsoleteDefaults(defaults: UserDefaults) {
+        defaults.removeObject(forKey: "updateDeliveryMode")
         defaults.removeObject(forKey: "comparisonHistoryEntries")
+        defaults.removeObject(forKey: Keys.tslaShares)
+        defaults.removeObject(forKey: Keys.spcxShares)
+        defaults.removeObject(forKey: Keys.lastHoldingsSync)
+        defaults.removeObject(forKey: Keys.holdingsSyncSource)
         var personIDs = Set(TrackedPersonProfile.registry.map(\.id))
         personIDs.insert(TrackedPersonProfile.musk.id)
         for personID in personIDs {

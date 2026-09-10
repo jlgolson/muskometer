@@ -30,7 +30,7 @@ final class IntradayGainSampleStore {
         calendar: Calendar = easternTradingCalendar(),
         marketHours: any MarketHoursServiceProtocol = MarketHoursService(
             calendar: easternTradingCalendar(),
-            timeZone: TimeZone(identifier: "America/New_York") ?? .current
+            timeZone: EasternTimeZone.americaNewYork
         ),
         now: @escaping () -> Date = { .now }
     ) {
@@ -143,6 +143,6 @@ final class IntradayGainSampleStore {
 
 private func easternTradingCalendar() -> Calendar {
     var calendar = Calendar(identifier: .gregorian)
-    calendar.timeZone = TimeZone(identifier: "America/New_York") ?? .current
+    calendar.timeZone = EasternTimeZone.americaNewYork
     return calendar
 }

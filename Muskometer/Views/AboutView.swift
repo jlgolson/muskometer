@@ -17,6 +17,10 @@ struct AboutView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
+            Text("Copyright © 2026 Jordan Golson")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+
             HStack(spacing: 12) {
                 Link("muskometer.org", destination: AppURLs.website)
                 Link("info@muskometer.org", destination: AppURLs.contact)

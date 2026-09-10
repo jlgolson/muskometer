@@ -40,10 +40,7 @@ struct DailyRecordsCardView: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
-        }
+        .muskometerGlassCard(cornerRadius: MuskometerGlass.compactCornerRadius)
     }
 
     @ViewBuilder

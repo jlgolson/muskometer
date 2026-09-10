@@ -1043,9 +1043,14 @@ final class PopoverLayoutRegressionTests: XCTestCase {
         let accessibleWindow = makeWindow(accessibleHost, size: CGSize(width: 328, height: 130), appearance: .accessibilityHighContrastDarkAqua)
         await settle(accessibleHost)
         let accessibleImage = try await capture(accessibleHost, name: "chart-increased-contrast-reduced-transparency")
-        let accessibleText = try recognizedText(accessibleImage, size: accessibleHost.bounds.size).map(\.0).joined(separator: " ")
-        XCTAssertTrue(accessibleText.contains("Range"))
-        XCTAssertTrue(accessibleText.contains("$13.2B") && accessibleText.contains("$16.3B"))
+        let accessibleText = try recognizedText(accessibleImage, size: accessibleHost.bounds.size)
+        // Verify the complete monetary domain and its visible bounds. On a 1x
+        // display, Vision misreads the descriptive word "Range" as "kande".
+        let rangeLabel = try XCTUnwrap(accessibleText.first {
+            $0.0.contains("$13.2B") && $0.0.contains("$16.3B")
+        }, "Both displayed range values must be readable")
+        XCTAssertTrue(accessibleHost.bounds.contains(rangeLabel.1),
+                      "The complete monetary range must remain inside the chart fixture")
         accessibleWindow.close()
         let fixtures: [(String, [GainSample])] = [
             ("observed", VisualChartFixture.observed),

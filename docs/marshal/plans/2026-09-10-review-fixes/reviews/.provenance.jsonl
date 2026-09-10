@@ -50,3 +50,6 @@
 {"kind":"integration","scope":"2026-09-10-review-fixes","task":6,"round":null,"commit":"e97685443d43c63895795c91e940b6c1aca8cb34","base":"943d5a11cf8327dd500bf6399a80570191a8971e","ts":"2026-09-10T09:51:36.744522Z"}
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"spec-reviewer","task":6,"round":null,"ts":"2026-09-10T09:51:36.745063Z"}
 {"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"code-quality-reviewer","task":6,"round":null,"ts":"2026-09-10T09:51:36.745175Z"}
+{"kind":"integration","scope":"2026-09-10-review-fixes","task":6,"round":null,"commit":"81d0f6278cf976d5fb3c76d8ab7401a9378641b4","base":"943d5a11cf8327dd500bf6399a80570191a8971e","ts":"2026-09-10T10:05:59.584667Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"spec-reviewer","task":6,"round":null,"ts":"2026-09-10T10:05:59.585605Z"}
+{"kind":"dispatch","scope":"2026-09-10-review-fixes","role":"code-quality-reviewer","task":6,"round":null,"ts":"2026-09-10T10:05:59.585726Z"}

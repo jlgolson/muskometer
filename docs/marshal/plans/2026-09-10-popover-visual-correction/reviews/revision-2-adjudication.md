@@ -1,0 +1,3 @@
+Plan revision 2 adjudication
+
+The independent R2 test-runner-mismatch finding is valid. Root independently confirmed it and explicitly authorized the smaller configuration-specific bootstrap assertion. The plan now compiles that one assertion only under MUSKOMETER_TEST_HOST, retains the mandatory exact named PASS/one-execution check for local isolated validation, and records differing configuration totals while preserving every baseline case. This fixes the introduced ordinary-CI failure without changing the tracked standard verification path or weakening the local host-isolation acceptance gate. The reviewer's suggested tracked-script alternative was not adopted; the next fresh correctness review judges the resulting plan independently.
